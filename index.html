@@ -474,6 +474,9 @@
       <button id="locateBtn" class="flex items-center justify-center bg-slate-900/95 backdrop-blur-md border border-slate-700/80 p-2.5 rounded-xl min-h-[40px] min-w-[40px]" title="Centrar mapa en mi ubicación" aria-label="Centrar mapa en mi ubicación">
         <i data-lucide="locate-fixed" class="w-4 h-4 text-sky-400"></i>
       </button>
+      <button id="settingsBtn" class="flex items-center justify-center bg-slate-900/95 backdrop-blur-md border border-slate-700/80 p-2.5 rounded-xl min-h-[40px] min-w-[40px]" title="Ajustes" aria-label="Ajustes">
+        <i data-lucide="settings" class="w-4 h-4 text-slate-300"></i>
+      </button>
       <button id="poiBtn" class="flex items-center gap-1.5 bg-slate-900/95 backdrop-blur-md border border-slate-700/80 px-3 py-2 rounded-xl text-xs font-bold text-slate-200 min-h-[40px]" title="Lista de POI" aria-label="Lista de POI">
         <i data-lucide="map-pin" class="w-4 h-4 text-amber-400"></i>
         <span>Lista de POI</span>
@@ -778,6 +781,54 @@
     </div>
   </div>
 
+  <!-- SETTINGS MODAL -->
+  <div id="settingsModal" class="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-sm hidden flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 max-w-sm w-full shadow-2xl" style="max-height:90vh;overflow-y:auto">
+      <div class="flex items-center justify-between mb-3">
+        <h3 class="font-bold text-base">Ajustes</h3>
+        <button id="closeSettingsBtn" class="px-3 py-1.5 rounded-lg bg-slate-800 border border-slate-600 text-slate-200 text-xs font-semibold">Cerrar</button>
+      </div>
+
+      <label class="text-[10px] uppercase tracking-wide text-slate-500">Sistema de unidades</label>
+      <div class="grid grid-cols-2 gap-2 mt-1 mb-4">
+        <button type="button" data-units="metric" class="set-units py-2 rounded-xl text-xs font-bold border">Métrico (m, km, ha)</button>
+        <button type="button" data-units="imperial" class="set-units py-2 rounded-xl text-xs font-bold border">Imperial (ft, mi, ac)</button>
+      </div>
+
+      <label class="text-[10px] uppercase tracking-wide text-slate-500">Formato de coordenadas</label>
+      <select id="setCoords" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2.5 text-sm mt-1 mb-1">
+        <option value="dec">Grados decimales (-38.950000)</option>
+        <option value="dms">Grados, minutos, segundos</option>
+        <option value="utm">UTM (WGS84)</option>
+        <option value="gk">Gauss-Krüger Argentina (POSGAR)</option>
+      </select>
+      <div id="setCoordsExample" class="text-[11px] font-mono text-slate-400 mb-4"></div>
+
+      <label class="text-[10px] uppercase tracking-wide text-slate-500">Declinación magnética (° · este +, oeste −)</label>
+      <div class="flex gap-2 mt-1 mb-1">
+        <input id="setDecl" type="text" inputmode="decimal" placeholder="Automática (estimada)"
+          class="flex-1 min-w-0 bg-slate-950 border border-slate-700 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-emerald-500">
+        <button id="setDeclAuto" type="button" class="px-3 py-2 rounded-xl bg-slate-800 border border-slate-600 text-xs font-semibold text-slate-200">Auto</button>
+      </div>
+      <div id="setDeclHint" class="text-[11px] text-slate-500 mb-4"></div>
+
+      <label class="text-[10px] uppercase tracking-wide text-slate-500">GPS al grabar recorridos</label>
+      <div class="grid grid-cols-2 gap-2 mt-1 mb-1">
+        <div>
+          <div class="text-[11px] text-slate-400 mb-1">Precisión máxima</div>
+          <select id="setGpsAcc" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2.5 text-sm"></select>
+        </div>
+        <div>
+          <div class="text-[11px] text-slate-400 mb-1">Distancia mínima</div>
+          <select id="setGpsStep" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2.5 text-sm"></select>
+        </div>
+      </div>
+      <div class="text-[11px] text-slate-500 mb-4">Menos error máximo = recorrido más fiel, pero necesita mejor señal.</div>
+
+      <button id="setReset" type="button" class="w-full py-2 rounded-xl text-xs font-semibold text-red-300 border border-red-500/30 bg-red-500/10">Restablecer ajustes</button>
+    </div>
+  </div>
+
   <!-- SAVE MODAL -->
   <div id="saveModal" class="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-sm hidden flex items-center justify-center p-4">
     <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 max-w-sm w-full shadow-2xl">
@@ -874,7 +925,6 @@
     let navLabel = null;
     let wasCollapsed = false;
 
-    const GPS_MAX_ACCURACY_M = 20; // lecturas peores se descartan al grabar recorridos
     const OFFSET = 70;
     let dragGrabOffsetX = 0;
     let dragGrabOffsetY = 0;
@@ -892,6 +942,167 @@
     }
     function safeColor(c, fallback = '#00ff66') {
       return /^#[0-9a-fA-F]{6}$/.test(String(c || '')) ? c : fallback;
+    }
+
+    // ========== AJUSTES / UNIDADES / COORDENADAS ==========
+    const SETTINGS_KEY = 'medidor_settings';
+    const DEFAULT_SETTINGS = { units: 'metric', coords: 'dec', gpsMaxAcc: 20, gpsMinStep: 3 };
+    let settings = { ...DEFAULT_SETTINGS };
+    function loadSettings() {
+      try {
+        const r = JSON.parse(localStorage.getItem(SETTINGS_KEY) || 'null');
+        if (r && typeof r === 'object') {
+          if (r.units === 'metric' || r.units === 'imperial') settings.units = r.units;
+          if (['dec', 'dms', 'utm', 'gk'].includes(r.coords)) settings.coords = r.coords;
+          if ([5, 10, 20, 30, 50].includes(+r.gpsMaxAcc)) settings.gpsMaxAcc = +r.gpsMaxAcc;
+          if ([1, 2, 3, 5, 10].includes(+r.gpsMinStep)) settings.gpsMinStep = +r.gpsMinStep;
+        }
+      } catch (e) {}
+    }
+    function saveSettings() { try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings)); } catch (e) {} }
+
+    const FT = 3.280839895, MI = 1609.344, ACRE = 4046.8564224, FT2 = 10.763910417;
+    const nf2 = new Intl.NumberFormat('es-AR', { maximumFractionDigits: 2 });
+    const nf0 = new Intl.NumberFormat('es-AR', { maximumFractionDigits: 0 });
+    const isImp = () => settings.units === 'imperial';
+    /** Distancia corta para etiquetas: 250 m / 1,20 km  ·  820 ft / 0,85 mi */
+    function fmtLenShort(m) {
+      if (isImp()) { const mi = m / MI; return mi >= 0.5 ? mi.toFixed(2) + ' mi' : Math.round(m * FT) + ' ft'; }
+      return m >= 1000 ? (m / 1000).toFixed(2) + ' km' : Math.round(m) + ' m';
+    }
+    function fmtAcc(m) { return isImp() ? Math.round(m * FT) + ' ft' : Math.round(m) + ' m'; }
+    const lenMain = (m) => isImp() ? { v: m / MI, u: 'mi' } : { v: m / 1000, u: 'km' };
+    const lenSub = (m) => isImp() ? `${nf0.format(m * FT)} ft` : `${nf0.format(m)} m`;
+    const areaMain = (a) => isImp() ? { v: a / ACRE, u: 'ac' } : { v: a / 10000, u: 'ha' };
+    const areaSub = (a) => isImp() ? `${nf0.format(a * FT2)} ft²` : `${nf0.format(a)} m²`;
+
+    // Proyección Transversal de Mercator (serie de Krüger, WGS84)
+    function tmForward(lat, lng, lon0, k0, fe) {
+      const a = 6378137, f = 1 / 298.257223563, n = f / (2 - f);
+      const A = a / (1 + n) * (1 + n * n / 4 + n ** 4 / 64 + n ** 6 / 256);
+      const al = [n / 2 - 2 * n ** 2 / 3 + 5 * n ** 3 / 16, 13 * n ** 2 / 48 - 3 * n ** 3 / 5, 61 * n ** 3 / 240];
+      const phi = lat * Math.PI / 180, dl = (lng - lon0) * Math.PI / 180;
+      const c = 2 * Math.sqrt(n) / (1 + n);
+      const t = Math.sinh(Math.atanh(Math.sin(phi)) - c * Math.atanh(c * Math.sin(phi)));
+      const xi0 = Math.atan2(t, Math.cos(dl));
+      const eta0 = Math.asinh(Math.sin(dl) / Math.sqrt(t * t + Math.cos(dl) ** 2));
+      let xi = xi0, eta = eta0;
+      for (let j = 1; j <= 3; j++) {
+        xi += al[j - 1] * Math.sin(2 * j * xi0) * Math.cosh(2 * j * eta0);
+        eta += al[j - 1] * Math.cos(2 * j * xi0) * Math.sinh(2 * j * eta0);
+      }
+      return { E: fe + k0 * A * eta, N: k0 * A * xi, A };
+    }
+    function toUTM(lat, lng) {
+      const zone = Math.min(60, Math.max(1, Math.floor((lng + 180) / 6) + 1));
+      const r = tmForward(lat, lng, zone * 6 - 183, 0.9996, 500000);
+      const N = r.N + (lat < 0 ? 10000000 : 0);
+      const band = 'CDEFGHJKLMNPQRSTUVWXX'[Math.min(20, Math.max(0, Math.floor((lat + 80) / 8)))];
+      return { zone, band, E: r.E, N };
+    }
+    function toGaussKruger(lat, lng) {
+      const faja = Math.min(7, Math.max(1, Math.round((lng + 72) / 3) + 1));
+      const r = tmForward(lat, lng, -72 + 3 * (faja - 1), 1, faja * 1000000 + 500000);
+      return { faja, Y: r.E, X: r.N + r.A * Math.PI / 2 }; // origen de latitud en el polo sur
+    }
+    function dmsStr(v, pos, neg) {
+      const h = v >= 0 ? pos : neg; v = Math.abs(v);
+      let d = Math.floor(v), m = Math.floor((v - d) * 60), sec = Math.round((((v - d) * 60) - m) * 60 * 100) / 100;
+      if (sec >= 60) { sec -= 60; m++; }
+      if (m >= 60) { m -= 60; d++; }
+      return `${d}°${String(m).padStart(2, '0')}'${sec.toFixed(2).padStart(5, '0')}"${h}`;
+    }
+    /** Coordenada en dos líneas, según el formato elegido */
+    function fmtCoordLines(lat, lng) {
+      lat = +lat; lng = +lng;
+      if (settings.coords === 'dms') return [dmsStr(lat, 'N', 'S'), dmsStr(lng, 'E', 'O')];
+      if (settings.coords === 'utm') {
+        const u = toUTM(lat, lng);
+        return [`${u.zone}${u.band}  ${nf0.format(u.E).replace(/\./g, ' ')} E`, `${nf0.format(u.N).replace(/\./g, ' ')} N`];
+      }
+      if (settings.coords === 'gk') {
+        const g = toGaussKruger(lat, lng);
+        return [`X ${nf0.format(g.X).replace(/\./g, ' ')}`, `Y ${nf0.format(g.Y).replace(/\./g, ' ')} (faja ${g.faja})`];
+      }
+      return [lat.toFixed(6), lng.toFixed(6)];
+    }
+    function fmtCoord(lat, lng) {
+      const l = fmtCoordLines(lat, lng);
+      return settings.coords === 'dec' ? `${l[0]}, ${l[1]}` : `${l[0]}  ·  ${l[1]}`;
+    }
+
+    /** Refresca todo lo que muestra unidades o coordenadas */
+    function applySettings() {
+      try { if (points.length) redraw(); else updateMetrics(0, 0); } catch (e) {}
+      try { updatePoiCenterCoords(); } catch (e) {}
+      try { if (!document.getElementById('poiDrawer').classList.contains('hidden')) renderPoiList(); } catch (e) {}
+      try {
+        if (inspectItem) {
+          const f = [inspectShowSegs, inspectShowBearings, inspectShowAngles, inspectShowCoords];
+          showMeasurementInfo(inspectItem);
+          [inspectShowSegs, inspectShowBearings, inspectShowAngles, inspectShowCoords] = f;
+          updateInfoToggleUI();
+          refreshInspectOverlays();
+        }
+      } catch (e) {}
+      try { updateBearingUI(); } catch (e) {}
+    }
+
+    function refreshSettingsUI() {
+      document.querySelectorAll('.set-units').forEach(b => {
+        const on = b.dataset.units === settings.units;
+        b.className = 'set-units py-2 rounded-xl text-xs font-bold border ' +
+          (on ? 'bg-emerald-600 text-white border-emerald-500' : 'bg-slate-800 text-slate-300 border-slate-600');
+      });
+      document.getElementById('setCoords').value = settings.coords;
+      const c = map ? map.getCenter() : { lat: -38.95, lng: -68.06 };
+      document.getElementById('setCoordsExample').textContent = 'Ej. centro del mapa: ' + fmtCoord(c.lat, c.lng);
+      const ov = getDeclOverride();
+      document.getElementById('setDecl').value = ov === null ? '' : String(ov);
+      const est = (() => { const o = ov; setDeclOverride(null); const v = magneticDeclination(c.lat, c.lng); if (o !== null) setDeclOverride(o); return v; })();
+      document.getElementById('setDeclHint').textContent = ov === null
+        ? `Usando estimación aproximada: ${est.toFixed(1)}° (puede tener varios grados de error). Cargá el valor real del lugar (NOAA/NCEI).`
+        : `Valor manual en uso. La estimación aquí sería ${est.toFixed(1)}°.`;
+      const accSel = document.getElementById('setGpsAcc'), stepSel = document.getElementById('setGpsStep');
+      const u = (m) => isImp() ? `${Math.round(m * FT)} ft` : `${m} m`;
+      accSel.innerHTML = [5, 10, 20, 30, 50].map(v => `<option value="${v}">±${u(v)}</option>`).join('');
+      stepSel.innerHTML = [1, 2, 3, 5, 10].map(v => `<option value="${v}">${u(v)}</option>`).join('');
+      accSel.value = String(settings.gpsMaxAcc);
+      stepSel.value = String(settings.gpsMinStep);
+    }
+    function openSettings() { refreshSettingsUI(); document.getElementById('settingsModal').classList.remove('hidden'); }
+    function closeSettings() { document.getElementById('settingsModal').classList.add('hidden'); }
+    function initSettingsUI() {
+      document.getElementById('settingsBtn').onclick = openSettings;
+      document.getElementById('closeSettingsBtn').onclick = closeSettings;
+      document.getElementById('settingsModal').onclick = (e) => { if (e.target.id === 'settingsModal') closeSettings(); };
+      document.querySelectorAll('.set-units').forEach(b => b.onclick = () => {
+        settings.units = b.dataset.units; saveSettings(); refreshSettingsUI(); applySettings();
+      });
+      document.getElementById('setCoords').onchange = (e) => {
+        settings.coords = e.target.value; saveSettings(); refreshSettingsUI(); applySettings();
+      };
+      document.getElementById('setDecl').onchange = (e) => {
+        const t = e.target.value.trim().replace(',', '.');
+        if (t === '') setDeclOverride(null);
+        else {
+          const v = parseFloat(t);
+          if (!Number.isFinite(v) || Math.abs(v) > 40) {
+            toast({ type: 'error', title: 'Valor inválido', message: 'Ingresá un número entre -40 y 40.' });
+            return refreshSettingsUI();
+          }
+          setDeclOverride(v);
+        }
+        refreshSettingsUI(); applySettings();
+      };
+      document.getElementById('setDeclAuto').onclick = () => { setDeclOverride(null); refreshSettingsUI(); applySettings(); };
+      document.getElementById('setGpsAcc').onchange = (e) => { settings.gpsMaxAcc = +e.target.value; saveSettings(); };
+      document.getElementById('setGpsStep').onchange = (e) => { settings.gpsMinStep = +e.target.value; saveSettings(); };
+      document.getElementById('setReset').onclick = () => {
+        settings = { ...DEFAULT_SETTINGS }; saveSettings(); setDeclOverride(null);
+        refreshSettingsUI(); applySettings();
+        toast({ type: 'success', title: 'Ajustes restablecidos', duration: 1800 });
+      };
     }
 
     // ========== ICONS ==========
@@ -985,6 +1196,7 @@
 
     // ========== INIT ==========
     function init() {
+      loadSettings();
       document.documentElement.style.setProperty('--theme-color', themeColor);
       applyLabelTint(themeColor);
 
@@ -1179,7 +1391,7 @@
           document.body.appendChild(tip);
           setTimeout(() => tip.remove(), 1200);
         };
-        navigator.clipboard?.writeText(t.textContent || '').then(show, show);
+        navigator.clipboard?.writeText(t.dataset.dec || t.textContent || '').then(show, show);
       };
       document.querySelectorAll('.poi-cat').forEach(btn => {
         btn.onclick = () => {
@@ -1265,6 +1477,8 @@
 
       loadSaved();
       loadPois();
+      initSettingsUI();
+      applySettings();
       updateLockUI();
 
       // Panel collapse toggle
@@ -1501,7 +1715,7 @@
       segments.forEach(([i, j]) => {
         const a = points[i], b = points[j];
         const dist = a.distanceTo(b);
-        const distTxt = dist >= 1000 ? (dist / 1000).toFixed(2) + ' km' : Math.round(dist) + ' m';
+        const distTxt = fmtLenShort(dist);
         let html = distTxt;
         let iconW = 70, iconH = 22;
         if (mode === 'line') {
@@ -1641,7 +1855,7 @@
 
     /**
      * Declinación magnética (°). Este positivo = este.
-     * Si el usuario cargó un valor manual (toque sobre "Declinación"), se usa ese.
+     * Si el usuario cargó un valor manual (Ajustes), se usa ese.
      * Si no, se usa una ESTIMACIÓN regional muy gruesa ajustada a Buenos Aires
      * (~ -9,5°). Lejos de Buenos Aires, sobre todo en el sur patagónico, el error
      * puede ser de varios grados: para trabajo de campo cargar el valor real
@@ -1659,24 +1873,6 @@
         if (v === null) localStorage.removeItem(DECL_KEY);
         else localStorage.setItem(DECL_KEY, String(v));
       } catch (e) {}
-    }
-    function promptDeclination() {
-      const cur = getDeclOverride();
-      const txt = window.prompt(
-        'Declinación magnética del lugar en grados.\nEste = positivo, Oeste = negativo (ej: -6.5).\nDejá vacío para usar la estimación aproximada.',
-        cur === null ? '' : String(cur));
-      if (txt === null) return;
-      const t = txt.trim().replace(',', '.');
-      if (t === '') { setDeclOverride(null); }
-      else {
-        const v = parseFloat(t);
-        if (!Number.isFinite(v) || Math.abs(v) > 40) {
-          return toast({ type: 'error', title: 'Valor inválido', message: 'Ingresá un número entre -40 y 40.' });
-        }
-        setDeclOverride(v);
-      }
-      updateBearingUI();
-      if (inspectItem) { updateInfoToggleUI(); refreshInspectOverlays(); }
     }
     function magneticDeclination(lat, lng) {
       const manual = getDeclOverride();
@@ -1728,12 +1924,8 @@
       const absDecl = Math.abs(decl).toFixed(1);
       const side = decl >= 0 ? 'E' : 'O';
       const hint = document.getElementById('declinationHint');
-      const tag = getDeclOverride() !== null ? 'manual' : 'estimada, tocá para ajustar';
+      const tag = getDeclOverride() !== null ? 'manual' : 'estimada';
       hint.textContent = `Declinación ${absDecl}° ${side} (${tag})`;
-      hint.style.cursor = 'pointer';
-      hint.style.textDecoration = 'underline';
-      hint.style.pointerEvents = 'auto';
-      hint.onclick = promptDeclination;
     }
 
     // ========== HISTORY ==========
@@ -1925,7 +2117,7 @@
         const labelPx = L.point(midPx.x + (-dy / len) * 18, midPx.y + (dx / len) * 18);
         const labelLL = map.containerPointToLatLng(labelPx);
         const midLL = map.containerPointToLatLng(midPx);
-        const distTxt = dist >= 1000 ? (dist / 1000).toFixed(2) + ' km' : Math.round(dist) + ' m';
+        const distTxt = fmtLenShort(dist);
         const zDraw = map.getZoom();
         const scaleDraw = Math.pow(1.18, zDraw - 15);
         const fontDraw = Math.max(9, Math.min(18, 10.5 * scaleDraw));
@@ -1993,17 +2185,18 @@
     function updateMetrics(areaM2, distM) {
       const fmt = new Intl.NumberFormat('es-AR', { maximumFractionDigits: 2 });
       const fmt0 = new Intl.NumberFormat('es-AR', { maximumFractionDigits: 0 });
-      document.getElementById('haDisplay').innerHTML = `${fmt.format(areaM2 / 10000)} <span class="text-xs font-normal text-emerald-300">ha</span>`;
-      document.getElementById('m2Display').textContent = `${fmt0.format(areaM2)} m²`;
-      document.getElementById('kmDisplay').innerHTML = `${fmt.format(distM / 1000)} <span class="text-xs font-normal text-sky-300">km</span>`;
-      document.getElementById('mDisplay').textContent = `${fmt0.format(distM)} m`;
+      const am = areaMain(areaM2), lm = lenMain(distM);
+      document.getElementById('haDisplay').innerHTML = `${fmt.format(am.v)} <span class="text-xs font-normal text-emerald-300">${am.u}</span>`;
+      document.getElementById('m2Display').textContent = areaSub(areaM2);
+      document.getElementById('kmDisplay').innerHTML = `${fmt.format(lm.v)} <span class="text-xs font-normal text-sky-300">${lm.u}</span>`;
+      document.getElementById('mDisplay').textContent = lenSub(distM);
       // Compact bar (panel collapsed)
       const cHa = document.getElementById('collapsedHa');
       const cKm = document.getElementById('collapsedKm');
       const cPts = document.getElementById('collapsedPoints');
       const cMode = document.getElementById('collapsedModeLabel');
-      if (cHa) cHa.textContent = `${fmt.format(areaM2 / 10000)} ha`;
-      if (cKm) cKm.textContent = `${fmt.format(distM / 1000)} km`;
+      if (cHa) cHa.textContent = `${fmt.format(am.v)} ${am.u}`;
+      if (cKm) cKm.textContent = `${fmt.format(lm.v)} ${lm.u}`;
       if (cPts) cPts.textContent = `${points.length} pts`;
       if (cMode) cMode.textContent = mode === 'polygon' ? 'Superficie' : 'Distancia';
       updateBearingUI();
@@ -2027,8 +2220,7 @@
 
     // ========== SAVED LAYERS (read-only) ==========
     function formatDist(m) {
-      if (m >= 1000) return (m / 1000).toFixed(2) + ' km';
-      return Math.round(m) + ' m';
+      return fmtLenShort(m);
     }
 
     function computeItemStats(item) {
@@ -2261,7 +2453,7 @@
             const inset = Math.min(22 * scale, vlen * 0.2);
             labelPx = L.point(vPx.x + (vx / vlen) * inset, vPx.y + (vy / vlen) * inset);
           }
-          const html = `<span style="font-size:${fontPx}px;line-height:1.25;display:block;text-align:center">${ll.lat.toFixed(6)}<br>${ll.lng.toFixed(6)}</span>`;
+          const html = `<span style="font-size:${fontPx}px;line-height:1.25;display:block;text-align:center">${fmtCoordLines(ll.lat, ll.lng).join('<br>')}</span>`;
           const lab = L.marker(map.containerPointToLatLng(labelPx), {
             icon: L.divIcon({
               className: 'inspect-angle-text',
@@ -2301,11 +2493,8 @@
           const absDecl = Math.abs(decl).toFixed(1);
           const side = decl >= 0 ? 'E' : 'O';
           const sign = decl >= 0 ? '+' : '−';
-          const declTag = getDeclOverride() !== null ? 'manual' : 'estimada · tocá para ajustar';
+          const declTag = getDeclOverride() !== null ? 'manual' : 'estimada';
           declVal.textContent = `${sign}${absDecl}° ${side} (${declTag})`;
-          declBox.style.cursor = 'pointer';
-          declBox.style.pointerEvents = 'auto';
-          declBox.onclick = promptDeclination;
           declBox.classList.remove('hidden');
           lucide.createIcons();
         } else {
@@ -2332,13 +2521,13 @@
         metrics.innerHTML = `
           <div class="bg-slate-950/80 rounded-xl p-2.5 border border-slate-800">
             <div class="text-[10px] text-slate-400 uppercase">Superficie</div>
-            <div class="text-lg font-bold text-emerald-400">${fmt.format(stats.area / 10000)} <span class="text-xs font-normal">ha</span></div>
-            <div class="text-[11px] text-slate-500">${fmt0.format(stats.area)} m²</div>
+            <div class="text-lg font-bold text-emerald-400">${fmt.format(areaMain(stats.area).v)} <span class="text-xs font-normal">${areaMain(stats.area).u}</span></div>
+            <div class="text-[11px] text-slate-500">${areaSub(stats.area)}</div>
           </div>
           <div class="bg-slate-950/80 rounded-xl p-2.5 border border-slate-800">
             <div class="text-[10px] text-slate-400 uppercase">Perímetro</div>
-            <div class="text-lg font-bold text-sky-400">${fmt.format(stats.total / 1000)} <span class="text-xs font-normal">km</span></div>
-            <div class="text-[11px] text-slate-500">${fmt0.format(stats.total)} m</div>
+            <div class="text-lg font-bold text-sky-400">${fmt.format(lenMain(stats.total).v)} <span class="text-xs font-normal">${lenMain(stats.total).u}</span></div>
+            <div class="text-[11px] text-slate-500">${lenSub(stats.total)}</div>
           </div>`;
       } else {
         const pts = stats.latlngs;
@@ -2368,8 +2557,8 @@
         metrics.innerHTML = `
           <div class="bg-slate-950/80 rounded-xl p-2.5 border border-slate-800 ${straight ? '' : 'col-span-2'}">
             <div class="text-[10px] text-slate-400 uppercase">Distancia total</div>
-            <div class="text-lg font-bold text-sky-400">${fmt.format(stats.total / 1000)} <span class="text-xs font-normal">km</span></div>
-            <div class="text-[11px] text-slate-500">${fmt0.format(stats.total)} m</div>
+            <div class="text-lg font-bold text-sky-400">${fmt.format(lenMain(stats.total).v)} <span class="text-xs font-normal">${lenMain(stats.total).u}</span></div>
+            <div class="text-[11px] text-slate-500">${lenSub(stats.total)}</div>
           </div>${bearingHtml}`;
       }
       updateInfoToggleUI();
@@ -2419,7 +2608,7 @@
       if (userLocMarker) {
         const from = userLocMarker.getLatLng();
         const dist = from.distanceTo(L.latLng(p.lat, p.lng));
-        const txt = dist >= 1000 ? `${(dist / 1000).toFixed(2)} km` : `${Math.round(dist)} m`;
+        const txt = fmtLenShort(dist);
         distHtml = `<div class="text-lg font-bold text-sky-400">${txt}</div>`;
       }
       document.getElementById('infoMetrics').innerHTML = `
@@ -2429,8 +2618,7 @@
         </div>
         <div class="bg-slate-950/80 rounded-xl p-2.5 border border-slate-800">
           <div class="text-[10px] text-slate-400 uppercase">Coordenadas</div>
-          <div class="text-[12px] font-mono text-slate-200">${(+p.lat).toFixed(6)}</div>
-          <div class="text-[12px] font-mono text-slate-200">${(+p.lng).toFixed(6)}</div>
+          ${fmtCoordLines(p.lat, p.lng).map(t => `<div class="text-[12px] font-mono text-slate-200">${escapeHtml(t)}</div>`).join('')}
         </div>`;
       document.getElementById('infoDeclination')?.classList.add('hidden');
       document.getElementById('infoPois')?.classList.add('hidden');
@@ -2917,7 +3105,7 @@
       const el = document.getElementById('poiCenterCoords');
       if (!el || !map || !poiMode) return;
       const c = poiAimLatLng();
-      el.textContent = `${c.lat.toFixed(6)}, ${c.lng.toFixed(6)}`;
+      el.textContent = fmtCoord(c.lat, c.lng);
     }
 
     function setPoiAim(on) {
@@ -3018,7 +3206,8 @@
       }
       if (coordsBox && coordsText && latlng) {
         coordsBox.classList.remove('hidden');
-        coordsText.textContent = `${latlng.lat.toFixed(6)}, ${latlng.lng.toFixed(6)}`;
+        coordsText.textContent = fmtCoord(latlng.lat, latlng.lng);
+        coordsText.dataset.dec = `${latlng.lat.toFixed(6)}, ${latlng.lng.toFixed(6)}`;
       }
       document.getElementById('poiModal').classList.remove('hidden');
       setPoiAim(false);
@@ -3173,7 +3362,7 @@
             <span class="w-2.5 h-2.5 rounded-full flex-shrink-0" style="background:${safeColor(p.color, POI_COLORS[p.cat] || '#f59e0b')}"></span>
             <div class="flex-1 min-w-0">
               <div class="font-bold text-xs truncate">${escapeHtml(p.name)}</div>
-              <div class="text-[10px] text-slate-500">${POI_LABELS[p.cat] || 'Pin'} · ${(+p.lat).toFixed(5)}, ${(+p.lng).toFixed(5)}</div>
+              <div class="text-[10px] text-slate-500">${POI_LABELS[p.cat] || 'Pin'} · ${escapeHtml(settings.coords === 'dec' ? (+p.lat).toFixed(5) + ', ' + (+p.lng).toFixed(5) : fmtCoord(p.lat, p.lng))}</div>
             </div>
             <button data-nav="${p.id}" class="text-[11px] font-semibold px-2 py-1 rounded-lg border ${navigating ? 'bg-rose-500/15 text-rose-300 border-rose-500/40' : 'bg-sky-500/15 text-sky-300 border-sky-500/40'}">${navigating ? 'Dejar de navegar' : 'Navegar'}</button>
             <button data-edit="${p.id}" class="text-[11px] font-semibold px-2 py-1 rounded-lg border bg-amber-500/15 text-amber-200 border-amber-500/30">Editar</button>
@@ -3228,7 +3417,7 @@
         navLine.setStyle({ color });
       }
       const mid = L.latLng((from.lat + to.lat) / 2, (from.lng + to.lng) / 2);
-      const distTxt = dist >= 1000 ? `${(dist / 1000).toFixed(2)} km` : `${Math.round(dist)} m`;
+      const distTxt = fmtLenShort(dist);
       const decl = magneticDeclination(from.lat, from.lng);
       const mag = magneticBearing(brg, decl);
       const html = `<div style="background:rgba(15,23,42,0.92);border:1px solid ${color};color:${color};font-size:11px;font-weight:700;padding:3px 7px;border-radius:8px;white-space:nowrap;">${brg.toFixed(0)}° V · ${mag.toFixed(0)}° M · ${distTxt}</div>`;
@@ -3701,13 +3890,13 @@
       gpsWatchId = navigator.geolocation.watchPosition(
         (pos) => {
           const accuracy = pos.coords.accuracy;
-          if (accuracy > GPS_MAX_ACCURACY_M) {
-            if (statusText) statusText.textContent = `Esperando mejor señal · ±${Math.round(accuracy)} m (máx. ${GPS_MAX_ACCURACY_M} m)`;
+          if (accuracy > settings.gpsMaxAcc) {
+            if (statusText) statusText.textContent = `Esperando mejor señal · ±${fmtAcc(accuracy)} (máx. ${fmtAcc(settings.gpsMaxAcc)})`;
             return;
           }
-          if (statusText) statusText.textContent = `Grabando recorrido · ±${Math.round(accuracy)} m`;
+          if (statusText) statusText.textContent = `Grabando recorrido · ±${fmtAcc(accuracy)}`;
           const next = L.latLng(pos.coords.latitude, pos.coords.longitude);
-          if (!lastGpsPoint || lastGpsPoint.distanceTo(next) >= 3) {
+          if (!lastGpsPoint || lastGpsPoint.distanceTo(next) >= settings.gpsMinStep) {
             addPoint(next);
             lastGpsPoint = next;
             if (points.length === 1) map.setView(next, 18);
@@ -3727,7 +3916,7 @@
         redraw();
       }
 
-      toast({ type: 'info', title: 'Grabando recorrido', message: 'Caminá: se agregarán puntos solos (mín. 3 m, precisión ≤ 20 m). Tocá de nuevo para detener.' });
+      toast({ type: 'info', title: 'Grabando recorrido', message: `Caminá: se agregarán puntos solos (mín. ${fmtAcc(settings.gpsMinStep)}, precisión ≤ ${fmtAcc(settings.gpsMaxAcc)}). Tocá de nuevo para detener.` });
     }
 
     function stopGpsTracking(opts = {}) {

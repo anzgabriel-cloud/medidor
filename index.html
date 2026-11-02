@@ -118,7 +118,7 @@
     }
 
     .dist-label {
-      color: var(--theme-color, #00ff66);
+      color: var(--label-text, var(--theme-color, #00ff66));
       font-weight: 800; white-space: nowrap;
       pointer-events: none;
       transform: translate(-50%, -50%);
@@ -142,7 +142,7 @@
     body.is-dragging .midpoint-marker { opacity: 0 !important; pointer-events: none !important; transition: opacity 0.12s ease; }
 
     .inspect-seg-label {
-      color: var(--inspect-color, #00ff66);
+      color: var(--inspect-label-text, var(--inspect-color, #00ff66));
       font-weight: 800; white-space: nowrap;
       pointer-events: none; transform: translate(-50%, -50%);
       padding: 1px 4px; border-radius: 3px;
@@ -155,7 +155,7 @@
     .inspect-seg-label span { display: block; text-align: center; width: 100%; }
     .inspect-compass { pointer-events: none; transform: translate(-50%, -50%); filter: drop-shadow(0 2px 6px rgba(0,0,0,0.7)); }
     .inspect-angle-text {
-      color: var(--inspect-color, #00ff66);
+      color: var(--inspect-label-text, var(--inspect-color, #00ff66));
       font-weight: 700; white-space: nowrap;
       pointer-events: none; transform: translate(-50%, -50%);
       letter-spacing: -0.02em;
@@ -169,7 +169,7 @@
     .inspect-angle-text span { display: block; text-align: center; width: 100%; }
 
     .dist-label-live {
-      color: var(--theme-color, #00ff66);
+      color: var(--label-text, var(--theme-color, #00ff66));
       font-weight: 800; white-space: nowrap;
       pointer-events: none; transform: translate(-50%, -50%);
       padding: 3px 6px; border-radius: 4px;
@@ -312,20 +312,21 @@
       pointer-events: none;
     }
 
+    /* Mismo estilo que el panel de consulta: borde ámbar y barra superior ámbar/naranja */
     #bottomToolbar {
       pointer-events: auto;
       position: relative;
+      overflow: hidden;
       background: rgba(2, 6, 23, 0.96);
-      border: 1px solid rgba(51, 65, 85, 0.9);
+      border: 2px solid rgba(245, 158, 11, 0.5);
       box-shadow: 0 -8px 28px rgba(0,0,0,0.55), 0 10px 24px rgba(0,0,0,0.45);
     }
     #bottomToolbar::before {
       content: '';
       position: absolute;
-      left: 14px; right: 14px; top: 0;
-      height: 2px;
-      border-radius: 999px;
-      background: linear-gradient(90deg, #10b981, #38bdf8, #f59e0b);
+      left: 0; right: 0; top: 0;
+      height: 4px;
+      background: linear-gradient(90deg, #fbbf24, #fb923c, #f59e0b);
     }
 
     @keyframes btnPulse {
@@ -530,7 +531,7 @@
         </span>
       </div>
       <!-- Datos -->
-      <div id="metricsPanel" class="pointer-events-auto backdrop-blur-md rounded-2xl px-3 py-2 shadow-2xl" style="background: rgba(15,23,42,0.90); border: 1px solid #000;">
+      <div id="metricsPanel" class="pointer-events-auto backdrop-blur-md rounded-2xl px-3 py-2 shadow-2xl" style="background: rgba(15,23,42,0.90); border: 2px solid rgba(245, 158, 11, 0.5);">
         <div class="flex items-center gap-3">
           <i id="modeIcon" data-lucide="pentagon" class="w-5 h-5 text-emerald-400 flex-shrink-0"></i>
           <div class="flex items-center gap-3 ml-auto text-right min-w-0">
@@ -594,6 +595,7 @@
             <button class="color-swatch" data-color="#ffffff" style="background:#ffffff" aria-label="Blanco"></button>
             <button class="color-swatch" data-color="#9ca3af" style="background:#9ca3af" aria-label="Gris"></button>
             <button class="color-swatch" data-color="#111827" style="background:#111827" aria-label="Negro"></button>
+            <button class="color-swatch" data-color="#8b5a2b" style="background:#8b5a2b" aria-label="Marrón"></button>
           </div>
         </div>
         <div class="flex gap-2">
@@ -748,6 +750,7 @@
         <button type="button" class="poi-color w-6 h-6 rounded-full border-2 border-transparent" data-color="#ffffff" style="background:#ffffff"></button>
         <button type="button" class="poi-color w-6 h-6 rounded-full border-2 border-transparent" data-color="#94a3b8" style="background:#94a3b8"></button>
         <button type="button" class="poi-color w-6 h-6 rounded-full border-2 border-transparent" data-color="#0f172a" style="background:#0f172a"></button>
+        <button type="button" class="poi-color w-6 h-6 rounded-full border-2 border-transparent" data-color="#8b5a2b" style="background:#8b5a2b"></button>
       </div>
       <div id="poiCoordsBox" class="hidden mb-3 px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-[11px] text-slate-300">
         <div class="text-[10px] uppercase tracking-wide text-slate-500 mb-1">Coordenadas</div>
@@ -829,6 +832,18 @@
     </div>
   </div>
 
+  <!-- DRAFT RECOVERY MODAL -->
+  <div id="draftModal" class="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-sm hidden flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 max-w-sm w-full shadow-2xl">
+      <h3 class="font-bold text-base mb-1">Medición sin guardar</h3>
+      <p id="draftModalText" class="text-xs text-slate-400 mb-4"></p>
+      <div class="flex justify-end gap-2">
+        <button id="draftDiscardBtn" class="px-4 py-2 text-xs font-semibold text-slate-300 rounded-xl">Descartar</button>
+        <button id="draftRestoreBtn" class="px-4 py-2 text-xs font-bold bg-emerald-600 text-white rounded-xl">Recuperar</button>
+      </div>
+    </div>
+  </div>
+
   <!-- SAVE MODAL -->
   <div id="saveModal" class="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-sm hidden flex items-center justify-center p-4">
     <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 max-w-sm w-full shadow-2xl">
@@ -856,22 +871,33 @@
     let mode = 'polygon';
     let themeColor = '#00ff66';
 
-    function applyLabelTint(color, inspect = false) {
+    /** Color de texto legible: los colores muy oscuros (negro) se muestran en blanco */
+    function labelLuminance(color) {
       const hex = String(color || '#00ff66').replace('#', '');
       const full = hex.length === 3 ? hex.split('').map(c => c + c).join('') : hex;
       const n = parseInt(full, 16);
       const r = (n >> 16) & 255, g = (n >> 8) & 255, b = n & 255;
-      const lum = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
-      // Colores muy oscuros: halo claro para que el texto se lea
-      const center = lum < 0.22 ? 'rgba(255,255,255,0.78)' : `rgba(${r},${g},${b},0.55)`;
-      const mid = lum < 0.22 ? 'rgba(255,255,255,0.28)' : `rgba(${r},${g},${b},0.2)`;
+      return { r, g, b, lum: (0.299 * r + 0.587 * g + 0.114 * b) / 255 };
+    }
+    function labelTextColor(color) {
+      return labelLuminance(color).lum < 0.22 ? '#ffffff' : (color || '#00ff66');
+    }
+    function applyLabelTint(color, inspect = false) {
+      const { r, g, b, lum } = labelLuminance(color);
+      const dark = lum < 0.22;
+      // Colores muy oscuros: texto blanco sobre un halo oscuro para que se lea
+      const center = dark ? 'rgba(0,0,0,0.7)' : `rgba(${r},${g},${b},0.55)`;
+      const mid = dark ? 'rgba(0,0,0,0.35)' : `rgba(${r},${g},${b},0.2)`;
+      const text = dark ? '#ffffff' : (color || '#00ff66');
       const root = document.documentElement.style;
       if (inspect) {
         root.setProperty('--inspect-label-center', center);
         root.setProperty('--inspect-label-mid', mid);
+        root.setProperty('--inspect-label-text', text);
       } else {
         root.setProperty('--label-center', center);
         root.setProperty('--label-mid', mid);
+        root.setProperty('--label-text', text);
       }
     }
     let points = [];
@@ -1105,6 +1131,95 @@
       };
     }
 
+    // ========== BORRADOR AUTOMÁTICO ==========
+    const DRAFT_KEY = 'medidor_draft';
+    let draftTimer = null;
+    let draftPending = false; // mientras se decide si recuperar, no se toca el borrador guardado
+    function readDraft() {
+      try {
+        const d = JSON.parse(localStorage.getItem(DRAFT_KEY) || 'null');
+        if (!d || !Array.isArray(d.points)) return null;
+        const pts = d.points.filter(p => p && Number.isFinite(+p.lat) && Number.isFinite(+p.lng) && Math.abs(+p.lat) <= 90 && Math.abs(+p.lng) <= 180)
+                            .map(p => ({ lat: +p.lat, lng: +p.lng }));
+        if (pts.length < 2) return null;
+        return { points: pts, mode: d.mode === 'line' ? 'line' : 'polygon', color: safeColor(d.color), editingId: d.editingId || null, ts: +d.ts || 0 };
+      } catch (e) { return null; }
+    }
+    function saveDraft() {
+      draftTimer = null;
+      if (draftPending) return;
+      try {
+        if (isLocked || poiMode) return; // no pisar el borrador mientras se consulta o se cargan POI
+        if (points.length < 2) { localStorage.removeItem(DRAFT_KEY); return; }
+        localStorage.setItem(DRAFT_KEY, JSON.stringify({
+          points: points.map(p => ({ lat: p.lat, lng: p.lng })),
+          mode, color: themeColor, editingId: editingId || null, ts: Date.now()
+        }));
+      } catch (e) {}
+    }
+    function scheduleDraftSave() {
+      if (draftPending) return;
+      clearTimeout(draftTimer);
+      draftTimer = setTimeout(saveDraft, 600);
+    }
+    function clearDraft() {
+      clearTimeout(draftTimer); draftTimer = null;
+      try { localStorage.removeItem(DRAFT_KEY); } catch (e) {}
+    }
+    function agoText(ts) {
+      if (!ts) return '';
+      const min = Math.max(0, Math.round((Date.now() - ts) / 60000));
+      if (min < 1) return 'hace un momento';
+      if (min < 60) return `hace ${min} min`;
+      const h = Math.round(min / 60);
+      if (h < 48) return `hace ${h} h`;
+      return `hace ${Math.round(h / 24)} días`;
+    }
+    function restoreDraft(d) {
+      const item = d.editingId ? saved.find(s => s.id === d.editingId) : null;
+      if (item) { editingId = item.id; removeLockedLayer(item.id); } else { editingId = null; }
+      isLocked = false;
+      setDrawingActive(true);
+      updateLockUI();
+      setMode(d.mode);
+      themeColor = d.color;
+      document.documentElement.style.setProperty('--theme-color', themeColor);
+      applyLabelTint(themeColor);
+      document.querySelectorAll('.color-swatch').forEach(b => b.classList.toggle('active', b.dataset.color === themeColor));
+      points = d.points.map(p => L.latLng(p.lat, p.lng));
+      rebuildMarkers();
+      redraw();
+      resetHistory();
+      pushHistory();
+      map.fitBounds(L.latLngBounds(points.map(p => [p.lat, p.lng])), { padding: [60, 60], maxZoom: 18 });
+    }
+    function checkDraft() {
+      const d = readDraft();
+      if (!d) { draftPending = false; clearDraft(); return; }
+      draftPending = true;
+      const item = d.editingId ? saved.find(s => s.id === d.editingId) : null;
+      const kind = d.mode === 'polygon' ? 'superficie' : 'distancia';
+      document.getElementById('draftModalText').textContent =
+        `Quedó una medición de ${kind} con ${d.points.length} puntos ${agoText(d.ts)}` +
+        (item ? `, editando "${item.name}"` : '') + '. ¿Querés recuperarla?';
+      const modal = document.getElementById('draftModal');
+      modal.classList.remove('hidden');
+      document.getElementById('draftRestoreBtn').onclick = () => {
+        modal.classList.add('hidden');
+        draftPending = false;
+        restoreDraft(d);
+        toast({ type: 'success', title: 'Medición recuperada', message: 'Revisala y tocá Guardar cuando termines.', duration: 3000 });
+      };
+      document.getElementById('draftDiscardBtn').onclick = () => {
+        modal.classList.add('hidden');
+        draftPending = false;
+        clearDraft();
+      };
+    }
+    // iOS puede descartar la pestaña al pasar a segundo plano: guardar en ese momento
+    document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') { clearTimeout(draftTimer); saveDraft(); } });
+    window.addEventListener('pagehide', () => { clearTimeout(draftTimer); saveDraft(); });
+
     // ========== ICONS ==========
     function vertexIcon(dr = false, locked = false) {
       let cls = 'vertex-marker';
@@ -1197,6 +1312,7 @@
     // ========== INIT ==========
     function init() {
       loadSettings();
+      draftPending = !!readDraft(); // protege el borrador hasta resolver si se recupera
       document.documentElement.style.setProperty('--theme-color', themeColor);
       applyLabelTint(themeColor);
 
@@ -1480,6 +1596,7 @@
       initSettingsUI();
       applySettings();
       updateLockUI();
+      setTimeout(checkDraft, 700);
 
       // Panel collapse toggle
       const panelToggle = document.getElementById('panelToggleBtn');
@@ -2095,6 +2212,7 @@
       }
     }
     function redraw() {
+      scheduleDraftSave();
       midMarkers.forEach(m => map.removeLayer(m));
       labels.forEach(l => map.removeLayer(l));
       midMarkers = []; labels = [];
@@ -2692,7 +2810,7 @@
         const tagH = 20;
         const nameIcon = L.divIcon({
           className: '',
-          html: `<div style="background:rgba(15,23,42,0.9);border:1px solid ${color};color:${color};font-size:10px;font-weight:700;padding:2px 6px;border-radius:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:${tagW}px;box-shadow:0 2px 8px rgba(0,0,0,0.5);pointer-events:auto;cursor:pointer;line-height:14px;">${escapeHtml(nameText)}</div>`,
+          html: `<div style="background:rgba(15,23,42,0.9);border:1px solid ${color === '#111827' ? '#94a3b8' : color};color:${labelTextColor(color)};font-size:10px;font-weight:700;padding:2px 6px;border-radius:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:${tagW}px;box-shadow:0 2px 8px rgba(0,0,0,0.5);pointer-events:auto;cursor:pointer;line-height:14px;">${escapeHtml(nameText)}</div>`,
           iconSize: [tagW, tagH],
           iconAnchor: [Math.round(tagW / 2), Math.round(tagH / 2)]
         });
@@ -2719,6 +2837,7 @@
 
     /** Limpia solo la medición activa (no borra las guardadas) y desbloquea el editor */
     function clearActiveMeasurement(opts = {}) {
+      clearDraft();
       stopGpsTracking();
       hideMeasurementInfo();
       markers.forEach(m => map.removeLayer(m));

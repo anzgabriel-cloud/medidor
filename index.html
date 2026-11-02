@@ -1676,7 +1676,7 @@
         setDeclOverride(v);
       }
       updateBearingUI();
-      if (inspectItem && typeof refreshInspectOverlays === 'function') refreshInspectOverlays();
+      if (inspectItem) { updateInfoToggleUI(); refreshInspectOverlays(); }
     }
     function magneticDeclination(lat, lng) {
       const manual = getDeclOverride();
@@ -2301,7 +2301,11 @@
           const absDecl = Math.abs(decl).toFixed(1);
           const side = decl >= 0 ? 'E' : 'O';
           const sign = decl >= 0 ? '+' : '−';
-          declVal.textContent = `${sign}${absDecl}° ${side}`;
+          const declTag = getDeclOverride() !== null ? 'manual' : 'estimada · tocá para ajustar';
+          declVal.textContent = `${sign}${absDecl}° ${side} (${declTag})`;
+          declBox.style.cursor = 'pointer';
+          declBox.style.pointerEvents = 'auto';
+          declBox.onclick = promptDeclination;
           declBox.classList.remove('hidden');
           lucide.createIcons();
         } else {

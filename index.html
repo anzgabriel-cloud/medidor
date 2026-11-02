@@ -2568,6 +2568,14 @@
       const infoOpen = !document.getElementById('infoPanel')?.classList.contains('hidden');
       const contemplating = !drawingActive && !poiMode && !trackMode && !isLocked && !infoOpen;
       btn.classList.toggle('hidden', !contemplating);
+      // Red de seguridad: si el botón de mostrar/ocultar está oculto (editando, dibujando,
+      // grabando o en modo POI), el panel no puede quedar colapsado: sin ese botón
+      // el usuario no tendría cómo recuperar "Guardar cambios".
+      const mainEl = document.getElementById('mainControls');
+      if (!contemplating && !infoOpen && mainEl && mainEl.classList.contains('panel-collapsed')) {
+        mainEl.classList.remove('panel-collapsed');
+        btn.setAttribute('aria-expanded', 'true');
+      }
       const hint = document.getElementById('collapseHint');
       if (hint) {
         const hasItems = saved.some(s => s.visible !== false) || pois.some(p => p.visible !== false);

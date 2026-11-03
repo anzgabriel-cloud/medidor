@@ -14,6 +14,14 @@
     .leaflet-control-attribution { font-size: 9px !important; background: rgba(15,23,42,0.7) !important; color: #94a3b8 !important; }
     .leaflet-control-attribution a { color: #94a3b8 !important; }
     .leaflet-bottom.leaflet-right { bottom: 0; z-index: 5; }
+    .cg-input {
+      width: 100%; background: #020617; border: 1px solid #334155; border-radius: 12px;
+      padding: 10px 12px; font-size: 14px; color: #f1f5f9; outline: none; min-width: 0;
+    }
+    .cg-input:focus { border-color: #f59e0b; }
+    .cg-input.bad { border-color: #ef4444; }
+    .cg-label { font-size: 10px; text-transform: uppercase; letter-spacing: .05em; color: #64748b; display: block; margin: 12px 0 4px; }
+    .cg-unit { font-size: 12px; color: #94a3b8; }
     html, body {
       height: 100%; margin: 0; padding: 0; overflow: hidden;
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
@@ -458,7 +466,7 @@
     <div class="relative flex-1 min-w-[180px] shadow-2xl">
       <div class="flex items-center bg-slate-900/95 backdrop-blur-md border border-slate-700/80 rounded-xl px-3 py-2">
         <i data-lucide="search" class="w-4 h-4 text-slate-400 mr-2 flex-shrink-0"></i>
-        <input id="searchInput" type="text" placeholder="Buscar lugar o coordenadas..."
+        <input id="searchInput" type="text" placeholder="Buscar lugar…" enterkeyhint="search"
           class="bg-transparent border-none outline-none text-xs sm:text-sm w-full text-slate-100 placeholder-slate-400" autocomplete="off">
         <button id="clearSearchBtn" class="hidden text-slate-400 p-1" aria-label="Limpiar búsqueda">
           <i data-lucide="x" class="w-4 h-4"></i>
@@ -474,6 +482,9 @@
       </button>
       <button id="locateBtn" class="flex items-center justify-center bg-slate-900/95 backdrop-blur-md border border-slate-700/80 p-2.5 rounded-xl min-h-[40px] min-w-[40px]" title="Centrar mapa en mi ubicación" aria-label="Centrar mapa en mi ubicación">
         <i data-lucide="locate-fixed" class="w-4 h-4 text-sky-400"></i>
+      </button>
+      <button id="coordBtn" class="flex items-center justify-center bg-slate-900/95 backdrop-blur-md border border-slate-700/80 p-2.5 rounded-xl min-h-[40px] min-w-[40px]" title="Ir a coordenadas" aria-label="Ir a coordenadas">
+        <i data-lucide="crosshair" class="w-4 h-4 text-amber-300"></i>
       </button>
       <button id="settingsBtn" class="flex items-center justify-center bg-slate-900/95 backdrop-blur-md border border-slate-700/80 p-2.5 rounded-xl min-h-[40px] min-w-[40px]" title="Ajustes" aria-label="Ajustes">
         <i data-lucide="settings" class="w-4 h-4 text-slate-300"></i>
@@ -781,6 +792,66 @@
       </div>
       <p class="text-[11px] text-slate-500 mt-3">Tocá POI y después el mapa para agregar. Tocá un pin o Editar para cambiar nombre, ver coordenadas o eliminar. Los POI complementan las mediciones.</p>
       <div id="poiList" class="flex-1 overflow-y-auto mt-3 space-y-2"></div>
+    </div>
+  </div>
+
+  <!-- COORDINATES MODAL -->
+  <div id="coordModal" class="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-sm hidden flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 max-w-sm w-full shadow-2xl" style="max-height:92vh;overflow-y:auto">
+      <div class="flex items-center justify-between">
+        <h3 class="font-bold text-base">Ir a coordenadas</h3>
+        <button id="cgClose" class="px-3 py-1.5 rounded-lg bg-slate-800 border border-slate-600 text-slate-200 text-xs font-semibold">Cerrar</button>
+      </div>
+
+      <span class="cg-label">Tipo de coordenadas</span>
+      <select id="cgFormat" class="cg-input">
+        <option value="dec">Grados decimales</option>
+        <option value="dms">Grados, minutos, segundos</option>
+        <option value="utm">UTM (WGS84)</option>
+        <option value="gk">Gauss-Krüger Argentina (POSGAR)</option>
+      </select>
+
+      <div id="cg-dec" class="cg-panel">
+        <span class="cg-label">Latitud</span>
+        <div class="flex gap-2"><input id="cgDecLat" class="cg-input" inputmode="decimal" placeholder="38,950000" autocomplete="off"><select id="cgDecLatH" class="cg-input" style="width:84px"><option value="S">Sur</option><option value="N">Norte</option></select></div>
+        <span class="cg-label">Longitud</span>
+        <div class="flex gap-2"><input id="cgDecLng" class="cg-input" inputmode="decimal" placeholder="68,060000" autocomplete="off"><select id="cgDecLngH" class="cg-input" style="width:84px"><option value="O">Oeste</option><option value="E">Este</option></select></div>
+      </div>
+
+      <div id="cg-dms" class="cg-panel hidden">
+        <span class="cg-label">Latitud</span>
+        <div class="flex gap-1.5 items-center"><input id="cgDmsLatD" class="cg-input" inputmode="numeric" placeholder="38" autocomplete="off"><span class="cg-unit">°</span><input id="cgDmsLatM" class="cg-input" inputmode="numeric" placeholder="57" autocomplete="off"><span class="cg-unit">′</span><input id="cgDmsLatS" class="cg-input" inputmode="decimal" placeholder="0,00" autocomplete="off"><span class="cg-unit">″</span><select id="cgDmsLatH" class="cg-input" style="width:84px"><option value="S">Sur</option><option value="N">Norte</option></select></div>
+        <span class="cg-label">Longitud</span>
+        <div class="flex gap-1.5 items-center"><input id="cgDmsLngD" class="cg-input" inputmode="numeric" placeholder="68" autocomplete="off"><span class="cg-unit">°</span><input id="cgDmsLngM" class="cg-input" inputmode="numeric" placeholder="3" autocomplete="off"><span class="cg-unit">′</span><input id="cgDmsLngS" class="cg-input" inputmode="decimal" placeholder="36,00" autocomplete="off"><span class="cg-unit">″</span><select id="cgDmsLngH" class="cg-input" style="width:84px"><option value="O">Oeste</option><option value="E">Este</option></select></div>
+      </div>
+
+      <div id="cg-utm" class="cg-panel hidden">
+        <div class="flex gap-2">
+          <div class="flex-1"><span class="cg-label">Zona</span><select id="cgUtmZone" class="cg-input"><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option><option value="6">6</option><option value="7">7</option><option value="8">8</option><option value="9">9</option><option value="10">10</option><option value="11">11</option><option value="12">12</option><option value="13">13</option><option value="14">14</option><option value="15">15</option><option value="16">16</option><option value="17">17</option><option value="18">18</option><option value="19">19</option><option value="20">20</option><option value="21">21</option><option value="22">22</option><option value="23">23</option><option value="24">24</option><option value="25">25</option><option value="26">26</option><option value="27">27</option><option value="28">28</option><option value="29">29</option><option value="30">30</option><option value="31">31</option><option value="32">32</option><option value="33">33</option><option value="34">34</option><option value="35">35</option><option value="36">36</option><option value="37">37</option><option value="38">38</option><option value="39">39</option><option value="40">40</option><option value="41">41</option><option value="42">42</option><option value="43">43</option><option value="44">44</option><option value="45">45</option><option value="46">46</option><option value="47">47</option><option value="48">48</option><option value="49">49</option><option value="50">50</option><option value="51">51</option><option value="52">52</option><option value="53">53</option><option value="54">54</option><option value="55">55</option><option value="56">56</option><option value="57">57</option><option value="58">58</option><option value="59">59</option><option value="60">60</option></select></div>
+          <div class="flex-1"><span class="cg-label">Hemisferio</span><select id="cgUtmHemi" class="cg-input"><option value="S">Sur</option><option value="N">Norte</option></select></div>
+        </div>
+        <span class="cg-label">Este (E, metros)</span>
+        <input id="cgUtmE" class="cg-input" inputmode="decimal" placeholder="581454" autocomplete="off">
+        <span class="cg-label">Norte (N, metros)</span>
+        <input id="cgUtmN" class="cg-input" inputmode="decimal" placeholder="5688352" autocomplete="off">
+      </div>
+
+      <div id="cg-gk" class="cg-panel hidden">
+        <span class="cg-label">Faja</span>
+        <select id="cgGkFaja" class="cg-input"><option value="1">Faja 1 (meridiano -72°)</option><option value="2">Faja 2 (meridiano -69°)</option><option value="3">Faja 3 (meridiano -66°)</option><option value="4">Faja 4 (meridiano -63°)</option><option value="5">Faja 5 (meridiano -60°)</option><option value="6">Faja 6 (meridiano -57°)</option><option value="7">Faja 7 (meridiano -54°)</option></select>
+        <span class="cg-label">X · Norte (metros)</span>
+        <input id="cgGkX" class="cg-input" inputmode="decimal" placeholder="5688592" autocomplete="off">
+        <span class="cg-label">Y · Este (metros)</span>
+        <input id="cgGkY" class="cg-input" inputmode="decimal" placeholder="2581487" autocomplete="off">
+      </div>
+
+      <div id="cgError" class="text-[11px] mt-3" style="color:#fca5a5;min-height:16px"></div>
+      <div id="cgPreview" class="text-[11px] font-mono text-slate-400 mt-1" style="min-height:16px"></div>
+
+      <div class="flex gap-2 mt-3">
+        <button id="cgPoi" type="button" class="flex-1 py-2.5 rounded-xl text-xs font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40">Crear POI aquí</button>
+        <button id="cgGo" type="button" class="flex-1 py-2.5 rounded-xl text-xs font-bold bg-amber-500 text-slate-950">Ir al punto</button>
+      </div>
     </div>
   </div>
 
@@ -1577,19 +1648,34 @@
 
       const searchInput = document.getElementById('searchInput');
       const clearBtn = document.getElementById('clearSearchBtn');
+      const searchBox = document.getElementById('searchResults');
       let searchTimer = null;
       searchInput.oninput = () => {
         const q = searchInput.value.trim();
         clearBtn.classList.toggle('hidden', !q);
-        if (q.length < 3) { document.getElementById('searchResults').classList.add('hidden'); return; }
         clearTimeout(searchTimer);
-        searchTimer = setTimeout(() => doSearch(q), 400);
+        if (q.length < 3) { searchSeq++; searchBox.classList.add('hidden'); return; }
+        searchTimer = setTimeout(() => doSearch(q), 600);
+      };
+      searchInput.onkeydown = (e) => {
+        if (e.key !== 'Enter') return;
+        e.preventDefault();
+        const q = searchInput.value.trim();
+        clearTimeout(searchTimer);
+        if (q.length >= 2) { searchInput.blur(); doSearch(q); }
       };
       clearBtn.onclick = () => {
         searchInput.value = '';
+        searchSeq++;
         clearBtn.classList.add('hidden');
-        document.getElementById('searchResults').classList.add('hidden');
+        searchBox.classList.add('hidden');
+        clearGotoMarker();
       };
+      // Tocar fuera del buscador cierra la lista de resultados
+      document.addEventListener('pointerdown', (e) => {
+        if (!searchBox.classList.contains('hidden') && !searchInput.closest('.relative').contains(e.target)) searchBox.classList.add('hidden');
+      });
+      initCoordUI();
 
       loadSaved();
       loadPois();
@@ -3148,55 +3234,240 @@
       );
     }
 
+    // ========== IR A COORDENADAS ==========
+    function tmInverse(E, Nrel, lon0, k0, fe) {
+      const a = 6378137, f = 1 / 298.257223563, n = f / (2 - f);
+      const A = a / (1 + n) * (1 + n * n / 4 + n ** 4 / 64 + n ** 6 / 256);
+      const be = [n / 2 - 2 * n ** 2 / 3 + 37 * n ** 3 / 96, n ** 2 / 48 + n ** 3 / 15, 17 * n ** 3 / 480];
+      const de = [2 * n - 2 * n ** 2 / 3 - 2 * n ** 3, 7 * n ** 2 / 3 - 8 * n ** 3 / 5, 56 * n ** 3 / 15];
+      const xi = Nrel / (k0 * A), eta = (E - fe) / (k0 * A);
+      let xi0 = xi, eta0 = eta;
+      for (let j = 1; j <= 3; j++) {
+        xi0 -= be[j - 1] * Math.sin(2 * j * xi) * Math.cosh(2 * j * eta);
+        eta0 -= be[j - 1] * Math.cos(2 * j * xi) * Math.sinh(2 * j * eta);
+      }
+      const chi = Math.asin(Math.sin(xi0) / Math.cosh(eta0));
+      let phi = chi;
+      for (let j = 1; j <= 3; j++) phi += de[j - 1] * Math.sin(2 * j * chi);
+      const lam = Math.atan2(Math.sinh(eta0), Math.cos(xi0));
+      return { lat: phi * 180 / Math.PI, lng: lon0 + lam * 180 / Math.PI };
+    }
+    function fromUTM(zone, south, E, N) {
+      return tmInverse(E, N - (south ? 10000000 : 0), zone * 6 - 183, 0.9996, 500000);
+    }
+    function fromGaussKruger(faja, X, Y) {
+      const A = 6378137 / (1 + (1 / 298.257223563) / (2 - 1 / 298.257223563)) *
+        (1 + (((1 / 298.257223563) / (2 - 1 / 298.257223563)) ** 2) / 4 + (((1 / 298.257223563) / (2 - 1 / 298.257223563)) ** 4) / 64 + (((1 / 298.257223563) / (2 - 1 / 298.257223563)) ** 6) / 256);
+      return tmInverse(Y, X - A * Math.PI / 2, -72 + 3 * (faja - 1), 1, faja * 1000000 + 500000);
+    }
+
+    /** Número tolerante: acepta coma o punto decimal. */
+    function parseDecimalStr(t) {
+      t = String(t ?? '').trim().replace(/\s+/g, '').replace(',', '.');
+      return /^\d+(\.\d+)?$/.test(t) ? parseFloat(t) : NaN;
+    }
+    /** Metros: acepta separadores de miles ("581.454", "581 454") y decimales ("581454,32"). */
+    function parseMetersStr(t) {
+      t = String(t ?? '').trim().replace(/\s+/g, '');
+      if (/^\d{1,3}([.,]\d{3})+$/.test(t)) t = t.replace(/[.,]/g, '');
+      else if (t.includes(',') && t.includes('.')) {
+        const dec = t.lastIndexOf(',') > t.lastIndexOf('.') ? ',' : '.';
+        t = t.split(dec === ',' ? '.' : ',').join('').replace(dec, '.');
+      } else t = t.replace(',', '.');
+      return /^\d+(\.\d+)?$/.test(t) ? parseFloat(t) : NaN;
+    }
+    const isBlank = (t) => String(t ?? '').trim() === '';
+
+    /** v: valores de los campos (texto). Devuelve {empty} | {error} | {lat,lng}. */
+    function parseCoordForm(fmt, v) {
+      const neg = (t) => /^\s*[-−–+]/.test(String(t ?? ''));
+      if (fmt === 'dec') {
+        if (isBlank(v.lat) && isBlank(v.lng)) return { empty: true };
+        if (isBlank(v.lat) || isBlank(v.lng)) return { empty: true };
+        if (neg(v.lat) || neg(v.lng)) return { error: 'Escribí el valor sin signo y elegí Norte/Sur y Este/Oeste.' };
+        const la = parseDecimalStr(v.lat), lo = parseDecimalStr(v.lng);
+        if (isNaN(la)) return { error: 'La latitud no es un número válido.' };
+        if (isNaN(lo)) return { error: 'La longitud no es un número válido.' };
+        if (la > 90) return { error: 'La latitud debe estar entre 0 y 90.' };
+        if (lo > 180) return { error: 'La longitud debe estar entre 0 y 180.' };
+        return { lat: (v.latH === 'S' ? -1 : 1) * la, lng: (v.lngH === 'O' ? -1 : 1) * lo };
+      }
+      if (fmt === 'dms') {
+        const parts = (d, m, sec, name, max, h, hs) => {
+          if (isBlank(d)) return { empty: true };
+          if (neg(d) || neg(m) || neg(sec)) return { error: 'Escribí los valores sin signo y elegí el hemisferio.' };
+          const dd = /^\d+$/.test(String(d).trim()) ? +d : NaN;
+          const mm = isBlank(m) ? 0 : (/^\d+$/.test(String(m).trim()) ? +m : NaN);
+          const ss = isBlank(sec) ? 0 : parseDecimalStr(sec);
+          if (isNaN(dd)) return { error: `Los grados de la ${name} deben ser un número entero.` };
+          if (isNaN(mm)) return { error: `Los minutos de la ${name} deben ser un número entero.` };
+          if (isNaN(ss)) return { error: `Los segundos de la ${name} no son un número válido.` };
+          if (dd > max) return { error: `Los grados de la ${name} deben estar entre 0 y ${max}.` };
+          if (mm > 59) return { error: `Los minutos de la ${name} deben estar entre 0 y 59.` };
+          if (ss >= 60) return { error: `Los segundos de la ${name} deben ser menores que 60.` };
+          const val = dd + mm / 60 + ss / 3600;
+          if (val > max) return { error: `La ${name} no puede superar ${max}°.` };
+          return { val: (h === hs ? -1 : 1) * val };
+        };
+        const la = parts(v.latD, v.latM, v.latS, 'latitud', 90, v.latH, 'S');
+        const lo = parts(v.lngD, v.lngM, v.lngS, 'longitud', 180, v.lngH, 'O');
+        if (la.error) return la; if (lo.error) return lo;
+        if (la.empty || lo.empty) return { empty: true };
+        return { lat: la.val, lng: lo.val };
+      }
+      if (fmt === 'utm') {
+        if (isBlank(v.E) || isBlank(v.N)) return { empty: true };
+        const E = parseMetersStr(v.E), N = parseMetersStr(v.N);
+        if (isNaN(E)) return { error: 'El valor Este no es un número válido.' };
+        if (isNaN(N)) return { error: 'El valor Norte no es un número válido.' };
+        if (E < 100000 || E > 900000) return { error: 'El Este UTM debe estar entre 100.000 y 900.000 m.' };
+        const south = v.hemi === 'S';
+        if (south && (N < 1000000 || N > 10000000)) return { error: 'En hemisferio Sur el Norte UTM debe estar entre 1.000.000 y 10.000.000 m.' };
+        if (!south && (N < 0 || N > 9400000)) return { error: 'En hemisferio Norte el Norte UTM debe estar entre 0 y 9.400.000 m.' };
+        const r = fromUTM(+v.zone, south, E, N);
+        if (!isFinite(r.lat) || !isFinite(r.lng)) return { error: 'No se pudo convertir esa coordenada.' };
+        return r;
+      }
+      if (fmt === 'gk') {
+        if (isBlank(v.X) || isBlank(v.Y)) return { empty: true };
+        const X = parseMetersStr(v.X), Y = parseMetersStr(v.Y), faja = +v.faja;
+        if (isNaN(X)) return { error: 'El valor X (Norte) no es un número válido.' };
+        if (isNaN(Y)) return { error: 'El valor Y (Este) no es un número válido.' };
+        if (X < 3900000 || X > 8000000) return { error: 'X (Norte) debe estar entre 3.900.000 y 8.000.000 m.' };
+        const y0 = faja * 1000000 + 500000;
+        if (Y < y0 - 300000 || Y > y0 + 300000) return { error: `Y (Este) de la faja ${faja} debe estar entre ${nf0.format(y0 - 300000)} y ${nf0.format(y0 + 300000)} m. Incluí el primer dígito de la faja.` };
+        const r = fromGaussKruger(faja, X, Y);
+        if (!isFinite(r.lat) || !isFinite(r.lng)) return { error: 'No se pudo convertir esa coordenada.' };
+        return r;
+      }
+      return { empty: true };
+    }
+
+    // Marcador temporal (resultado de búsqueda o de coordenadas)
+    let gotoMarker = null;
+    function clearGotoMarker() { if (gotoMarker) { map.removeLayer(gotoMarker); gotoMarker = null; } }
+    function showGotoMarker(lat, lng, label) {
+      clearGotoMarker();
+      gotoMarker = L.marker([lat, lng], { icon: poiIcon('pin', '#fbbf24'), zIndexOffset: 1200 }).addTo(map);
+      gotoMarker.bindTooltip(`${escapeHtml(label)} ✕`, { permanent: true, direction: 'top', className: 'poi-label', offset: [0, -36] });
+      gotoMarker.on('click', (e) => { L.DomEvent.stopPropagation(e); clearGotoMarker(); });
+    }
+
+    let cgLast = null;
+    const cgVal = (id) => document.getElementById(id).value;
+    function readCoordForm() {
+      const fmt = cgVal('cgFormat');
+      if (fmt === 'dec') return [fmt, { lat: cgVal('cgDecLat'), lng: cgVal('cgDecLng'), latH: cgVal('cgDecLatH'), lngH: cgVal('cgDecLngH') }];
+      if (fmt === 'dms') return [fmt, {
+        latD: cgVal('cgDmsLatD'), latM: cgVal('cgDmsLatM'), latS: cgVal('cgDmsLatS'), latH: cgVal('cgDmsLatH'),
+        lngD: cgVal('cgDmsLngD'), lngM: cgVal('cgDmsLngM'), lngS: cgVal('cgDmsLngS'), lngH: cgVal('cgDmsLngH') }];
+      if (fmt === 'utm') return [fmt, { zone: cgVal('cgUtmZone'), hemi: cgVal('cgUtmHemi'), E: cgVal('cgUtmE'), N: cgVal('cgUtmN') }];
+      return [fmt, { faja: cgVal('cgGkFaja'), X: cgVal('cgGkX'), Y: cgVal('cgGkY') }];
+    }
+    function updateCoordForm() {
+      const [fmt, v] = readCoordForm();
+      document.querySelectorAll('#coordModal .cg-panel').forEach(p => p.classList.toggle('hidden', p.id !== 'cg-' + fmt));
+      const r = parseCoordForm(fmt, v);
+      const ok = !r.error && !r.empty;
+      cgLast = ok ? r : null;
+      document.getElementById('cgError').textContent = r.error || '';
+      document.getElementById('cgPreview').textContent = ok ? `→ ${r.lat.toFixed(6)}, ${r.lng.toFixed(6)}` : '';
+      ['cgGo', 'cgPoi'].forEach(id => { const b = document.getElementById(id); b.disabled = !ok; });
+    }
+    /** Un signo "-" en grados decimales se convierte solo en hemisferio Sur/Oeste. */
+    function autoSignToHemisphere(inputId, selectId, negValue) {
+      const el = document.getElementById(inputId);
+      if (/^\s*[-−–]/.test(el.value)) {
+        el.value = el.value.replace(/^\s*[-−–]\s*/, '');
+        document.getElementById(selectId).value = negValue;
+      } else if (/^\s*\+/.test(el.value)) el.value = el.value.replace(/^\s*\+\s*/, '');
+    }
+    function openCoordModal() {
+      const c = map.getCenter();
+      document.getElementById('cgFormat').value = settings.coords;
+      document.getElementById('cgUtmZone').value = String(toUTM(c.lat, c.lng).zone);
+      document.getElementById('cgUtmHemi').value = c.lat < 0 ? 'S' : 'N';
+      document.getElementById('cgGkFaja').value = String(toGaussKruger(c.lat, c.lng).faja);
+      ['cgDecLatH', 'cgDmsLatH'].forEach(id => document.getElementById(id).value = c.lat < 0 ? 'S' : 'N');
+      ['cgDecLngH', 'cgDmsLngH'].forEach(id => document.getElementById(id).value = c.lng < 0 ? 'O' : 'E');
+      document.querySelectorAll('#coordModal input.cg-input').forEach(i => i.value = '');
+      updateCoordForm();
+      document.getElementById('coordModal').classList.remove('hidden');
+    }
+    function closeCoordModal() { document.getElementById('coordModal').classList.add('hidden'); }
+    function initCoordUI() {
+      document.getElementById('coordBtn').onclick = openCoordModal;
+      document.getElementById('cgClose').onclick = closeCoordModal;
+      document.getElementById('coordModal').onclick = (e) => { if (e.target.id === 'coordModal') closeCoordModal(); };
+      const modal = document.getElementById('coordModal');
+      modal.addEventListener('input', (e) => {
+        if (e.target.id === 'cgDecLat') autoSignToHemisphere('cgDecLat', 'cgDecLatH', 'S');
+        if (e.target.id === 'cgDecLng') autoSignToHemisphere('cgDecLng', 'cgDecLngH', 'O');
+        updateCoordForm();
+      });
+      modal.addEventListener('change', updateCoordForm);
+      document.getElementById('cgGo').onclick = () => {
+        if (!cgLast) return;
+        const { lat, lng } = cgLast;
+        closeCoordModal();
+        showGotoMarker(lat, lng, fmtCoord(lat, lng));
+        map.flyTo([lat, lng], 17, { duration: 1.1 });
+      };
+      document.getElementById('cgPoi').onclick = () => {
+        if (!cgLast) return;
+        const { lat, lng } = cgLast;
+        closeCoordModal();
+        map.flyTo([lat, lng], 17, { duration: 1.1 });
+        openPoiModal(L.latLng(lat, lng));
+      };
+    }
+
+    // ========== BÚSQUEDA DE LUGARES ==========
+    let searchSeq = 0;
+    function looksLikeCoordinates(q) {
+      return /^[\d\s.,;:°'"′″\-+−NSEOWnseow]+$/.test(q) && (q.match(/\d+/g) || []).length >= 2;
+    }
     async function doSearch(q) {
       const box = document.getElementById('searchResults');
-      // Soportar coordenadas: "-34.60, -58.38" | "-34.60 -58.38" | "34.60S 58.38W"
-      const coordMatch = q.trim().match(/^(-?\d+(?:\.\d+)?)\s*[,;\s]\s*(-?\d+(?:\.\d+)?)$/);
-      if (coordMatch) {
-        const a = parseFloat(coordMatch[1]);
-        const b = parseFloat(coordMatch[2]);
-        // Heurística: si |a| <= 90 y |b| <= 180 → lat,lng; si al revés, intercambiar
-        let lat = a, lng = b;
-        if (Math.abs(a) > 90 && Math.abs(b) <= 90) { lat = b; lng = a; }
-        if (Math.abs(lat) <= 90 && Math.abs(lng) <= 180) {
-          box.innerHTML = '';
-          const div = document.createElement('div');
-          div.className = 'p-2.5 text-xs text-slate-200 hover:bg-slate-800 cursor-pointer border-b border-slate-800/50 flex items-center gap-2';
-          div.innerHTML = `<i data-lucide="crosshair" class="w-4 h-4 text-sky-400 flex-shrink-0"></i><span>Ir a ${lat.toFixed(6)}, ${lng.toFixed(6)}</span>`;
-          div.onclick = () => {
-            map.flyTo([lat, lng], 17, { duration: 1.1 });
-            box.classList.add('hidden');
-            document.getElementById('searchInput').value = `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
-          };
-          box.appendChild(div);
-          lucide.createIcons();
-          box.classList.remove('hidden');
-          return;
-        }
-      }
-      try {
-        const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q)}&limit=5`);
-        const data = await res.json();
+      const info = (html) => { box.innerHTML = `<div class="p-3 text-xs text-slate-400 text-center">${html}</div>`; box.classList.remove('hidden'); };
+      if (looksLikeCoordinates(q)) {
         box.innerHTML = '';
-        if (!data.length) {
-          box.innerHTML = '<div class="p-3 text-xs text-slate-400 text-center">Sin resultados</div>';
-          box.classList.remove('hidden');
-          return;
-        }
+        const div = document.createElement('div');
+        div.className = 'p-3 text-xs text-slate-200 cursor-pointer flex items-center gap-2';
+        div.innerHTML = '<i data-lucide="crosshair" class="w-4 h-4 text-amber-300 flex-shrink-0"></i><span>Eso parece una coordenada. Tocá para abrir el formulario de coordenadas.</span>';
+        div.onclick = () => { box.classList.add('hidden'); openCoordModal(); };
+        box.appendChild(div);
+        lucide.createIcons();
+        box.classList.remove('hidden');
+        return;
+      }
+      if (navigator.onLine === false) return info('Sin conexión: la búsqueda de lugares necesita internet.');
+      const seq = ++searchSeq;
+      info('Buscando…');
+      try {
+        const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&accept-language=es&limit=6&q=${encodeURIComponent(q)}`);
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        const data = await res.json();
+        if (seq !== searchSeq) return; // llegó una respuesta vieja
+        if (!data.length) return info('Sin resultados. Probá con otro nombre o agregá la localidad.');
+        box.innerHTML = '';
         data.forEach(item => {
           const div = document.createElement('div');
           div.className = 'p-2.5 text-xs text-slate-200 hover:bg-slate-800 cursor-pointer border-b border-slate-800/50 flex items-center gap-2';
           div.innerHTML = `<i data-lucide="map-pin" class="w-4 h-4 text-emerald-400 flex-shrink-0"></i><span class="truncate">${escapeHtml(item.display_name)}</span>`;
           div.onclick = () => {
-            map.flyTo([+item.lat, +item.lon], 16, { duration: 1.1 });
             box.classList.add('hidden');
+            const short = String(item.display_name).split(',')[0];
+            showGotoMarker(+item.lat, +item.lon, short);
+            map.flyTo([+item.lat, +item.lon], 16, { duration: 1.1 });
           };
           box.appendChild(div);
         });
         lucide.createIcons();
         box.classList.remove('hidden');
       } catch (e) {
-        toast({ type: 'error', title: 'Búsqueda fallida', message: 'No se pudo conectar con el buscador.' });
+        if (seq !== searchSeq) return;
+        info('No se pudo conectar con el buscador. Revisá tu conexión.');
       }
     }
 

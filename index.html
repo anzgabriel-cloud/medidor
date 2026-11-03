@@ -742,11 +742,18 @@
       </div>
       <div class="flex gap-2 my-3">
         <button id="exportBtn" class="flex-1 bg-slate-800 border border-slate-700 text-xs py-2.5 px-3 rounded-xl flex items-center justify-center gap-1.5">
-          <i data-lucide="download" class="w-3.5 h-3.5 text-sky-400"></i> Exportar
+          <i data-lucide="download" class="w-3.5 h-3.5 text-sky-400"></i> GeoJSON
+        </button>
+        <button id="backupBtn" class="flex-1 bg-slate-800 border border-slate-700 text-xs py-2.5 px-3 rounded-xl flex items-center justify-center gap-1.5">
+          <i data-lucide="shield-check" class="w-3.5 h-3.5 text-emerald-400"></i> Respaldo
         </button>
         <label class="flex-1 bg-slate-800 border border-slate-700 text-xs py-2.5 px-3 rounded-xl flex items-center justify-center gap-1.5 cursor-pointer">
           <i data-lucide="upload" class="w-3.5 h-3.5 text-emerald-400"></i> Importar
           <input type="file" id="importInput" accept=".json,.geojson" class="hidden">
+        </label>
+        <label class="flex-1 bg-slate-800 border border-slate-700 text-xs py-2.5 px-3 rounded-xl flex items-center justify-center gap-1.5 cursor-pointer">
+          <i data-lucide="rotate-ccw" class="w-3.5 h-3.5 text-amber-400"></i> Restaurar
+          <input type="file" id="restoreInput" accept=".json" class="hidden">
         </label>
       </div>
       <div id="savedList" class="flex-1 overflow-y-auto space-y-2"></div>
@@ -1634,6 +1641,8 @@
       };
       document.getElementById('exportBtn').onclick = exportGeoJSON;
       document.getElementById('importInput').onchange = importGeoJSON;
+      document.getElementById('backupBtn').onclick = exportBackup;
+      document.getElementById('restoreInput').onchange = importBackup;
 
       document.querySelectorAll('.color-swatch').forEach(btn => {
         btn.onclick = () => {
@@ -2480,7 +2489,21 @@
       const a = toXY(prev), b = toXY(next);
       const dot = a.x * b.x + a.y * b.y;
       const mag = Math.sqrt((a.x * a.x + a.y * a.y) * (b.x * b.x + b.y * b.y)) || 1;
-      return Math.acos(Math.max(-1, Math.min(1, dot / mag))) * 180 / Math.PI;
+      const minor = Math.acos(Math.max(-1, Math.min(1, dot / mag))) * 180 / Math.PI;
+      if (!closed) return minor;
+      // Orientación del anillo: permite distinguir vértices convexos y cóncavos.
+      let twiceArea = 0;
+      for (let j = 0; j < n; j++) {
+        const q = latlngs[j], r = latlngs[(j + 1) % n];
+        twiceArea += q.lng * r.lat - r.lng * q.lat;
+      }
+      if (Math.abs(twiceArea) < 1e-12) return minor;
+      const incoming = { x: curr.lng - prev.lng, y: curr.lat - prev.lat };
+      const outgoing = { x: next.lng - curr.lng, y: next.lat - curr.lat };
+      const turn = incoming.x * outgoing.y - incoming.y * outgoing.x;
+      const ccw = twiceArea > 0;
+      const convex = ccw ? turn > 0 : turn < 0;
+      return convex ? minor : 360 - minor;
     }
 
     function addInspectCompass(latlngs, isPoly, color) {
@@ -3706,7 +3729,7 @@
     }
 
     function persistPois() {
-      try { localStorage.setItem('medidor_pois', JSON.stringify(pois)); } catch (e) {}
+      try { localStorage.setItem('medidor_pois', JSON.stringify(pois)); } catch (e) { toast({ type: 'error', title: 'No se pudieron guardar los POI', message: 'El almacenamiento del navegador está lleno o bloqueado.' }); }
       const badge = document.getElementById('poiBadge');
       if (badge) badge.textContent = pois.length;
       const btn = document.getElementById('poiBtn');
@@ -3725,6 +3748,10 @@
           } catch (err) {
             try { localStorage.setItem('medidor_pois_corrupto_' + Date.now(), raw); } catch (e2) {}
             pois = [];
+            // No persistir el arreglo vacío: conservar la clave original para permitir recuperación.
+            const badge = document.getElementById('poiBadge'); if (badge) badge.textContent = '0';
+            renderPois();
+            return;
           }
         }
       } catch (e) { pois = []; }
@@ -3902,12 +3929,12 @@
       if (editingId) {
         const idx = saved.findIndex(s => s.id === editingId);
         if (idx >= 0) {
-          saved[idx] = { ...saved[idx], name, mode: savedMode, color: safeColor(themeColor), date: new Date().toLocaleDateString('es-AR'), points: pts, visible: true };
+          saved[idx] = { ...saved[idx], name, mode: savedMode, color: safeColor(themeColor), date: new Date().toLocaleDateString('es-AR'), points: pts, visible: true, locked: true };
           item = saved[idx];
         }
       }
       if (!item) {
-        item = { id: Date.now().toString(), name, mode: savedMode, color: safeColor(themeColor), date: new Date().toLocaleDateString('es-AR'), points: pts, visible: true };
+        item = { id: Date.now().toString(), name, mode: savedMode, color: safeColor(themeColor), date: new Date().toLocaleDateString('es-AR'), points: pts, visible: true, locked: true };
         saved.push(item);
       }
       persist();
@@ -3943,7 +3970,7 @@
           try {
             const parsed = JSON.parse(raw);
             if (!Array.isArray(parsed)) throw new Error('formato');
-            saved = parsed.filter(s => s && Array.isArray(s.points));
+            saved = parsed.filter(s => s && Array.isArray(s.points)).map(s => ({ ...s, locked: s.locked !== false }));
           } catch (err) {
             // No pisar datos ilegibles: se resguardan antes de seguir
             try { localStorage.setItem('medidor_v2_corrupto_' + Date.now(), raw); } catch (e2) {}
@@ -3981,6 +4008,7 @@
               <div class="flex items-center gap-1.5">
                 <span class="w-2.5 h-2.5 rounded-full flex-shrink-0" style="background:${safeColor(item.color)}"></span>
                 <span class="font-bold text-xs truncate">${escapeHtml(item.name)}</span>
+                <span class="text-[9px] px-1.5 py-0.5 rounded ${item.locked !== false ? 'bg-amber-500/15 text-amber-300' : 'bg-emerald-500/15 text-emerald-300'}">${item.locked !== false ? 'PROTEGIDA' : 'EDITABLE'}</span>
                 <span class="text-[10px] px-1.5 py-0.5 rounded bg-slate-800 text-slate-400 uppercase flex-shrink-0">${item.mode}</span>
               </div>
               <span class="text-[11px] text-slate-500 mt-0.5">${item.points.length} pts · ${item.date}</span>
@@ -3989,18 +4017,44 @@
               <i data-lucide="trash-2" class="w-4 h-4"></i>
             </button>
           </div>
-          <div class="flex gap-1.5 mt-2">
+          <div class="flex flex-wrap gap-1.5 mt-2">
             <button data-vis="${item.id}" class="flex-1 text-[11px] font-semibold py-1.5 rounded-lg border ${isVisible ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30' : 'bg-slate-800 text-slate-400 border-slate-700'}">
               ${isVisible ? 'Visible' : 'Oculta'}
             </button>
-            <button data-edit="${item.id}" class="flex-1 text-[11px] font-semibold py-1.5 rounded-lg border bg-sky-500/15 text-sky-300 border-sky-500/30">
-              Editar
-            </button>
+            <button data-lock="${item.id}" class="flex-1 text-[11px] font-semibold py-1.5 rounded-lg border ${item.locked !== false ? 'bg-amber-500/10 text-amber-300 border-amber-500/30' : 'bg-emerald-500/10 text-emerald-300 border-emerald-500/30'}">${item.locked !== false ? 'Desbloquear' : 'Bloquear'}</button>
+            <button data-edit="${item.id}" ${item.locked !== false ? 'disabled' : ''} class="flex-1 text-[11px] font-semibold py-1.5 rounded-lg border ${item.locked !== false ? 'opacity-40 cursor-not-allowed bg-slate-800 text-slate-500 border-slate-700' : 'bg-sky-500/15 text-sky-300 border-sky-500/30'}">Editar</button>
+            <button data-rename="${item.id}" class="flex-1 text-[11px] font-semibold py-1.5 rounded-lg border bg-slate-800 text-slate-300 border-slate-700">Renombrar</button>
+            <button data-duplicate="${item.id}" class="flex-1 text-[11px] font-semibold py-1.5 rounded-lg border bg-slate-800 text-slate-300 border-slate-700">Duplicar</button>
             <button data-focus="${item.id}" class="flex-1 text-[11px] font-semibold py-1.5 rounded-lg border bg-slate-800 text-slate-300 border-slate-700">
               Ir
             </button>
           </div>`;
         list.appendChild(div);
+
+        div.querySelector(`[data-lock="${item.id}"]`).onclick = (e) => {
+          e.stopPropagation();
+          item.locked = item.locked === false;
+          persist();
+          renderSaved();
+          toast({ type: 'info', title: item.locked ? 'Medición protegida' : 'Medición desbloqueada', message: item.locked ? 'Se requiere desbloquearla antes de editar.' : 'Ahora podés entrar en modo edición.' });
+        };
+
+        div.querySelector(`[data-rename="${item.id}"]`).onclick = (e) => {
+          e.stopPropagation();
+          const next = window.prompt('Nuevo nombre para la medición:', item.name || 'Medición');
+          if (next === null) return;
+          const name = next.trim();
+          if (!name) return toast({ type: 'warning', title: 'Nombre vacío', message: 'Ingresá un nombre para identificar la medición.' });
+          item.name = name;
+          persist(); addLockedLayer(item); renderSaved();
+        };
+
+        div.querySelector(`[data-duplicate="${item.id}"]`).onclick = (e) => {
+          e.stopPropagation();
+          const copy = { ...item, id: Date.now().toString() + Math.random().toString(16).slice(2), name: `${item.name || 'Medición'} (copia)`, date: new Date().toLocaleDateString('es-AR'), points: item.points.map(p => ({ lat: p.lat, lng: p.lng })), visible: true, locked: true };
+          saved.push(copy); persist(); addLockedLayer(copy); renderSaved();
+          toast({ type: 'success', title: 'Copia creada', message: `Se creó “${copy.name}” protegida contra cambios.` });
+        };
 
         div.querySelector(`[data-vis="${item.id}"]`).onclick = (e) => {
           e.stopPropagation();
@@ -4014,6 +4068,7 @@
         // Editar: carga la medición en el editor y la desbloquea
         div.querySelector(`[data-edit="${item.id}"]`).onclick = (e) => {
           e.stopPropagation();
+          if (item.locked !== false) return toast({ type: 'warning', title: 'Medición protegida', message: 'Primero tocá Desbloquear para habilitar la edición.' });
           document.getElementById('savedDrawer').classList.add('hidden');
           hideMeasurementInfo();
           stopGpsTracking();
@@ -4096,6 +4151,39 @@
         };
       });
       lucide.createIcons();
+    }
+
+    function exportBackup() {
+      const payload = {
+        type: 'medidor-terrenos-backup', version: 1, createdAt: new Date().toISOString(),
+        measurements: saved, pois, settings, declination: localStorage.getItem(DECL_KEY)
+      };
+      const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a'); a.href = url; a.download = 'respaldo_medidor_' + new Date().toISOString().slice(0,10) + '.json'; a.click();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+      toast({ type: 'success', title: 'Respaldo creado', message: 'Incluye mediciones, puntos de interés y configuración.' });
+    }
+
+    function importBackup(e) {
+      const file = e.target.files && e.target.files[0]; if (!file) return;
+      const reader = new FileReader();
+      reader.onload = async (ev) => {
+        try {
+          const data = JSON.parse(ev.target.result);
+          if (data.type !== 'medidor-terrenos-backup' || !Array.isArray(data.measurements) || !Array.isArray(data.pois)) throw new Error('Formato de respaldo inválido');
+          const ok = await confirmToast({ title: '¿Restaurar respaldo?', message: 'Se reemplazarán las mediciones, los puntos de interés y la configuración actuales. Conviene exportar un respaldo antes de continuar.', confirmLabel: 'Restaurar', danger: true });
+          if (!ok) return;
+          saved = data.measurements.filter(x => x && Array.isArray(x.points)).map(x => ({ ...x, locked: x.locked !== false }));
+          pois = data.pois.filter(x => x && Number.isFinite(+x.lat) && Number.isFinite(+x.lng));
+          if (data.settings && typeof data.settings === 'object') { settings = { ...DEFAULT_SETTINGS, ...data.settings }; saveSettings(); applySettings(); }
+          if (data.declination !== undefined && data.declination !== null) { localStorage.setItem(DECL_KEY, String(data.declination)); if (typeof updateDeclinationUI === 'function') updateDeclinationUI(); }
+          persist(); persistPois(); renderSaved(); renderPois(); refreshLockedLayers();
+          toast({ type: 'success', title: 'Respaldo restaurado', message: 'Los datos se recuperaron correctamente.' });
+        } catch (err) { toast({ type: 'error', title: 'No se pudo restaurar', message: 'El archivo no es un respaldo válido de Medidor de Terrenos.' }); }
+        finally { e.target.value = ''; }
+      };
+      reader.readAsText(file);
     }
 
     function exportGeoJSON() {

@@ -275,6 +275,8 @@
       transition: color 0.15s, background 0.15s, transform 0.15s;
     }
     #panelToggleBtn.hidden { display: none !important; }
+    /* Panel de datos: oculto hasta que haya al menos un punto */
+    #metricsPanel.no-data { display: none; }
     #panelToggleBtn:active { transform: scale(0.94); }
     #panelToggleBtn:hover { color: #e2e8f0; background: rgba(30, 41, 59, 0.98); }
     #panelToggleBtn svg,
@@ -609,7 +611,7 @@
         </span>
       </div>
       <!-- Datos -->
-      <div id="metricsPanel" class="pointer-events-auto backdrop-blur-md rounded-2xl px-3 py-2 shadow-2xl" style="background: rgba(15,23,42,0.90); border: 2px solid rgba(245, 158, 11, 0.5);">
+      <div id="metricsPanel" class="no-data pointer-events-auto backdrop-blur-md rounded-2xl px-3 py-2 shadow-2xl" style="background: rgba(15,23,42,0.90); border: 2px solid rgba(245, 158, 11, 0.5);">
         <div class="flex items-center gap-3">
           <i id="modeIcon" data-lucide="pentagon" class="w-5 h-5 text-emerald-400 flex-shrink-0"></i>
           <div class="flex items-center gap-3 ml-auto text-right min-w-0">
@@ -2370,6 +2372,7 @@
       if (cKm) cKm.textContent = `${fmt.format(lm.v)} ${lm.u}`;
       if (cPts) cPts.textContent = `${points.length} pts`;
       if (cMode) cMode.textContent = mode === 'polygon' ? 'Superficie' : 'Distancia';
+      document.getElementById('metricsPanel')?.classList.toggle('no-data', points.length === 0);
       updateBearingUI();
     }
     function updateSelfIntersectWarning(show) {

@@ -188,18 +188,22 @@
     }
     .inspect-angle-text span { display: block; text-align: center; width: 100%; }
 
-    /* Medidas en vivo junto a la figura que se dibuja/edita */
-    .live-badge { width: 0; height: 0; pointer-events: none; }
-    .live-badge > div {
-      position: absolute; left: 0; top: 0; transform: translate(-50%, calc(-50% + var(--lb-dy, 0px)));
-      white-space: nowrap; text-align: center; line-height: 1.25; width: max-content;
-      padding: 4px 9px; border-radius: 10px;
-      background: rgba(15,23,42,0.92); border: 1.5px solid rgba(245,158,11,0.75);
-      box-shadow: 0 2px 8px rgba(0,0,0,0.45);
+    /* Medidas en vivo: números flotantes al costado de la pantalla, sin caja ni panel */
+    #liveReadout {
+      position: fixed; right: 6px; top: 40%; transform: translateY(-50%);
+      z-index: 15; pointer-events: none; display: none;
+      flex-direction: column; align-items: flex-end; gap: 10px;
     }
-    .live-badge .lb-main { font-size: 13px; font-weight: 800; color: #6ee7b7; }
-    .live-badge .lb-main.sky { color: #7dd3fc; }
-    .live-badge .lb-sub { font-size: 10.5px; font-weight: 600; color: #cbd5e1; }
+    #liveReadout.on { display: flex; }
+    #liveReadout .lr-item {
+      text-align: right; line-height: 1.1; padding: 12px 16px 12px 30px; font-family: system-ui, -apple-system, sans-serif;
+      color: var(--label-text, #00ff66);
+      text-shadow: 0 1px 3px rgba(0,0,0,0.85);
+      background: radial-gradient(closest-side at 62% 50%, var(--label-center, rgba(0,255,102,0.5)) 0%, var(--label-mid, rgba(0,255,102,0.18)) 55%, transparent 100%);
+    }
+    #liveReadout .lr-cap { font-size: 9px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; opacity: .85; }
+    #liveReadout .lr-val { font-size: 20px; font-weight: 800; }
+    #liveReadout .lr-sub { font-size: 11px; font-weight: 600; opacity: .9; }
     .dist-label-live {
       color: var(--label-text, var(--theme-color, #00ff66));
       font-weight: 800; white-space: nowrap;
@@ -595,6 +599,8 @@
   </div>
 
   <!-- BOTTOM PANEL -->
+  <div id="liveReadout" aria-live="off"></div>
+
   <div id="mainControls" class="absolute bottom-0 left-0 right-0 z-20 p-3 safe-bottom pointer-events-none">
     <div class="max-w-xl mx-auto flex flex-col">
       <div id="toastContainer" aria-live="polite" aria-atomic="true"></div>
@@ -2368,31 +2374,27 @@
       updateSelfIntersectWarning(false);
       clearKinkMarkers();
     }
-    // Medidas en vivo: etiqueta flotante junto a la figura (solo al crear/editar)
-    let liveBadge = null, liveArea = 0, liveDist = 0;
-    function removeLiveBadge() { if (liveBadge) { map.removeLayer(liveBadge); liveBadge = null; } }
+    // Medidas en vivo: números flotantes en un costado de la pantalla (solo al crear/editar)
+    let liveArea = 0, liveDist = 0;
+    function removeLiveBadge() { document.getElementById('liveReadout')?.classList.remove('on'); }
     function updateLiveBadge() {
+      const el = document.getElementById('liveReadout');
+      if (!el) return;
       const info = document.getElementById('infoPanel');
       const infoOpen = !!(info && !info.classList.contains('hidden'));
       const active = (drawingActive || trackMode || !!editingId) && !infoOpen && !poiMode;
       if (!active || points.length < 2) { removeLiveBadge(); return; }
-      const isPoly = mode === 'polygon' && points.length >= 3;
-      let html, anchorLL, ay;
-      if (isPoly) {
-        html = `<div><div class="lb-main">${nf2.format(areaMain(liveArea).v)} ${areaMain(liveArea).u} · ${areaSub(liveArea)}</div><div class="lb-sub">Perímetro ${fmtLenShort(liveDist)}</div></div>`;
-        let la = 0, ln = 0;
-        points.forEach(p => { la += p.lat; ln += p.lng; });
-        anchorLL = L.latLng(la / points.length, ln / points.length);
-        ay = 0;
+      const item = (cap, val, sub) =>
+        `<div class="lr-item"><div class="lr-cap">${cap}</div><div class="lr-val">${val}</div>${sub ? `<div class="lr-sub">${sub}</div>` : ''}</div>`;
+      let html;
+      if (mode === 'polygon' && points.length >= 3) {
+        const am = areaMain(liveArea);
+        html = item('Superficie', `${nf2.format(am.v)} ${am.u}`, areaSub(liveArea)) + item('Perímetro', fmtLenShort(liveDist));
       } else {
-        html = `<div><div class="lb-main sky">${fmtLenShort(liveDist)}</div></div>`;
-        anchorLL = points[points.length - 1];
-        ay = -34; // por encima del último punto, sin taparlo
+        html = item(mode === 'polygon' ? 'Distancia' : 'Largo', fmtLenShort(liveDist));
       }
-      html = html.replace('<div>', `<div style="--lb-dy:${ay}px">`);
-      const icon = L.divIcon({ className: 'live-badge', html, iconSize: [0, 0] });
-      if (!liveBadge) liveBadge = L.marker(anchorLL, { icon, interactive: false, keyboard: false, zIndexOffset: 1500 }).addTo(map);
-      else { liveBadge.setLatLng(anchorLL); liveBadge.setIcon(icon); }
+      el.innerHTML = html;
+      el.classList.add('on');
     }
     function updateMetrics(areaM2, distM) {
       liveArea = areaM2; liveDist = distM;

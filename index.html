@@ -742,18 +742,11 @@
       </div>
       <div class="flex gap-2 my-3">
         <button id="exportBtn" class="flex-1 bg-slate-800 border border-slate-700 text-xs py-2.5 px-3 rounded-xl flex items-center justify-center gap-1.5">
-          <i data-lucide="download" class="w-3.5 h-3.5 text-sky-400"></i> GeoJSON
-        </button>
-        <button id="backupBtn" class="flex-1 bg-slate-800 border border-slate-700 text-xs py-2.5 px-3 rounded-xl flex items-center justify-center gap-1.5">
-          <i data-lucide="shield-check" class="w-3.5 h-3.5 text-emerald-400"></i> Respaldo
+          <i data-lucide="download" class="w-3.5 h-3.5 text-sky-400"></i> Exportar
         </button>
         <label class="flex-1 bg-slate-800 border border-slate-700 text-xs py-2.5 px-3 rounded-xl flex items-center justify-center gap-1.5 cursor-pointer">
           <i data-lucide="upload" class="w-3.5 h-3.5 text-emerald-400"></i> Importar
           <input type="file" id="importInput" accept=".json,.geojson" class="hidden">
-        </label>
-        <label class="flex-1 bg-slate-800 border border-slate-700 text-xs py-2.5 px-3 rounded-xl flex items-center justify-center gap-1.5 cursor-pointer">
-          <i data-lucide="rotate-ccw" class="w-3.5 h-3.5 text-amber-400"></i> Restaurar
-          <input type="file" id="restoreInput" accept=".json" class="hidden">
         </label>
       </div>
       <div id="savedList" class="flex-1 overflow-y-auto space-y-2"></div>
@@ -1641,8 +1634,6 @@
       };
       document.getElementById('exportBtn').onclick = exportGeoJSON;
       document.getElementById('importInput').onchange = importGeoJSON;
-      document.getElementById('backupBtn').onclick = exportBackup;
-      document.getElementById('restoreInput').onchange = importBackup;
 
       document.querySelectorAll('.color-swatch').forEach(btn => {
         btn.onclick = () => {
@@ -1941,7 +1932,7 @@
           const brg = trueBearing(a, b);
           const decl = magneticDeclination((a.lat + b.lat) / 2, (a.lng + b.lng) / 2);
           const mag = magneticBearing(brg, decl);
-          html = `<span style="line-height:1.2">${distTxt}<br><span style="font-size:11px">${brg.toFixed(0)}° V · ${mag.toFixed(0)}° M</span></span>`;
+          html = `<span style="line-height:1.2">${distTxt}<br><span style="font-size:11px">${brg0(brg)}° V · ${brg0(mag)}° M</span></span>`;
           iconW = 90; iconH = 36;
         }
         const aPx = map.latLngToContainerPoint(a), bPx = map.latLngToContainerPoint(b);
@@ -1967,22 +1958,13 @@
         if (dragIndex > 0) angleIdxs.add(dragIndex - 1);
         if (dragIndex < n - 1) angleIdxs.add(dragIndex + 1);
       }
-
-      // Centroide aproximado para orientar el label hacia adentro del polígono
-      let centroidPx = null;
-      if (closed) {
-        let sx = 0, sy = 0;
-        points.forEach(p => {
-          const px = map.latLngToContainerPoint(p);
-          sx += px.x; sy += px.y;
-        });
-        centroidPx = L.point(sx / n, sy / n);
-      }
+      const ccwLive = closed ? polygonIsCCW(points) : true;
 
       angleIdxs.forEach(i => {
-        const ang = vertexAngleDeg(points, i, closed);
-        if (ang == null) return;
-
+        // Ángulo interior real (puede superar 180° en vértices cóncavos)
+        const info = vertexAngleInfo(points, i, closed, ccwLive);
+        if (!info) return;
+        const ang = info.deg;
         const prev = closed ? points[(i - 1 + n) % n] : (i > 0 ? points[i - 1] : null);
         const next = closed ? points[(i + 1) % n] : (i < n - 1 ? points[i + 1] : null);
         if (!prev || !next) return;
@@ -1990,33 +1972,13 @@
         const vPx = map.latLngToContainerPoint(points[i]);
         const pPx = map.latLngToContainerPoint(prev);
         const nPx = map.latLngToContainerPoint(next);
+        const g = angleArcGeometry(vPx, pPx, nPx, ang);
 
-        // Vectores unitarios desde el vértice
-        let ax = pPx.x - vPx.x, ay = pPx.y - vPx.y;
-        let bx = nPx.x - vPx.x, by = nPx.y - vPx.y;
-        const al = Math.sqrt(ax * ax + ay * ay) || 1;
-        const bl = Math.sqrt(bx * bx + by * by) || 1;
-        ax /= al; ay /= al; bx /= bl; by /= bl;
-
-        // Bisectriz del ángulo (lado interior si hay centroide)
-        let mx = ax + bx, my = ay + by;
-        let ml = Math.sqrt(mx * mx + my * my);
-        if (ml < 0.05) {
-          // Ángulo ~180°: usar normal
-          mx = -ay; my = ax;
-          ml = 1;
-        }
-        mx /= ml; my /= ml;
-
-        if (centroidPx) {
-          const toC = L.point(centroidPx.x - vPx.x, centroidPx.y - vPx.y);
-          if (mx * toC.x + my * toC.y < 0) { mx = -mx; my = -my; }
-        }
-
-        const offset = i === dragIndex ? 36 : 28;
-        const labelPx = L.point(vPx.x + mx * offset, vPx.y + my * offset);
-        const labelLL = map.containerPointToLatLng(labelPx);
+        // Etiqueta sobre la bisectriz del arco (lado interior)
         const isMain = i === dragIndex;
+        const offset = isMain ? 36 : 28;
+        const labelPx = L.point(vPx.x + Math.cos(g.mid) * offset, vPx.y + Math.sin(g.mid) * offset);
+        const labelLL = map.containerPointToLatLng(labelPx);
         const txt = `<span style="font-size:${isMain ? 13 : 11}px">${ang.toFixed(1)}°</span>`;
         const marker = L.marker(labelLL, {
           icon: L.divIcon({
@@ -2032,24 +1994,11 @@
 
         // Arco visual solo en el vértice que se arrastra
         if (isMain) {
-          let a1 = Math.atan2(ay, ax), a2 = Math.atan2(by, bx);
-          let sweep = a2 - a1;
-          while (sweep <= -Math.PI) sweep += 2 * Math.PI;
-          while (sweep > Math.PI) sweep -= 2 * Math.PI;
-          if (centroidPx) {
-            const midA = a1 + sweep / 2;
-            const test = L.point(vPx.x + Math.cos(midA) * 20, vPx.y + Math.sin(midA) * 20);
-            const d1 = (test.x - centroidPx.x) ** 2 + (test.y - centroidPx.y) ** 2;
-            const midB = a1 + (sweep > 0 ? sweep - 2 * Math.PI : sweep + 2 * Math.PI) / 2;
-            const test2 = L.point(vPx.x + Math.cos(midB) * 20, vPx.y + Math.sin(midB) * 20);
-            const d2 = (test2.x - centroidPx.x) ** 2 + (test2.y - centroidPx.y) ** 2;
-            if (d2 < d1) sweep = sweep > 0 ? sweep - 2 * Math.PI : sweep + 2 * Math.PI;
-          }
           const ARC_R = 22;
-          const steps = Math.max(6, Math.ceil(Math.abs(sweep) * 10 / Math.PI));
+          const steps = Math.max(6, Math.ceil(Math.abs(g.sweep) * 10 / Math.PI));
           const arcLatLngs = [];
           for (let s = 0; s <= steps; s++) {
-            const angR = a1 + sweep * (s / steps);
+            const angR = g.a1 + g.sweep * (s / steps);
             const px = L.point(vPx.x + Math.cos(angR) * ARC_R, vPx.y + Math.sin(angR) * ARC_R);
             arcLatLngs.push(map.containerPointToLatLng(px));
           }
@@ -2110,8 +2059,10 @@
     }
 
     function formatBearing(deg) {
-      return `${deg.toFixed(1)}°`;
+      const r = Math.round((((deg % 360) + 360) % 360) * 10) / 10;
+      return `${(r >= 360 ? 0 : r).toFixed(1)}°`;
     }
+    function brg0(deg) { return String(Math.round((((deg % 360) + 360) % 360)) % 360); }
 
     function bearingCardinal(deg) {
       const dirs = ['N', 'NNE', 'NE', 'ENE', 'E', 'ESE', 'SE', 'SSE', 'S', 'SSO', 'SO', 'OSO', 'O', 'ONO', 'NO', 'NNO'];
@@ -2346,7 +2297,7 @@
           const brg = trueBearing(a, b);
           const decl = magneticDeclination((a.lat + b.lat) / 2, (a.lng + b.lng) / 2);
           const mag = magneticBearing(brg, decl);
-          html = `<span style="font-size:${fontDraw}px;line-height:1.2">${distTxt}<br><span style="font-size:${Math.max(8, fontDraw * 0.85)}px;opacity:0.95">${brg.toFixed(0)}° V · ${mag.toFixed(0)}° M</span></span>`;
+          html = `<span style="font-size:${fontDraw}px;line-height:1.2">${distTxt}<br><span style="font-size:${Math.max(8, fontDraw * 0.85)}px;opacity:0.95">${brg0(brg)}° V · ${brg0(mag)}° M</span></span>`;
           iconW = Math.round(fontDraw * 7.5);
           iconH = Math.round(fontDraw * 2.8);
         } else {
@@ -2472,38 +2423,60 @@
       inspectLayers = [];
     }
 
-    function vertexAngleDeg(latlngs, i, closed) {
+    /** Orientación del polígono: true = antihorario (en plano local, x=este, y=norte) */
+    function polygonIsCCW(latlngs) {
+      const n = latlngs.length;
+      if (n < 3) return true;
+      const lat0 = latlngs[0].lat, lng0 = latlngs[0].lng;
+      const k = Math.cos(lat0 * Math.PI / 180);
+      let s = 0;
+      for (let i = 0; i < n; i++) {
+        const a = latlngs[i], b = latlngs[(i + 1) % n];
+        const ax = (a.lng - lng0) * k, ay = a.lat - lat0;
+        const bx = (b.lng - lng0) * k, by = b.lat - lat0;
+        s += ax * by - bx * ay;
+      }
+      return s >= 0;
+    }
+
+    /**
+     * Ángulo en el vértice i, calculado con rumbos geodésicos.
+     * - Polígono cerrado: ángulo INTERIOR real (0–360°; >180° = vértice cóncavo/reflejo).
+     * - Línea abierta: ángulo geométrico entre tramos (0–180°).
+     * Devuelve null si falta un vecino o hay puntos coincidentes.
+     */
+    function vertexAngleInfo(latlngs, i, closed, ccw) {
       const n = latlngs.length;
       if (n < 3) return null;
       const prev = closed ? latlngs[(i - 1 + n) % n] : (i > 0 ? latlngs[i - 1] : null);
       const curr = latlngs[i];
       const next = closed ? latlngs[(i + 1) % n] : (i < n - 1 ? latlngs[i + 1] : null);
       if (!prev || !next) return null;
-      const toXY = (ll) => {
-        const r = 111320;
-        return {
-          x: (ll.lng - curr.lng) * r * Math.cos(curr.lat * Math.PI / 180),
-          y: (ll.lat - curr.lat) * r
-        };
-      };
-      const a = toXY(prev), b = toXY(next);
-      const dot = a.x * b.x + a.y * b.y;
-      const mag = Math.sqrt((a.x * a.x + a.y * a.y) * (b.x * b.x + b.y * b.y)) || 1;
-      const minor = Math.acos(Math.max(-1, Math.min(1, dot / mag))) * 180 / Math.PI;
-      if (!closed) return minor;
-      // Orientación del anillo: permite distinguir vértices convexos y cóncavos.
-      let twiceArea = 0;
-      for (let j = 0; j < n; j++) {
-        const q = latlngs[j], r = latlngs[(j + 1) % n];
-        twiceArea += q.lng * r.lat - r.lng * q.lat;
-      }
-      if (Math.abs(twiceArea) < 1e-12) return minor;
-      const incoming = { x: curr.lng - prev.lng, y: curr.lat - prev.lat };
-      const outgoing = { x: next.lng - curr.lng, y: next.lat - curr.lat };
-      const turn = incoming.x * outgoing.y - incoming.y * outgoing.x;
-      const ccw = twiceArea > 0;
-      const convex = ccw ? turn > 0 : turn < 0;
-      return convex ? minor : 360 - minor;
+      const R = 111320, k = Math.cos(curr.lat * Math.PI / 180);
+      const d = (p) => Math.hypot((p.lng - curr.lng) * R * k, (p.lat - curr.lat) * R);
+      if (d(prev) < 0.01 || d(next) < 0.01) return null;
+      const bP = trueBearing(curr, prev), bN = trueBearing(curr, next);
+      const swing = (((bN - bP) % 360) + 360) % 360; // giro antihorario de "siguiente" a "anterior"
+      if (!closed) return { deg: swing > 180 ? 360 - swing : swing, reflex: false };
+      const isCCW = (ccw === undefined) ? polygonIsCCW(latlngs) : ccw;
+      const deg = isCCW ? swing : 360 - swing;
+      return { deg, reflex: deg > 180 };
+    }
+
+    function vertexAngleDeg(latlngs, i, closed) {
+      const info = vertexAngleInfo(latlngs, i, closed);
+      return info ? info.deg : null;
+    }
+
+    /** Geometría del arco en pantalla (Mercator es conforme: los ángulos se conservan). */
+    function angleArcGeometry(vPx, pPx, nPx, deg) {
+      const a1 = Math.atan2(pPx.y - vPx.y, pPx.x - vPx.x);
+      const a2 = Math.atan2(nPx.y - vPx.y, nPx.x - vPx.x);
+      let sweep = a2 - a1;
+      while (sweep <= -Math.PI) sweep += 2 * Math.PI;
+      while (sweep > Math.PI) sweep -= 2 * Math.PI;
+      if (deg > 180) sweep = sweep > 0 ? sweep - 2 * Math.PI : sweep + 2 * Math.PI;
+      return { a1, sweep, mid: a1 + sweep / 2 };
     }
 
     function addInspectCompass(latlngs, isPoly, color) {
@@ -2576,7 +2549,7 @@
             const brg = trueBearing(a, b);
             const decl = magneticDeclination((a.lat + b.lat) / 2, (a.lng + b.lng) / 2);
             const mag = magneticBearing(brg, decl);
-            html = `<span style="font-size:${fontPx}px;line-height:1.2;text-align:center">${brg.toFixed(0)}° V<br><span style="font-size:${Math.max(8, fontPx * 0.85)}px;opacity:0.95">${mag.toFixed(0)}° M</span></span>`;
+            html = `<span style="font-size:${fontPx}px;line-height:1.2;text-align:center">${brg0(brg)}° V<br><span style="font-size:${Math.max(8, fontPx * 0.85)}px;opacity:0.95">${brg0(mag)}° M</span></span>`;
             iconW = Math.round(fontPx * 5.5);
             iconH = Math.round(fontPx * 2.7);
           } else {
@@ -2604,42 +2577,18 @@
         const scale = Math.pow(1.18, z - 15);
         const ARC_R = Math.max(16, Math.min(56, 28 * scale));
         const fontPx = Math.max(9, Math.min(18, 11 * scale));
-        let centroidPx = null;
-        if (closed && n >= 3) {
-          try {
-            const coords = latlngs.map(p => [p.lng, p.lat]);
-            coords.push(coords[0]);
-            const c = turf.centroid(turf.polygon([coords]));
-            centroidPx = map.latLngToContainerPoint(L.latLng(c.geometry.coordinates[1], c.geometry.coordinates[0]));
-          } catch (e) {}
-        }
+        const ccw = closed ? polygonIsCCW(latlngs) : true;
         for (let i = 0; i < n; i++) {
-          const ang = vertexAngleDeg(latlngs, i, closed);
-          if (ang == null) continue;
+          const info = vertexAngleInfo(latlngs, i, closed, ccw);
+          if (!info) continue;
+          const ang = info.deg;
           const prev = closed ? latlngs[(i - 1 + n) % n] : (i > 0 ? latlngs[i - 1] : null);
           const next = closed ? latlngs[(i + 1) % n] : (i < n - 1 ? latlngs[i + 1] : null);
           if (!prev || !next) continue;
           const vPx = map.latLngToContainerPoint(latlngs[i]);
           const pPx = map.latLngToContainerPoint(prev);
           const nPx = map.latLngToContainerPoint(next);
-          let ax = pPx.x - vPx.x, ay = pPx.y - vPx.y;
-          let bx = nPx.x - vPx.x, by = nPx.y - vPx.y;
-          const al = Math.sqrt(ax * ax + ay * ay) || 1;
-          const bl = Math.sqrt(bx * bx + by * by) || 1;
-          ax /= al; ay /= al; bx /= bl; by /= bl;
-          let a1 = Math.atan2(ay, ax), a2 = Math.atan2(by, bx);
-          let sweep = a2 - a1;
-          while (sweep <= -Math.PI) sweep += 2 * Math.PI;
-          while (sweep > Math.PI) sweep -= 2 * Math.PI;
-          if (centroidPx) {
-            const midA = a1 + sweep / 2;
-            const test = L.point(vPx.x + Math.cos(midA) * ARC_R, vPx.y + Math.sin(midA) * ARC_R);
-            const distMid = (test.x - centroidPx.x) ** 2 + (test.y - centroidPx.y) ** 2;
-            const midB = a1 + (sweep > 0 ? sweep - 2 * Math.PI : sweep + 2 * Math.PI) / 2;
-            const test2 = L.point(vPx.x + Math.cos(midB) * ARC_R, vPx.y + Math.sin(midB) * ARC_R);
-            const distMid2 = (test2.x - centroidPx.x) ** 2 + (test2.y - centroidPx.y) ** 2;
-            if (distMid2 < distMid) sweep = sweep > 0 ? sweep - 2 * Math.PI : sweep + 2 * Math.PI;
-          }
+          const { a1, sweep } = angleArcGeometry(vPx, pPx, nPx, ang);
           const steps = Math.max(8, Math.ceil(Math.abs(sweep) * 12 / Math.PI));
           const arcLatLngs = [];
           for (let s = 0; s <= steps; s++) {
@@ -2779,13 +2728,13 @@
         let bearingHtml = '';
         if (straight && pts.length >= 2) {
           const brg = trueBearing(pts[0], pts[pts.length - 1]);
-          const decl = magneticDeclination(pts[0].lat, pts[0].lng);
+          const decl = magneticDeclination((pts[0].lat + pts[pts.length - 1].lat) / 2, (pts[0].lng + pts[pts.length - 1].lng) / 2);
           const mag = magneticBearing(brg, decl);
           bearingHtml = `
             <div class="bg-slate-950/80 rounded-xl p-2.5 border border-slate-800">
               <div class="text-[10px] text-slate-400 uppercase">Rumbo</div>
-              <div class="text-lg font-bold text-amber-300">${brg.toFixed(0)}° <span class="text-xs font-normal">V</span></div>
-              <div class="text-[11px] text-slate-500">${mag.toFixed(0)}° M · ${bearingCardinal(brg)}</div>
+              <div class="text-lg font-bold text-amber-300">${brg0(brg)}° <span class="text-xs font-normal">V</span></div>
+              <div class="text-[11px] text-slate-500">${brg0(mag)}° M · ${bearingCardinal(brg)}</div>
             </div>`;
         }
         metrics.innerHTML = `
@@ -3729,7 +3678,7 @@
     }
 
     function persistPois() {
-      try { localStorage.setItem('medidor_pois', JSON.stringify(pois)); } catch (e) { toast({ type: 'error', title: 'No se pudieron guardar los POI', message: 'El almacenamiento del navegador está lleno o bloqueado.' }); }
+      try { localStorage.setItem('medidor_pois', JSON.stringify(pois)); } catch (e) {}
       const badge = document.getElementById('poiBadge');
       if (badge) badge.textContent = pois.length;
       const btn = document.getElementById('poiBtn');
@@ -3748,10 +3697,6 @@
           } catch (err) {
             try { localStorage.setItem('medidor_pois_corrupto_' + Date.now(), raw); } catch (e2) {}
             pois = [];
-            // No persistir el arreglo vacío: conservar la clave original para permitir recuperación.
-            const badge = document.getElementById('poiBadge'); if (badge) badge.textContent = '0';
-            renderPois();
-            return;
           }
         }
       } catch (e) { pois = []; }
@@ -3865,7 +3810,7 @@
       const distTxt = fmtLenShort(dist);
       const decl = magneticDeclination(from.lat, from.lng);
       const mag = magneticBearing(brg, decl);
-      const html = `<div style="background:rgba(15,23,42,0.92);border:1px solid ${color};color:${color};font-size:11px;font-weight:700;padding:3px 7px;border-radius:8px;white-space:nowrap;">${brg.toFixed(0)}° V · ${mag.toFixed(0)}° M · ${distTxt}</div>`;
+      const html = `<div style="background:rgba(15,23,42,0.92);border:1px solid ${color};color:${color};font-size:11px;font-weight:700;padding:3px 7px;border-radius:8px;white-space:nowrap;">${brg0(brg)}° V · ${brg0(mag)}° M · ${distTxt}</div>`;
       if (!navLabel) {
         navLabel = L.marker(mid, { icon: L.divIcon({ className: '', html, iconSize: [120, 22], iconAnchor: [60, 11] }), interactive: false, zIndexOffset: 1300 }).addTo(map);
       } else {
@@ -3929,12 +3874,12 @@
       if (editingId) {
         const idx = saved.findIndex(s => s.id === editingId);
         if (idx >= 0) {
-          saved[idx] = { ...saved[idx], name, mode: savedMode, color: safeColor(themeColor), date: new Date().toLocaleDateString('es-AR'), points: pts, visible: true, locked: true };
+          saved[idx] = { ...saved[idx], name, mode: savedMode, color: safeColor(themeColor), date: new Date().toLocaleDateString('es-AR'), points: pts, visible: true };
           item = saved[idx];
         }
       }
       if (!item) {
-        item = { id: Date.now().toString(), name, mode: savedMode, color: safeColor(themeColor), date: new Date().toLocaleDateString('es-AR'), points: pts, visible: true, locked: true };
+        item = { id: Date.now().toString(), name, mode: savedMode, color: safeColor(themeColor), date: new Date().toLocaleDateString('es-AR'), points: pts, visible: true };
         saved.push(item);
       }
       persist();
@@ -3970,7 +3915,7 @@
           try {
             const parsed = JSON.parse(raw);
             if (!Array.isArray(parsed)) throw new Error('formato');
-            saved = parsed.filter(s => s && Array.isArray(s.points)).map(s => ({ ...s, locked: s.locked !== false }));
+            saved = parsed.filter(s => s && Array.isArray(s.points));
           } catch (err) {
             // No pisar datos ilegibles: se resguardan antes de seguir
             try { localStorage.setItem('medidor_v2_corrupto_' + Date.now(), raw); } catch (e2) {}
@@ -4008,7 +3953,6 @@
               <div class="flex items-center gap-1.5">
                 <span class="w-2.5 h-2.5 rounded-full flex-shrink-0" style="background:${safeColor(item.color)}"></span>
                 <span class="font-bold text-xs truncate">${escapeHtml(item.name)}</span>
-                <span class="text-[9px] px-1.5 py-0.5 rounded ${item.locked !== false ? 'bg-amber-500/15 text-amber-300' : 'bg-emerald-500/15 text-emerald-300'}">${item.locked !== false ? 'PROTEGIDA' : 'EDITABLE'}</span>
                 <span class="text-[10px] px-1.5 py-0.5 rounded bg-slate-800 text-slate-400 uppercase flex-shrink-0">${item.mode}</span>
               </div>
               <span class="text-[11px] text-slate-500 mt-0.5">${item.points.length} pts · ${item.date}</span>
@@ -4017,44 +3961,18 @@
               <i data-lucide="trash-2" class="w-4 h-4"></i>
             </button>
           </div>
-          <div class="flex flex-wrap gap-1.5 mt-2">
+          <div class="flex gap-1.5 mt-2">
             <button data-vis="${item.id}" class="flex-1 text-[11px] font-semibold py-1.5 rounded-lg border ${isVisible ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30' : 'bg-slate-800 text-slate-400 border-slate-700'}">
               ${isVisible ? 'Visible' : 'Oculta'}
             </button>
-            <button data-lock="${item.id}" class="flex-1 text-[11px] font-semibold py-1.5 rounded-lg border ${item.locked !== false ? 'bg-amber-500/10 text-amber-300 border-amber-500/30' : 'bg-emerald-500/10 text-emerald-300 border-emerald-500/30'}">${item.locked !== false ? 'Desbloquear' : 'Bloquear'}</button>
-            <button data-edit="${item.id}" ${item.locked !== false ? 'disabled' : ''} class="flex-1 text-[11px] font-semibold py-1.5 rounded-lg border ${item.locked !== false ? 'opacity-40 cursor-not-allowed bg-slate-800 text-slate-500 border-slate-700' : 'bg-sky-500/15 text-sky-300 border-sky-500/30'}">Editar</button>
-            <button data-rename="${item.id}" class="flex-1 text-[11px] font-semibold py-1.5 rounded-lg border bg-slate-800 text-slate-300 border-slate-700">Renombrar</button>
-            <button data-duplicate="${item.id}" class="flex-1 text-[11px] font-semibold py-1.5 rounded-lg border bg-slate-800 text-slate-300 border-slate-700">Duplicar</button>
+            <button data-edit="${item.id}" class="flex-1 text-[11px] font-semibold py-1.5 rounded-lg border bg-sky-500/15 text-sky-300 border-sky-500/30">
+              Editar
+            </button>
             <button data-focus="${item.id}" class="flex-1 text-[11px] font-semibold py-1.5 rounded-lg border bg-slate-800 text-slate-300 border-slate-700">
               Ir
             </button>
           </div>`;
         list.appendChild(div);
-
-        div.querySelector(`[data-lock="${item.id}"]`).onclick = (e) => {
-          e.stopPropagation();
-          item.locked = item.locked === false;
-          persist();
-          renderSaved();
-          toast({ type: 'info', title: item.locked ? 'Medición protegida' : 'Medición desbloqueada', message: item.locked ? 'Se requiere desbloquearla antes de editar.' : 'Ahora podés entrar en modo edición.' });
-        };
-
-        div.querySelector(`[data-rename="${item.id}"]`).onclick = (e) => {
-          e.stopPropagation();
-          const next = window.prompt('Nuevo nombre para la medición:', item.name || 'Medición');
-          if (next === null) return;
-          const name = next.trim();
-          if (!name) return toast({ type: 'warning', title: 'Nombre vacío', message: 'Ingresá un nombre para identificar la medición.' });
-          item.name = name;
-          persist(); addLockedLayer(item); renderSaved();
-        };
-
-        div.querySelector(`[data-duplicate="${item.id}"]`).onclick = (e) => {
-          e.stopPropagation();
-          const copy = { ...item, id: Date.now().toString() + Math.random().toString(16).slice(2), name: `${item.name || 'Medición'} (copia)`, date: new Date().toLocaleDateString('es-AR'), points: item.points.map(p => ({ lat: p.lat, lng: p.lng })), visible: true, locked: true };
-          saved.push(copy); persist(); addLockedLayer(copy); renderSaved();
-          toast({ type: 'success', title: 'Copia creada', message: `Se creó “${copy.name}” protegida contra cambios.` });
-        };
 
         div.querySelector(`[data-vis="${item.id}"]`).onclick = (e) => {
           e.stopPropagation();
@@ -4068,7 +3986,6 @@
         // Editar: carga la medición en el editor y la desbloquea
         div.querySelector(`[data-edit="${item.id}"]`).onclick = (e) => {
           e.stopPropagation();
-          if (item.locked !== false) return toast({ type: 'warning', title: 'Medición protegida', message: 'Primero tocá Desbloquear para habilitar la edición.' });
           document.getElementById('savedDrawer').classList.add('hidden');
           hideMeasurementInfo();
           stopGpsTracking();
@@ -4151,39 +4068,6 @@
         };
       });
       lucide.createIcons();
-    }
-
-    function exportBackup() {
-      const payload = {
-        type: 'medidor-terrenos-backup', version: 1, createdAt: new Date().toISOString(),
-        measurements: saved, pois, settings, declination: localStorage.getItem(DECL_KEY)
-      };
-      const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a'); a.href = url; a.download = 'respaldo_medidor_' + new Date().toISOString().slice(0,10) + '.json'; a.click();
-      setTimeout(() => URL.revokeObjectURL(url), 1000);
-      toast({ type: 'success', title: 'Respaldo creado', message: 'Incluye mediciones, puntos de interés y configuración.' });
-    }
-
-    function importBackup(e) {
-      const file = e.target.files && e.target.files[0]; if (!file) return;
-      const reader = new FileReader();
-      reader.onload = async (ev) => {
-        try {
-          const data = JSON.parse(ev.target.result);
-          if (data.type !== 'medidor-terrenos-backup' || !Array.isArray(data.measurements) || !Array.isArray(data.pois)) throw new Error('Formato de respaldo inválido');
-          const ok = await confirmToast({ title: '¿Restaurar respaldo?', message: 'Se reemplazarán las mediciones, los puntos de interés y la configuración actuales. Conviene exportar un respaldo antes de continuar.', confirmLabel: 'Restaurar', danger: true });
-          if (!ok) return;
-          saved = data.measurements.filter(x => x && Array.isArray(x.points)).map(x => ({ ...x, locked: x.locked !== false }));
-          pois = data.pois.filter(x => x && Number.isFinite(+x.lat) && Number.isFinite(+x.lng));
-          if (data.settings && typeof data.settings === 'object') { settings = { ...DEFAULT_SETTINGS, ...data.settings }; saveSettings(); applySettings(); }
-          if (data.declination !== undefined && data.declination !== null) { localStorage.setItem(DECL_KEY, String(data.declination)); if (typeof updateDeclinationUI === 'function') updateDeclinationUI(); }
-          persist(); persistPois(); renderSaved(); renderPois(); refreshLockedLayers();
-          toast({ type: 'success', title: 'Respaldo restaurado', message: 'Los datos se recuperaron correctamente.' });
-        } catch (err) { toast({ type: 'error', title: 'No se pudo restaurar', message: 'El archivo no es un respaldo válido de Medidor de Terrenos.' }); }
-        finally { e.target.value = ''; }
-      };
-      reader.readAsText(file);
     }
 
     function exportGeoJSON() {

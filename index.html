@@ -188,6 +188,18 @@
     }
     .inspect-angle-text span { display: block; text-align: center; width: 100%; }
 
+    /* Medidas en vivo junto a la figura que se dibuja/edita */
+    .live-badge { width: 0; height: 0; pointer-events: none; }
+    .live-badge > div {
+      position: absolute; left: 0; top: 0; transform: translate(-50%, calc(-50% + var(--lb-dy, 0px)));
+      white-space: nowrap; text-align: center; line-height: 1.25; width: max-content;
+      padding: 4px 9px; border-radius: 10px;
+      background: rgba(15,23,42,0.92); border: 1.5px solid rgba(245,158,11,0.75);
+      box-shadow: 0 2px 8px rgba(0,0,0,0.45);
+    }
+    .live-badge .lb-main { font-size: 13px; font-weight: 800; color: #6ee7b7; }
+    .live-badge .lb-main.sky { color: #7dd3fc; }
+    .live-badge .lb-sub { font-size: 10.5px; font-weight: 600; color: #cbd5e1; }
     .dist-label-live {
       color: var(--label-text, var(--theme-color, #00ff66));
       font-weight: 800; white-space: nowrap;
@@ -1758,6 +1770,7 @@
 
     /** Guardar y recorrido GPS: solo activos con medición iniciada (Nueva o Editar) */
     function updateSessionButtons() {
+      try { updateLiveBadge(); } catch (e) {}
       const saveBtn = document.getElementById('saveBtn');
       const gpsBtn = document.getElementById('modeTrackBtn');
       if (saveBtn) {
@@ -2355,7 +2368,34 @@
       updateSelfIntersectWarning(false);
       clearKinkMarkers();
     }
+    // Medidas en vivo: etiqueta flotante junto a la figura (solo al crear/editar)
+    let liveBadge = null, liveArea = 0, liveDist = 0;
+    function removeLiveBadge() { if (liveBadge) { map.removeLayer(liveBadge); liveBadge = null; } }
+    function updateLiveBadge() {
+      const info = document.getElementById('infoPanel');
+      const infoOpen = !!(info && !info.classList.contains('hidden'));
+      const active = (drawingActive || trackMode || !!editingId) && !infoOpen && !poiMode;
+      if (!active || points.length < 2) { removeLiveBadge(); return; }
+      const isPoly = mode === 'polygon' && points.length >= 3;
+      let html, anchorLL, ay;
+      if (isPoly) {
+        html = `<div><div class="lb-main">${nf2.format(areaMain(liveArea).v)} ${areaMain(liveArea).u} · ${areaSub(liveArea)}</div><div class="lb-sub">Perímetro ${fmtLenShort(liveDist)}</div></div>`;
+        let la = 0, ln = 0;
+        points.forEach(p => { la += p.lat; ln += p.lng; });
+        anchorLL = L.latLng(la / points.length, ln / points.length);
+        ay = 0;
+      } else {
+        html = `<div><div class="lb-main sky">${fmtLenShort(liveDist)}</div></div>`;
+        anchorLL = points[points.length - 1];
+        ay = -34; // por encima del último punto, sin taparlo
+      }
+      html = html.replace('<div>', `<div style="--lb-dy:${ay}px">`);
+      const icon = L.divIcon({ className: 'live-badge', html, iconSize: [0, 0] });
+      if (!liveBadge) liveBadge = L.marker(anchorLL, { icon, interactive: false, keyboard: false, zIndexOffset: 1500 }).addTo(map);
+      else { liveBadge.setLatLng(anchorLL); liveBadge.setIcon(icon); }
+    }
     function updateMetrics(areaM2, distM) {
+      liveArea = areaM2; liveDist = distM;
       const fmt = new Intl.NumberFormat('es-AR', { maximumFractionDigits: 2 });
       const fmt0 = new Intl.NumberFormat('es-AR', { maximumFractionDigits: 0 });
       const am = areaMain(areaM2), lm = lenMain(distM);
@@ -2372,6 +2412,7 @@
       if (cKm) cKm.textContent = `${fmt.format(lm.v)} ${lm.u}`;
       if (cPts) cPts.textContent = `${points.length} pts`;
       if (cMode) cMode.textContent = mode === 'polygon' ? 'Superficie' : 'Distancia';
+      updateLiveBadge();
       updateBearingUI();
     }
     function updateSelfIntersectWarning(show) {
@@ -2758,6 +2799,7 @@
       document.getElementById('panelToggleBtn')?.classList.add('hidden');
       document.getElementById('collapseHint')?.classList.add('hidden');
       document.getElementById('infoPanel').classList.remove('hidden');
+      try { updateLiveBadge(); } catch (e) {}
       lucide.createIcons();
     }
 
@@ -2816,6 +2858,7 @@
 
     function hideMeasurementInfo() {
       document.getElementById('infoPanel').classList.add('hidden');
+      try { updateLiveBadge(); } catch (e) {}
       document.querySelector('#infoPanel .flex.gap-1')?.classList.remove('hidden');
       const main = document.getElementById('mainControls');
       if (main) main.classList.remove('hidden');

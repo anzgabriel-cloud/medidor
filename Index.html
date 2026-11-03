@@ -2475,7 +2475,20 @@
           const a = latlngs[j], b = latlngs[(j + 1) % n];
           area += a.lng * b.lat - b.lng * a.lat;
         }
-        direction = area >= 0 ? 1 : -1;
+        // El interior no siempre coincide con el giro de la envolvente:
+        // en un vértice cóncavo hay que recorrer el arco reflejo (mayor de 180°).
+        const incoming = {
+          x: curr.lng - prev.lng,
+          y: curr.lat - prev.lat
+        };
+        const outgoing = {
+          x: next.lng - curr.lng,
+          y: next.lat - curr.lat
+        };
+        const turn = incoming.x * outgoing.y - incoming.y * outgoing.x;
+        const convex = Math.abs(area) < 1e-12 || (area > 0 ? turn >= 0 : turn <= 0);
+        const windingDirection = area >= 0 ? 1 : -1;
+        direction = convex ? windingDirection : -windingDirection;
       } else {
         // El arco parte de la prolongación del tramo anterior.
         start = Math.atan2(vPx.y - pPx.y, vPx.x - pPx.x);

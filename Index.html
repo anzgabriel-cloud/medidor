@@ -1971,8 +1971,6 @@
 
 
       angleIdxs.forEach(i => {
-        const info = vertexAngleInfo(points, i, closed);
-        if (!info) return;
         const prev = closed ? points[(i - 1 + n) % n] : (i > 0 ? points[i - 1] : null);
         const next = closed ? points[(i + 1) % n] : (i < n - 1 ? points[i + 1] : null);
         if (!prev || !next) return;
@@ -1980,6 +1978,8 @@
         const pPx = map.latLngToContainerPoint(prev);
         const nPx = map.latLngToContainerPoint(next);
         const arcInfo = vertexAngleArc(points, i, closed, vPx, pPx, nPx);
+        const info = vertexAngleInfo(points, i, closed, arcInfo);
+        if (!info) return;
         const isMain = i === dragIndex;
         const radius = isMain ? 22 : 17;
         const midAng = arcInfo.start + arcInfo.sweep / 2;
@@ -2422,7 +2422,7 @@
      * - Líneas abiertas: deflexión respecto de la prolongación del tramo entrante,
      *   con magnitud 0–180° y sentido Izquierda/Derecha.
      */
-    function vertexAngleInfo(latlngs, i, closed) {
+    function vertexAngleInfo(latlngs, i, closed, arcInfo = null) {
       const n = latlngs.length;
       if (n < 3) return null;
       const prev = closed ? latlngs[(i - 1 + n) % n] : (i > 0 ? latlngs[i - 1] : null);
@@ -2438,6 +2438,11 @@
       const mag = Math.hypot(a.x, a.y) * Math.hypot(b.x, b.y);
       if (mag < 1e-15) return null;
       const minor = Math.acos(Math.max(-1, Math.min(1, dot / mag))) * 180 / Math.PI;
+      if (closed && arcInfo) {
+        // En polígonos, el valor sale del mismo barrido que dibuja el arco:
+        // así etiqueta y representación nunca pueden elegir lados distintos.
+        return { value: Math.abs(arcInfo.sweep) * 180 / Math.PI, side: '', kind: 'interior' };
+      }
       if (!closed) {
         // Giro entre la dirección entrante y la saliente (no entre los dos rayos hacia atrás).
         const incoming = { x: -a.x, y: -a.y };
@@ -2460,46 +2465,58 @@
       return { value: convex ? minor : 360 - minor, side: '', kind: 'interior' };
     }
 
-    /** Barrido del arco en coordenadas de pantalla, siguiendo la convención del ángulo. */
+    /**
+     * Determina el arco interior de un polígono directamente en pantalla.
+     * Se prueban ambos barridos posibles y se elige aquel cuyo punto medio
+     * cae dentro del anillo. Esto evita depender del sentido de los vértices
+     * o de una clasificación convexa/cóncava basada sólo en el giro local.
+     */
     function vertexAngleArc(latlngs, i, closed, vPx, pPx, nPx) {
       const n = latlngs.length;
-      const prev = closed ? latlngs[(i - 1 + n) % n] : latlngs[i - 1];
-      const curr = latlngs[i];
-      const next = closed ? latlngs[(i + 1) % n] : latlngs[i + 1];
-      let start, end, direction;
+      let start, end;
       if (closed) {
         start = Math.atan2(pPx.y - vPx.y, pPx.x - vPx.x);
         end = Math.atan2(nPx.y - vPx.y, nPx.x - vPx.x);
-        let area = 0;
-        for (let j = 0; j < n; j++) {
-          const a = latlngs[j], b = latlngs[(j + 1) % n];
-          area += a.lng * b.lat - b.lng * a.lat;
-        }
-        // El interior no siempre coincide con el giro de la envolvente:
-        // en un vértice cóncavo hay que recorrer el arco reflejo (mayor de 180°).
-        const incoming = {
-          x: curr.lng - prev.lng,
-          y: curr.lat - prev.lat
+        let positive = end - start;
+        while (positive < 0) positive += Math.PI * 2;
+        while (positive >= Math.PI * 2) positive -= Math.PI * 2;
+        const candidates = [positive, positive - Math.PI * 2];
+        const ring = latlngs.map(ll => {
+          const q = map.latLngToContainerPoint(ll);
+          return { x: q.x, y: q.y };
+        });
+        const pointInRing = (pt) => {
+          let inside = false;
+          for (let a = 0, b = ring.length - 1; a < ring.length; b = a++) {
+            const A = ring[a], B = ring[b];
+            const crosses = ((A.y > pt.y) !== (B.y > pt.y)) &&
+              (pt.x < (B.x - A.x) * (pt.y - A.y) / ((B.y - A.y) || 1e-12) + A.x);
+            if (crosses) inside = !inside;
+          }
+          return inside;
         };
-        const outgoing = {
-          x: next.lng - curr.lng,
-          y: next.lat - curr.lat
-        };
-        const turn = incoming.x * outgoing.y - incoming.y * outgoing.x;
-        const convex = Math.abs(area) < 1e-12 || (area > 0 ? turn >= 0 : turn <= 0);
-        const windingDirection = area >= 0 ? 1 : -1;
-        direction = convex ? windingDirection : -windingDirection;
-      } else {
-        // El arco parte de la prolongación del tramo anterior.
-        start = Math.atan2(vPx.y - pPx.y, vPx.x - pPx.x);
-        end = Math.atan2(nPx.y - vPx.y, nPx.x - vPx.x);
-        const incomingX = curr.lng - prev.lng;
-        const incomingY = curr.lat - prev.lat;
-        const outgoingX = next.lng - curr.lng;
-        const outgoingY = next.lat - curr.lat;
-        const cross = incomingX * outgoingY - incomingY * outgoingX;
-        direction = cross > 0 ? -1 : 1; // pantalla: Y crece hacia abajo
+        const prevLen = Math.hypot(pPx.x - vPx.x, pPx.y - vPx.y);
+        const nextLen = Math.hypot(nPx.x - vPx.x, nPx.y - vPx.y);
+        const sampleR = Math.max(2, Math.min(7, Math.min(prevLen, nextLen) * 0.06));
+        const inside = candidates.map(sweep => {
+          const mid = start + sweep / 2;
+          return pointInRing({ x: vPx.x + Math.cos(mid) * sampleR, y: vPx.y + Math.sin(mid) * sampleR });
+        });
+        let chosen;
+        if (inside[0] !== inside[1]) chosen = inside[0] ? candidates[0] : candidates[1];
+        else chosen = Math.abs(candidates[0]) <= Math.abs(candidates[1]) ? candidates[0] : candidates[1];
+        return { start, sweep: chosen };
       }
+      // Líneas abiertas: arco de deflexión desde la prolongación del tramo anterior.
+      const prev = latlngs[i - 1], curr = latlngs[i], next = latlngs[i + 1];
+      start = Math.atan2(vPx.y - pPx.y, vPx.x - pPx.x);
+      end = Math.atan2(nPx.y - vPx.y, nPx.x - vPx.x);
+      const incomingX = curr.lng - prev.lng;
+      const incomingY = curr.lat - prev.lat;
+      const outgoingX = next.lng - curr.lng;
+      const outgoingY = next.lat - curr.lat;
+      const cross = incomingX * outgoingY - incomingY * outgoingX;
+      const direction = cross > 0 ? -1 : 1; // pantalla: Y crece hacia abajo
       let sweep = end - start;
       if (direction > 0) {
         while (sweep < 0) sweep += Math.PI * 2;
@@ -2508,7 +2525,7 @@
         while (sweep > 0) sweep -= Math.PI * 2;
         while (sweep <= -Math.PI * 2) sweep += Math.PI * 2;
       }
-      if (!closed && Math.abs(sweep) > Math.PI) sweep += sweep > 0 ? -Math.PI * 2 : Math.PI * 2;
+      if (Math.abs(sweep) > Math.PI) sweep += sweep > 0 ? -Math.PI * 2 : Math.PI * 2;
       return { start, sweep };
     }
 
@@ -2611,8 +2628,6 @@
         const ARC_R = Math.max(16, Math.min(56, 28 * scale));
         const fontPx = Math.max(9, Math.min(18, 11 * scale));
         for (let i = 0; i < n; i++) {
-          const info = vertexAngleInfo(latlngs, i, closed);
-          if (!info) continue;
           const prev = closed ? latlngs[(i - 1 + n) % n] : (i > 0 ? latlngs[i - 1] : null);
           const next = closed ? latlngs[(i + 1) % n] : (i < n - 1 ? latlngs[i + 1] : null);
           if (!prev || !next) continue;
@@ -2620,6 +2635,8 @@
           const pPx = map.latLngToContainerPoint(prev);
           const nPx = map.latLngToContainerPoint(next);
           const arcInfo = vertexAngleArc(latlngs, i, closed, vPx, pPx, nPx);
+          const info = vertexAngleInfo(latlngs, i, closed, arcInfo);
+          if (!info) continue;
           const steps = Math.max(8, Math.ceil(Math.abs(arcInfo.sweep) * 12 / Math.PI));
           const arcLatLngs = [];
           for (let step = 0; step <= steps; step++) {

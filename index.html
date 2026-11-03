@@ -275,6 +275,8 @@
       transition: color 0.15s, background 0.15s, transform 0.15s;
     }
     #panelToggleBtn.hidden { display: none !important; }
+    /* Panel "datos en vivo": eliminado de la vista (se conserva en el DOM porque el código actualiza sus campos) */
+    #metricsPanel { display: none !important; }
     #panelToggleBtn:active { transform: scale(0.94); }
     #panelToggleBtn:hover { color: #e2e8f0; background: rgba(30, 41, 59, 0.98); }
     #panelToggleBtn svg,
@@ -1932,7 +1934,7 @@
           const brg = trueBearing(a, b);
           const decl = magneticDeclination((a.lat + b.lat) / 2, (a.lng + b.lng) / 2);
           const mag = magneticBearing(brg, decl);
-          html = `<span style="line-height:1.2">${distTxt}<br><span style="font-size:11px">${brg.toFixed(0)}° V · ${mag.toFixed(0)}° M</span></span>`;
+          html = `<span style="line-height:1.2">${distTxt}<br><span style="font-size:11px">${brg0(brg)}° V · ${brg0(mag)}° M</span></span>`;
           iconW = 90; iconH = 36;
         }
         const aPx = map.latLngToContainerPoint(a), bPx = map.latLngToContainerPoint(b);
@@ -1958,22 +1960,13 @@
         if (dragIndex > 0) angleIdxs.add(dragIndex - 1);
         if (dragIndex < n - 1) angleIdxs.add(dragIndex + 1);
       }
-
-      // Centroide aproximado para orientar el label hacia adentro del polígono
-      let centroidPx = null;
-      if (closed) {
-        let sx = 0, sy = 0;
-        points.forEach(p => {
-          const px = map.latLngToContainerPoint(p);
-          sx += px.x; sy += px.y;
-        });
-        centroidPx = L.point(sx / n, sy / n);
-      }
+      const ccwLive = closed ? polygonIsCCW(points) : true;
 
       angleIdxs.forEach(i => {
-        const ang = vertexAngleDeg(points, i, closed);
-        if (ang == null) return;
-
+        // Ángulo interior real (puede superar 180° en vértices cóncavos)
+        const info = vertexAngleInfo(points, i, closed, ccwLive);
+        if (!info) return;
+        const ang = info.deg;
         const prev = closed ? points[(i - 1 + n) % n] : (i > 0 ? points[i - 1] : null);
         const next = closed ? points[(i + 1) % n] : (i < n - 1 ? points[i + 1] : null);
         if (!prev || !next) return;
@@ -1981,33 +1974,13 @@
         const vPx = map.latLngToContainerPoint(points[i]);
         const pPx = map.latLngToContainerPoint(prev);
         const nPx = map.latLngToContainerPoint(next);
+        const g = angleArcGeometry(vPx, pPx, nPx, ang);
 
-        // Vectores unitarios desde el vértice
-        let ax = pPx.x - vPx.x, ay = pPx.y - vPx.y;
-        let bx = nPx.x - vPx.x, by = nPx.y - vPx.y;
-        const al = Math.sqrt(ax * ax + ay * ay) || 1;
-        const bl = Math.sqrt(bx * bx + by * by) || 1;
-        ax /= al; ay /= al; bx /= bl; by /= bl;
-
-        // Bisectriz del ángulo (lado interior si hay centroide)
-        let mx = ax + bx, my = ay + by;
-        let ml = Math.sqrt(mx * mx + my * my);
-        if (ml < 0.05) {
-          // Ángulo ~180°: usar normal
-          mx = -ay; my = ax;
-          ml = 1;
-        }
-        mx /= ml; my /= ml;
-
-        if (centroidPx) {
-          const toC = L.point(centroidPx.x - vPx.x, centroidPx.y - vPx.y);
-          if (mx * toC.x + my * toC.y < 0) { mx = -mx; my = -my; }
-        }
-
-        const offset = i === dragIndex ? 36 : 28;
-        const labelPx = L.point(vPx.x + mx * offset, vPx.y + my * offset);
-        const labelLL = map.containerPointToLatLng(labelPx);
+        // Etiqueta sobre la bisectriz del arco (lado interior)
         const isMain = i === dragIndex;
+        const offset = isMain ? 36 : 28;
+        const labelPx = L.point(vPx.x + Math.cos(g.mid) * offset, vPx.y + Math.sin(g.mid) * offset);
+        const labelLL = map.containerPointToLatLng(labelPx);
         const txt = `<span style="font-size:${isMain ? 13 : 11}px">${ang.toFixed(1)}°</span>`;
         const marker = L.marker(labelLL, {
           icon: L.divIcon({
@@ -2023,24 +1996,11 @@
 
         // Arco visual solo en el vértice que se arrastra
         if (isMain) {
-          let a1 = Math.atan2(ay, ax), a2 = Math.atan2(by, bx);
-          let sweep = a2 - a1;
-          while (sweep <= -Math.PI) sweep += 2 * Math.PI;
-          while (sweep > Math.PI) sweep -= 2 * Math.PI;
-          if (centroidPx) {
-            const midA = a1 + sweep / 2;
-            const test = L.point(vPx.x + Math.cos(midA) * 20, vPx.y + Math.sin(midA) * 20);
-            const d1 = (test.x - centroidPx.x) ** 2 + (test.y - centroidPx.y) ** 2;
-            const midB = a1 + (sweep > 0 ? sweep - 2 * Math.PI : sweep + 2 * Math.PI) / 2;
-            const test2 = L.point(vPx.x + Math.cos(midB) * 20, vPx.y + Math.sin(midB) * 20);
-            const d2 = (test2.x - centroidPx.x) ** 2 + (test2.y - centroidPx.y) ** 2;
-            if (d2 < d1) sweep = sweep > 0 ? sweep - 2 * Math.PI : sweep + 2 * Math.PI;
-          }
           const ARC_R = 22;
-          const steps = Math.max(6, Math.ceil(Math.abs(sweep) * 10 / Math.PI));
+          const steps = Math.max(6, Math.ceil(Math.abs(g.sweep) * 10 / Math.PI));
           const arcLatLngs = [];
           for (let s = 0; s <= steps; s++) {
-            const angR = a1 + sweep * (s / steps);
+            const angR = g.a1 + g.sweep * (s / steps);
             const px = L.point(vPx.x + Math.cos(angR) * ARC_R, vPx.y + Math.sin(angR) * ARC_R);
             arcLatLngs.push(map.containerPointToLatLng(px));
           }
@@ -2101,8 +2061,10 @@
     }
 
     function formatBearing(deg) {
-      return `${deg.toFixed(1)}°`;
+      const r = Math.round((((deg % 360) + 360) % 360) * 10) / 10;
+      return `${(r >= 360 ? 0 : r).toFixed(1)}°`;
     }
+    function brg0(deg) { return String(Math.round((((deg % 360) + 360) % 360)) % 360); }
 
     function bearingCardinal(deg) {
       const dirs = ['N', 'NNE', 'NE', 'ENE', 'E', 'ESE', 'SE', 'SSE', 'S', 'SSO', 'SO', 'OSO', 'O', 'ONO', 'NO', 'NNO'];
@@ -2337,7 +2299,7 @@
           const brg = trueBearing(a, b);
           const decl = magneticDeclination((a.lat + b.lat) / 2, (a.lng + b.lng) / 2);
           const mag = magneticBearing(brg, decl);
-          html = `<span style="font-size:${fontDraw}px;line-height:1.2">${distTxt}<br><span style="font-size:${Math.max(8, fontDraw * 0.85)}px;opacity:0.95">${brg.toFixed(0)}° V · ${mag.toFixed(0)}° M</span></span>`;
+          html = `<span style="font-size:${fontDraw}px;line-height:1.2">${distTxt}<br><span style="font-size:${Math.max(8, fontDraw * 0.85)}px;opacity:0.95">${brg0(brg)}° V · ${brg0(mag)}° M</span></span>`;
           iconW = Math.round(fontDraw * 7.5);
           iconH = Math.round(fontDraw * 2.8);
         } else {
@@ -2463,24 +2425,60 @@
       inspectLayers = [];
     }
 
-    function vertexAngleDeg(latlngs, i, closed) {
+    /** Orientación del polígono: true = antihorario (en plano local, x=este, y=norte) */
+    function polygonIsCCW(latlngs) {
+      const n = latlngs.length;
+      if (n < 3) return true;
+      const lat0 = latlngs[0].lat, lng0 = latlngs[0].lng;
+      const k = Math.cos(lat0 * Math.PI / 180);
+      let s = 0;
+      for (let i = 0; i < n; i++) {
+        const a = latlngs[i], b = latlngs[(i + 1) % n];
+        const ax = (a.lng - lng0) * k, ay = a.lat - lat0;
+        const bx = (b.lng - lng0) * k, by = b.lat - lat0;
+        s += ax * by - bx * ay;
+      }
+      return s >= 0;
+    }
+
+    /**
+     * Ángulo en el vértice i, calculado con rumbos geodésicos.
+     * - Polígono cerrado: ángulo INTERIOR real (0–360°; >180° = vértice cóncavo/reflejo).
+     * - Línea abierta: ángulo geométrico entre tramos (0–180°).
+     * Devuelve null si falta un vecino o hay puntos coincidentes.
+     */
+    function vertexAngleInfo(latlngs, i, closed, ccw) {
       const n = latlngs.length;
       if (n < 3) return null;
       const prev = closed ? latlngs[(i - 1 + n) % n] : (i > 0 ? latlngs[i - 1] : null);
       const curr = latlngs[i];
       const next = closed ? latlngs[(i + 1) % n] : (i < n - 1 ? latlngs[i + 1] : null);
       if (!prev || !next) return null;
-      const toXY = (ll) => {
-        const r = 111320;
-        return {
-          x: (ll.lng - curr.lng) * r * Math.cos(curr.lat * Math.PI / 180),
-          y: (ll.lat - curr.lat) * r
-        };
-      };
-      const a = toXY(prev), b = toXY(next);
-      const dot = a.x * b.x + a.y * b.y;
-      const mag = Math.sqrt((a.x * a.x + a.y * a.y) * (b.x * b.x + b.y * b.y)) || 1;
-      return Math.acos(Math.max(-1, Math.min(1, dot / mag))) * 180 / Math.PI;
+      const R = 111320, k = Math.cos(curr.lat * Math.PI / 180);
+      const d = (p) => Math.hypot((p.lng - curr.lng) * R * k, (p.lat - curr.lat) * R);
+      if (d(prev) < 0.01 || d(next) < 0.01) return null;
+      const bP = trueBearing(curr, prev), bN = trueBearing(curr, next);
+      const swing = (((bN - bP) % 360) + 360) % 360; // giro antihorario de "siguiente" a "anterior"
+      if (!closed) return { deg: swing > 180 ? 360 - swing : swing, reflex: false };
+      const isCCW = (ccw === undefined) ? polygonIsCCW(latlngs) : ccw;
+      const deg = isCCW ? swing : 360 - swing;
+      return { deg, reflex: deg > 180 };
+    }
+
+    function vertexAngleDeg(latlngs, i, closed) {
+      const info = vertexAngleInfo(latlngs, i, closed);
+      return info ? info.deg : null;
+    }
+
+    /** Geometría del arco en pantalla (Mercator es conforme: los ángulos se conservan). */
+    function angleArcGeometry(vPx, pPx, nPx, deg) {
+      const a1 = Math.atan2(pPx.y - vPx.y, pPx.x - vPx.x);
+      const a2 = Math.atan2(nPx.y - vPx.y, nPx.x - vPx.x);
+      let sweep = a2 - a1;
+      while (sweep <= -Math.PI) sweep += 2 * Math.PI;
+      while (sweep > Math.PI) sweep -= 2 * Math.PI;
+      if (deg > 180) sweep = sweep > 0 ? sweep - 2 * Math.PI : sweep + 2 * Math.PI;
+      return { a1, sweep, mid: a1 + sweep / 2 };
     }
 
     function addInspectCompass(latlngs, isPoly, color) {
@@ -2553,7 +2551,7 @@
             const brg = trueBearing(a, b);
             const decl = magneticDeclination((a.lat + b.lat) / 2, (a.lng + b.lng) / 2);
             const mag = magneticBearing(brg, decl);
-            html = `<span style="font-size:${fontPx}px;line-height:1.2;text-align:center">${brg.toFixed(0)}° V<br><span style="font-size:${Math.max(8, fontPx * 0.85)}px;opacity:0.95">${mag.toFixed(0)}° M</span></span>`;
+            html = `<span style="font-size:${fontPx}px;line-height:1.2;text-align:center">${brg0(brg)}° V<br><span style="font-size:${Math.max(8, fontPx * 0.85)}px;opacity:0.95">${brg0(mag)}° M</span></span>`;
             iconW = Math.round(fontPx * 5.5);
             iconH = Math.round(fontPx * 2.7);
           } else {
@@ -2581,42 +2579,18 @@
         const scale = Math.pow(1.18, z - 15);
         const ARC_R = Math.max(16, Math.min(56, 28 * scale));
         const fontPx = Math.max(9, Math.min(18, 11 * scale));
-        let centroidPx = null;
-        if (closed && n >= 3) {
-          try {
-            const coords = latlngs.map(p => [p.lng, p.lat]);
-            coords.push(coords[0]);
-            const c = turf.centroid(turf.polygon([coords]));
-            centroidPx = map.latLngToContainerPoint(L.latLng(c.geometry.coordinates[1], c.geometry.coordinates[0]));
-          } catch (e) {}
-        }
+        const ccw = closed ? polygonIsCCW(latlngs) : true;
         for (let i = 0; i < n; i++) {
-          const ang = vertexAngleDeg(latlngs, i, closed);
-          if (ang == null) continue;
+          const info = vertexAngleInfo(latlngs, i, closed, ccw);
+          if (!info) continue;
+          const ang = info.deg;
           const prev = closed ? latlngs[(i - 1 + n) % n] : (i > 0 ? latlngs[i - 1] : null);
           const next = closed ? latlngs[(i + 1) % n] : (i < n - 1 ? latlngs[i + 1] : null);
           if (!prev || !next) continue;
           const vPx = map.latLngToContainerPoint(latlngs[i]);
           const pPx = map.latLngToContainerPoint(prev);
           const nPx = map.latLngToContainerPoint(next);
-          let ax = pPx.x - vPx.x, ay = pPx.y - vPx.y;
-          let bx = nPx.x - vPx.x, by = nPx.y - vPx.y;
-          const al = Math.sqrt(ax * ax + ay * ay) || 1;
-          const bl = Math.sqrt(bx * bx + by * by) || 1;
-          ax /= al; ay /= al; bx /= bl; by /= bl;
-          let a1 = Math.atan2(ay, ax), a2 = Math.atan2(by, bx);
-          let sweep = a2 - a1;
-          while (sweep <= -Math.PI) sweep += 2 * Math.PI;
-          while (sweep > Math.PI) sweep -= 2 * Math.PI;
-          if (centroidPx) {
-            const midA = a1 + sweep / 2;
-            const test = L.point(vPx.x + Math.cos(midA) * ARC_R, vPx.y + Math.sin(midA) * ARC_R);
-            const distMid = (test.x - centroidPx.x) ** 2 + (test.y - centroidPx.y) ** 2;
-            const midB = a1 + (sweep > 0 ? sweep - 2 * Math.PI : sweep + 2 * Math.PI) / 2;
-            const test2 = L.point(vPx.x + Math.cos(midB) * ARC_R, vPx.y + Math.sin(midB) * ARC_R);
-            const distMid2 = (test2.x - centroidPx.x) ** 2 + (test2.y - centroidPx.y) ** 2;
-            if (distMid2 < distMid) sweep = sweep > 0 ? sweep - 2 * Math.PI : sweep + 2 * Math.PI;
-          }
+          const { a1, sweep } = angleArcGeometry(vPx, pPx, nPx, ang);
           const steps = Math.max(8, Math.ceil(Math.abs(sweep) * 12 / Math.PI));
           const arcLatLngs = [];
           for (let s = 0; s <= steps; s++) {
@@ -2756,13 +2730,13 @@
         let bearingHtml = '';
         if (straight && pts.length >= 2) {
           const brg = trueBearing(pts[0], pts[pts.length - 1]);
-          const decl = magneticDeclination(pts[0].lat, pts[0].lng);
+          const decl = magneticDeclination((pts[0].lat + pts[pts.length - 1].lat) / 2, (pts[0].lng + pts[pts.length - 1].lng) / 2);
           const mag = magneticBearing(brg, decl);
           bearingHtml = `
             <div class="bg-slate-950/80 rounded-xl p-2.5 border border-slate-800">
               <div class="text-[10px] text-slate-400 uppercase">Rumbo</div>
-              <div class="text-lg font-bold text-amber-300">${brg.toFixed(0)}° <span class="text-xs font-normal">V</span></div>
-              <div class="text-[11px] text-slate-500">${mag.toFixed(0)}° M · ${bearingCardinal(brg)}</div>
+              <div class="text-lg font-bold text-amber-300">${brg0(brg)}° <span class="text-xs font-normal">V</span></div>
+              <div class="text-[11px] text-slate-500">${brg0(mag)}° M · ${bearingCardinal(brg)}</div>
             </div>`;
         }
         metrics.innerHTML = `
@@ -2781,7 +2755,6 @@
         main.classList.remove('hidden');
       }
       updateCollapseBtn();
-      document.getElementById('metricsPanel')?.classList.add('hidden');
       document.getElementById('panelToggleBtn')?.classList.add('hidden');
       document.getElementById('collapseHint')?.classList.add('hidden');
       document.getElementById('infoPanel').classList.remove('hidden');
@@ -2836,7 +2809,6 @@
       document.querySelector('#infoPanel .flex.gap-1')?.classList.add('hidden');
       const main = document.getElementById('mainControls');
       if (main) { wasCollapsed = main.classList.contains('panel-collapsed'); main.classList.add('hidden'); }
-      document.getElementById('metricsPanel')?.classList.add('hidden');
       document.getElementById('panelToggleBtn')?.classList.add('hidden');
       document.getElementById('infoPanel').classList.remove('hidden');
       lucide.createIcons();
@@ -3838,7 +3810,7 @@
       const distTxt = fmtLenShort(dist);
       const decl = magneticDeclination(from.lat, from.lng);
       const mag = magneticBearing(brg, decl);
-      const html = `<div style="background:rgba(15,23,42,0.92);border:1px solid ${color};color:${color};font-size:11px;font-weight:700;padding:3px 7px;border-radius:8px;white-space:nowrap;">${brg.toFixed(0)}° V · ${mag.toFixed(0)}° M · ${distTxt}</div>`;
+      const html = `<div style="background:rgba(15,23,42,0.92);border:1px solid ${color};color:${color};font-size:11px;font-weight:700;padding:3px 7px;border-radius:8px;white-space:nowrap;">${brg0(brg)}° V · ${brg0(mag)}° M · ${distTxt}</div>`;
       if (!navLabel) {
         navLabel = L.marker(mid, { icon: L.divIcon({ className: '', html, iconSize: [120, 22], iconAnchor: [60, 11] }), interactive: false, zIndexOffset: 1300 }).addTo(map);
       } else {

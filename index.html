@@ -465,18 +465,18 @@
   <header class="absolute left-3 right-3 z-20 flex flex-wrap gap-2 max-w-4xl mx-auto" style="top: max(12px, env(safe-area-inset-top, 12px));">
     <div class="relative flex-1 min-w-[180px] shadow-2xl">
       <div class="bg-slate-900/95 backdrop-blur-md border border-slate-700/80 rounded-xl px-3 py-2">
-        <div id="searchRow" class="flex items-center">
+        <div class="flex items-center gap-1.5">
+          <span class="text-[10px] uppercase tracking-wide text-slate-500 mr-0.5">Buscar</span>
+          <button id="modePlaceBtn" type="button" class="px-2.5 py-1 rounded-lg text-[11px] font-bold bg-amber-500 text-slate-950">Por lugar</button>
+          <button id="modeCoordsBtn" type="button" class="px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-slate-800 text-slate-300 border border-slate-600">Por coordenadas</button>
+        </div>
+        <div id="searchRow" class="flex items-center mt-1.5">
           <i data-lucide="search" class="w-4 h-4 text-slate-400 mr-2 flex-shrink-0"></i>
           <input id="searchInput" type="text" placeholder="Buscar lugar…" enterkeyhint="search"
             class="bg-transparent border-none outline-none text-xs sm:text-sm w-full text-slate-100 placeholder-slate-400" autocomplete="off">
           <button id="clearSearchBtn" class="hidden text-slate-400 p-1" aria-label="Limpiar búsqueda">
             <i data-lucide="x" class="w-4 h-4"></i>
           </button>
-        </div>
-        <div class="flex items-center gap-1.5 mt-1.5">
-          <span class="text-[10px] uppercase tracking-wide text-slate-500 mr-0.5">Buscar</span>
-          <button id="modePlaceBtn" type="button" class="px-2.5 py-1 rounded-lg text-[11px] font-bold bg-amber-500 text-slate-950">Por lugar</button>
-          <button id="modeCoordsBtn" type="button" class="px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-slate-800 text-slate-300 border border-slate-600">Por coordenadas</button>
         </div>
       </div>
       <div id="searchResults" class="hidden absolute top-full left-0 right-0 mt-1 bg-slate-900/95 backdrop-blur-md border border-slate-700 rounded-xl shadow-2xl max-h-56 overflow-y-auto z-30"></div>

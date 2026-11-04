@@ -1,6 +1,6 @@
 // Service worker de "Medidor de Terrenos": uso sin conexión.
 // Guarda en caché (la primera vez que hay internet) la app, las librerías y los
-// mosaicos del mapa que se hayan visto. Requiere servir calcular.html y sw.js por https.
+// mosaicos del mapa que se hayan visto. Requiere servir index.html y sw.js por https.
 const VERSION = 'medidor-v1';
 const APP_CACHE = VERSION + '-app';
 const TILE_CACHE = VERSION + '-tiles';
@@ -25,7 +25,9 @@ async function trim(cache) {
 async function networkFirst(req, cacheName) {
   const cache = await caches.open(cacheName);
   try {
-    const res = await fetch(req);
+    // 'no-cache': revalida con el servidor y no usa la copia del caché HTTP del navegador
+    // (GitHub Pages permite reutilizarla ~10 min, por eso a veces se veía la versión vieja).
+    const res = await fetch(req, { cache: 'no-cache' });
     if (res && (res.ok || res.type === 'opaque')) cache.put(req, res.clone());
     return res;
   } catch (err) {
@@ -52,7 +54,7 @@ self.addEventListener('fetch', (e) => {
   if (req.method !== 'GET') return;
   const url = new URL(req.url);
   if (url.hostname === 'nominatim.openstreetmap.org') return; // búsqueda: siempre en línea
-  if (TILE_HOSTS.some(h => url.hostname === h || url.hostname.endsWith('.' + h))) {
+  if (TILE_HOSTS.includes(url.hostname)) {
     e.respondWith(cacheFirst(req, TILE_CACHE, true));
   } else if (LIB_HOSTS.includes(url.hostname)) {
     e.respondWith(cacheFirst(req, APP_CACHE));

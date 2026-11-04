@@ -31,6 +31,13 @@
     #mainControls[data-mode="line"] #saveBtn {
       background: #0284c7 !important; color: #fff !important; border-color: #0ea5e9 !important;
     }
+    /* Recorrido: Guardar = tinte rojo en reposo, rojo sólido con letras blancas al grabar */
+    #mainControls[data-mode="track"] #saveBtn {
+      background: rgba(244,63,94,0.20) !important; color: #fda4af !important; border-color: rgba(244,63,94,0.45) !important;
+    }
+    #mainControls[data-mode="track"][data-rec="1"] #saveBtn {
+      background: #e11d48 !important; color: #fff !important; border-color: #fb7185 !important; opacity: 1 !important;
+    }
     /* Medición activa: Nueva medición se marca con un aro */
     #mainControls[data-mode="polygon"] #newBtn.bg-sky-500 { box-shadow: 0 0 0 2px rgba(110, 231, 183, 0.55) !important; }
     #mainControls[data-mode="line"] #newBtn.bg-sky-500 { box-shadow: 0 0 0 2px rgba(125, 211, 252, 0.55) !important; }
@@ -455,37 +462,6 @@
     }
     #selfIntersectWarning.visible { display: flex; }
 
-    #gpsStatus {
-      display: none;
-      margin: 0 0 6px;
-      padding: 6px 8px 6px 12px;
-      background: rgba(244,63,94,0.45);
-      border: 1px solid rgba(251,113,133,0.55);
-      border-radius: 12px;
-      font-size: 12px; font-weight: 700; color: #fff;
-      align-items: center; justify-content: space-between; gap: 8px;
-      pointer-events: auto;
-      box-shadow: 0 6px 16px rgba(244,63,94,0.18);
-    }
-    #gpsStatus.visible { display: flex; }
-    #gpsStatus.active {
-      background: rgba(244,63,94,0.62);
-      border-color: rgba(251,113,133,0.8);
-      animation: gpsPulse 1.6s ease-in-out infinite;
-    }
-    #gpsRecordBtn {
-      pointer-events: auto;
-      flex-shrink: 0;
-      border: none;
-      border-radius: 9px;
-      padding: 7px 12px;
-      font-size: 12px;
-      font-weight: 800;
-      background: #fff;
-      color: #9f1239;
-      min-height: 34px;
-    }
-    #gpsStatus.active #gpsRecordBtn { background: #fff; color: #be123c; }
   </style>
 </head>
 
@@ -622,12 +598,6 @@
       </div>
 
       <div id="panelBody">
-      <div id="gpsStatus">
-        <span class="flex items-center gap-1.5 min-w-0 justify-center w-full">
-          <i data-lucide="navigation" class="w-3.5 h-3.5 flex-shrink-0"></i>
-          <span id="gpsStatusText">Listo para grabar</span>
-        </span>
-      </div>
       <!-- Datos -->
       <div id="metricsPanel" class="pointer-events-auto backdrop-blur-md rounded-2xl px-3 py-2 shadow-2xl" style="background: rgba(15,23,42,0.90); border: 2px solid rgba(245, 158, 11, 0.5);">
         <div class="flex items-center gap-3">
@@ -2383,11 +2353,30 @@
       const info = document.getElementById('infoPanel');
       const infoOpen = !!(info && !info.classList.contains('hidden'));
       const active = (drawingActive || trackMode || !!editingId) && !infoOpen && !poiMode;
-      if (!active || points.length < 2) { removeLiveBadge(); return; }
+      const recording = gpsWatchId !== null;
+      if (!active || (points.length < 2 && !(trackMode && recording))) { removeLiveBadge(); return; }
       const item = (cap, val, sub) =>
         `<div class="lr-item"><div class="lr-cap">${cap}</div><div class="lr-val">${val}</div>${sub ? `<div class="lr-sub">${sub}</div>` : ''}</div>`;
       let html;
-      if (mode === 'polygon' && points.length >= 3) {
+      if (trackMode) {
+        const n = points.length;
+        const speedTxt = (v) => v === null ? '—' : (isImp() ? `${(v * 2.23694).toFixed(1)} mph` : `${(v * 3.6).toFixed(1)} km/h`);
+        // Rumbo: el del GPS en marcha; si no, el del último tramo
+        let brg = gpsLive.heading;
+        if (brg === null && n >= 2) brg = trueBearing(points[n - 2], points[n - 1]);
+        let brgHtml = item('Rumbo', '—');
+        if (brg !== null) {
+          const ref = n >= 1 ? points[n - 1] : { lat: 0, lng: 0 };
+          const mag = magneticBearing(brg, magneticDeclination(ref.lat, ref.lng));
+          brgHtml = item('Rumbo', `${brg0(brg)}° V`, `${brg0(mag)}° M · ${bearingCardinal(brg)}`);
+        }
+        const secs = (gpsLive.recMs + (gpsLive.recStart ? Date.now() - gpsLive.recStart : 0)) / 1000;
+        const avg = secs > 5 && liveDist > 0 ? liveDist / secs : null;
+        html = item('Recorrido', fmtLenShort(liveDist))
+          + brgHtml
+          + item('Velocidad', speedTxt(gpsLive.speed), avg !== null ? `prom. ${speedTxt(avg)}` : '')
+          + (gpsLive.msg ? item('GPS', gpsLive.msg) : '');
+      } else if (mode === 'polygon' && points.length >= 3) {
         const am = areaMain(liveArea);
         html = item('Superficie', `${nf2.format(am.v)} ${am.u}`, areaSub(liveArea)) + item('Perímetro', fmtLenShort(liveDist));
       } else {
@@ -2986,7 +2975,9 @@
     /** Marca el modo activo en el panel para que los botones de acción tomen su color */
     function updateModeTheme() {
       const m = poiMode ? 'poi' : (trackMode ? 'track' : mode);
-      document.getElementById('mainControls')?.setAttribute('data-mode', m);
+      const mc = document.getElementById('mainControls');
+      mc?.setAttribute('data-mode', m);
+      mc?.setAttribute('data-rec', (trackMode && gpsWatchId !== null) ? '1' : '0');
     }
     function updateCollapseBtn() {
       updateModeTheme();
@@ -4227,6 +4218,9 @@
       e.target.value = '';
     }
 // ========== GPS ==========
+    // Estado en vivo del recorrido (se muestra en los números flotantes de la derecha)
+    const gpsLive = { msg: '', speed: null, heading: null, lastFix: null, recStart: null, recMs: 0 };
+
     function setGpsBtnState(active) {
       const gpsBtn = document.getElementById('modeTrackBtn');
       if (!gpsBtn) return;
@@ -4261,20 +4255,9 @@
 
     function refreshTrackBar() {
       updateModeTheme();
-      const statusEl = document.getElementById('gpsStatus');
-      const statusText = document.getElementById('gpsStatusText');
       const label = document.getElementById('trackRecordLabel');
       const btn = document.getElementById('trackRecordBtn');
       const recording = gpsWatchId !== null;
-      if (statusEl) {
-        statusEl.classList.toggle('visible', trackMode);
-        statusEl.classList.toggle('active', recording);
-      }
-      if (statusText) {
-        statusText.textContent = recording
-          ? (statusText.textContent && statusText.textContent.startsWith('Grabando') ? statusText.textContent : 'Grabando recorrido')
-          : 'Listo para grabar';
-      }
       if (label) label.textContent = recording ? 'Detener grabación' : 'Iniciar grabación';
       if (btn) {
         btn.setAttribute('aria-label', recording ? 'Detener grabación' : 'Iniciar grabación');
@@ -4286,6 +4269,7 @@
       if (saveLabel && !document.getElementById('saveBtn')?.dataset.editing) {
         saveLabel.textContent = trackMode ? 'Guardar recorrido' : (editingId ? 'Guardar cambios' : 'Guardar medición');
       }
+      try { updateLiveBadge(); } catch (e) {}
       const place = document.getElementById('poiPlaceHeaderBtn');
       if (place) {
         place.disabled = !poiMode;
@@ -4317,29 +4301,38 @@
       if (!navigator.geolocation) {
         return toast({ type: 'error', title: 'GPS no disponible', message: 'Tu navegador no soporta geolocalización.' });
       }
-      const statusEl = document.getElementById('gpsStatus');
-      const statusText = document.getElementById('gpsStatusText');
-      if (statusEl) statusEl.classList.add('visible', 'active');
-      if (statusText) statusText.textContent = 'Buscando señal GPS…';
+      gpsLive.msg = 'Buscando señal…'; gpsLive.speed = null; gpsLive.heading = null; gpsLive.lastFix = null;
+      gpsLive.recStart = Date.now();
       setGpsBtnState(true);
 
       gpsWatchId = navigator.geolocation.watchPosition(
         (pos) => {
           const accuracy = pos.coords.accuracy;
           if (accuracy > settings.gpsMaxAcc) {
-            if (statusText) statusText.textContent = `Esperando mejor señal · ±${fmtAcc(accuracy)} (máx. ${fmtAcc(settings.gpsMaxAcc)})`;
+            gpsLive.msg = `Esperando señal ±${fmtAcc(accuracy)}`;
+            updateLiveBadge();
             return;
           }
-          if (statusText) statusText.textContent = `Grabando recorrido · ±${fmtAcc(accuracy)}`;
+          gpsLive.msg = `±${fmtAcc(accuracy)}`;
           const next = L.latLng(pos.coords.latitude, pos.coords.longitude);
+          // Velocidad (m/s): la del GPS si existe; si no, desplazamiento / tiempo entre fijos
+          const nowT = pos.timestamp || Date.now();
+          let sp = (typeof pos.coords.speed === 'number' && isFinite(pos.coords.speed)) ? pos.coords.speed : null;
+          if (sp === null && gpsLive.lastFix && nowT > gpsLive.lastFix.t) {
+            sp = gpsLive.lastFix.ll.distanceTo(next) / ((nowT - gpsLive.lastFix.t) / 1000);
+          }
+          gpsLive.speed = sp;
+          gpsLive.heading = (typeof pos.coords.heading === 'number' && isFinite(pos.coords.heading) && sp !== null && sp > 0.5) ? pos.coords.heading : null;
+          gpsLive.lastFix = { t: nowT, ll: next };
           if (!lastGpsPoint || lastGpsPoint.distanceTo(next) >= settings.gpsMinStep) {
             addPoint(next);
             lastGpsPoint = next;
             if (points.length === 1) map.setView(next, 18);
           }
+          updateLiveBadge();
         },
         (err) => {
-          if (statusText) statusText.textContent = 'No se pudo obtener GPS';
+          gpsLive.msg = 'Sin señal GPS';
           stopGpsTracking({ keepMode: true });
           toast({ type: 'error', title: 'GPS interrumpido', message: geoErrorInfo(err), duration: 9000 });
         },
@@ -4361,10 +4354,8 @@
         gpsWatchId = null;
       }
       lastGpsPoint = null;
-      const statusEl = document.getElementById('gpsStatus');
-      const statusText = document.getElementById('gpsStatusText');
-      if (statusEl) statusEl.classList.remove('active');
-      if (statusText) statusText.textContent = 'Listo para grabar';
+      if (gpsLive.recStart) { gpsLive.recMs += Date.now() - gpsLive.recStart; gpsLive.recStart = null; }
+      gpsLive.msg = ''; gpsLive.speed = null; gpsLive.heading = null; gpsLive.lastFix = null;
       if (!opts.keepMode) trackMode = false;
       refreshTrackBar();
       setGpsBtnState(false);

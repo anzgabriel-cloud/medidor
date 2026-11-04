@@ -31,6 +31,13 @@
     #mainControls[data-mode="line"] #saveBtn {
       background: #0284c7 !important; color: #fff !important; border-color: #0ea5e9 !important;
     }
+    #viewHint { background: rgba(15,23,42,0.97); border: 2px solid #f59e0b; }
+    #viewHint::before {
+      content: ''; position: absolute; top: -8px; right: 46px; width: 14px; height: 14px;
+      background: #0f172a; border-left: 2px solid #f59e0b; border-top: 2px solid #f59e0b; transform: rotate(45deg);
+    }
+    @keyframes viewPulse { 0%,100% { box-shadow: 0 0 0 0 rgba(245,158,11,0.75); } 50% { box-shadow: 0 0 0 7px rgba(245,158,11,0); } }
+    #viewSwitch.attention { animation: viewPulse 1.4s ease-in-out infinite; }
     /* Modo Ver / Medir: en Ver se oculta el panel de medición (mapa limpio) y desaparece la flecha de colapsar */
     #mainControls.view-only #panelBody,
     #mainControls.view-only #panelCollapsedBar { display: none !important; }
@@ -473,12 +480,11 @@
     <div class="relative flex-1 min-w-[180px] shadow-2xl">
       <div class="bg-slate-900/95 backdrop-blur-md border border-slate-700/80 rounded-xl px-3 py-2">
         <div class="flex items-center gap-1.5">
-          <span class="text-[10px] uppercase tracking-wide text-slate-500 mr-0.5">Buscar</span>
           <button id="modePlaceBtn" type="button" class="px-2.5 py-1 rounded-lg text-[11px] font-bold bg-amber-500 text-slate-950">Por lugar</button>
           <button id="modeCoordsBtn" type="button" class="px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-slate-800 text-slate-300 border border-slate-600">Por coordenadas</button>
-          <div id="viewSwitch" class="ml-auto flex items-stretch rounded-lg border border-slate-600 overflow-hidden flex-shrink-0" role="group" aria-label="Modo de la app">
-            <button id="viewVerBtn" type="button" class="px-2 py-1 text-[11px] font-bold inline-flex items-center gap-1" aria-pressed="true"><i data-lucide="eye" class="w-3.5 h-3.5"></i>Ver</button>
-            <button id="viewMedirBtn" type="button" class="relative px-2 py-1 text-[11px] font-bold inline-flex items-center gap-1" aria-pressed="false"><i data-lucide="ruler" class="w-3.5 h-3.5"></i>Medir<span id="viewMedirDot" class="hidden absolute top-0.5 right-0.5 w-2 h-2 rounded-full bg-rose-500"></span></button>
+          <div id="viewSwitch" class="ml-auto flex items-stretch rounded-xl border-2 border-slate-500 overflow-hidden flex-shrink-0 shadow-lg" role="group" aria-label="Modo de la app">
+            <button id="viewVerBtn" type="button" class="px-2.5 py-1.5 text-xs font-extrabold inline-flex items-center gap-1.5" aria-pressed="false"><i data-lucide="eye" class="w-4 h-4"></i>Ver</button>
+            <button id="viewMedirBtn" type="button" class="relative px-2.5 py-1.5 text-xs font-extrabold inline-flex items-center gap-1.5" aria-pressed="false"><i data-lucide="ruler" class="w-4 h-4"></i>Medir<span id="viewMedirDot" class="hidden absolute top-0.5 right-0.5 w-2 h-2 rounded-full bg-rose-500"></span></button>
           </div>
         </div>
         <div id="searchRow" class="flex items-center mt-1.5">
@@ -491,6 +497,14 @@
         </div>
       </div>
       <div id="searchResults" class="hidden absolute top-full left-0 right-0 mt-1 bg-slate-900/95 backdrop-blur-md border border-slate-700 rounded-xl shadow-2xl max-h-56 overflow-y-auto z-30"></div>
+      <div id="viewHint" class="hidden absolute right-0 top-full mt-2.5 z-40 w-[270px] rounded-2xl p-3 shadow-2xl" role="dialog" aria-label="Modos de la app">
+        <div class="text-[11px] font-extrabold uppercase tracking-wide text-amber-300 mb-1.5">Dos modos</div>
+        <div class="flex gap-2 mb-1.5"><i data-lucide="eye" class="w-4 h-4 text-sky-300 flex-shrink-0 mt-0.5"></i>
+          <div class="text-xs text-slate-200 leading-snug"><b class="text-sky-300">Ver</b> · explorá el mapa y consultá tus mediciones guardadas, sin riesgo de tocar nada.</div></div>
+        <div class="flex gap-2 mb-2"><i data-lucide="ruler" class="w-4 h-4 text-emerald-300 flex-shrink-0 mt-0.5"></i>
+          <div class="text-xs text-slate-200 leading-snug"><b class="text-emerald-300">Medir</b> · dibujá superficies y distancias, grabá recorridos con GPS y guardá puntos de interés.</div></div>
+        <button id="viewHintOk" type="button" class="w-full py-1.5 rounded-lg text-xs font-bold bg-amber-500 text-slate-950">Entendido</button>
+      </div>
       <div id="coordPanel" class="hidden absolute top-full left-0 right-0 mt-1 bg-slate-900/95 backdrop-blur-md border border-slate-700 rounded-xl shadow-2xl px-4 pb-4 pt-1 z-30" style="max-height:62vh;overflow-y:auto">
       <span class="cg-label">Tipo de coordenadas</span>
       <select id="cgFormat" class="cg-input">
@@ -1715,9 +1729,11 @@
       setDrawingActive(false);
       updateLockUI();
       document.getElementById('mainControls')?.classList.remove('panel-collapsed');
-      document.getElementById('viewVerBtn').onclick = () => setAppView('ver');
-      document.getElementById('viewMedirBtn').onclick = () => setAppView('medir');
-      applyAppView(); // arranca en Ver
+      document.getElementById('viewVerBtn').onclick = () => onViewSwitch('ver');
+      document.getElementById('viewMedirBtn').onclick = () => onViewSwitch('medir');
+      document.getElementById('viewHintOk').onclick = () => hideViewHint(true);
+      applyAppView(); // arranca en Medir
+      setTimeout(showViewHint, 900);
       updateCollapseBtn();
     }
 
@@ -2992,8 +3008,8 @@
       mc?.setAttribute('data-rec', (trackMode && gpsWatchId !== null) ? '1' : '0');
     }
     // ========== VISTA: Ver / Medir ==========
-    // Ver = mapa limpio, solo consulta. Medir = panel de medición. La app arranca en Ver.
-    let appView = 'ver';
+    // Ver = mapa limpio, solo consulta. Medir = panel de medición. La app arranca en Medir.
+    let appView = 'medir';
     function hasPendingWork() { return points.length > 0 || gpsWatchId !== null || !!editingId; }
     function ensureMedir() { if (appView !== 'medir') { appView = 'medir'; applyAppView(); } }
     function setAppView(v) {
@@ -3012,14 +3028,37 @@
     function updateViewSwitchUI() {
       const ver = document.getElementById('viewVerBtn'), med = document.getElementById('viewMedirBtn');
       if (!ver || !med) return;
-      const on = 'bg-slate-100 text-slate-900', off = 'bg-slate-800 text-slate-300';
-      ver.classList.remove(...on.split(' '), ...off.split(' '));
-      med.classList.remove(...on.split(' '), ...off.split(' '));
-      ver.classList.add(...(appView === 'ver' ? on : off).split(' '));
-      med.classList.add(...(appView === 'medir' ? on : off).split(' '));
+      const all = ['bg-sky-500', 'bg-emerald-500', 'text-white', 'bg-slate-800', 'text-slate-300'];
+      ver.classList.remove(...all); med.classList.remove(...all);
+      ver.classList.add(...(appView === 'ver' ? ['bg-sky-500', 'text-white'] : ['bg-slate-800', 'text-slate-300']));
+      med.classList.add(...(appView === 'medir' ? ['bg-emerald-500', 'text-white'] : ['bg-slate-800', 'text-slate-300']));
       ver.setAttribute('aria-pressed', appView === 'ver' ? 'true' : 'false');
       med.setAttribute('aria-pressed', appView === 'medir' ? 'true' : 'false');
       document.getElementById('viewMedirDot')?.classList.toggle('hidden', !(appView === 'ver' && hasPendingWork()));
+    }
+    // Aviso de bienvenida: explica los dos modos hasta que el usuario los usa o toca "Entendido"
+    const VIEW_HINT_KEY = 'medidor_view_hint';
+    let viewHintTimer = null;
+    function showViewHint() {
+      try { if (localStorage.getItem(VIEW_HINT_KEY) === '1') return; } catch (e) {}
+      document.getElementById('viewHint')?.classList.remove('hidden');
+      document.getElementById('viewSwitch')?.classList.add('attention');
+      lucide.createIcons();
+      clearTimeout(viewHintTimer);
+      viewHintTimer = setTimeout(() => hideViewHint(false), 14000);
+    }
+    function hideViewHint(learned) {
+      clearTimeout(viewHintTimer);
+      document.getElementById('viewHint')?.classList.add('hidden');
+      document.getElementById('viewSwitch')?.classList.remove('attention');
+      if (learned) { try { localStorage.setItem(VIEW_HINT_KEY, '1'); } catch (e) {} }
+    }
+    // Al cambiar de modo se cierra la ficha de datos que haya abierta
+    function onViewSwitch(v) {
+      hideViewHint(true);
+      const info = document.getElementById('infoPanel');
+      if (info && !info.classList.contains('hidden')) hideMeasurementInfo();
+      setAppView(v);
     }
     function applyAppView() {
       document.getElementById('mainControls')?.classList.toggle('view-only', appView === 'ver');

@@ -31,12 +31,9 @@
     #mainControls[data-mode="line"] #saveBtn {
       background: #0284c7 !important; color: #fff !important; border-color: #0ea5e9 !important;
     }
-    /* Recorrido: Guardar = tinte rojo en reposo, rojo sólido con letras blancas al grabar */
+    /* Recorrido: Guardar usa el mismo rojo sólido que Iniciar/Detener grabación (inactivo = atenuado) */
     #mainControls[data-mode="track"] #saveBtn {
-      background: rgba(244,63,94,0.20) !important; color: #fda4af !important; border-color: rgba(244,63,94,0.45) !important;
-    }
-    #mainControls[data-mode="track"][data-rec="1"] #saveBtn {
-      background: #e11d48 !important; color: #fff !important; border-color: #fb7185 !important; opacity: 1 !important;
+      background: #f43f5e !important; color: #fff !important; border-color: #fb7185 !important;
     }
     /* Medición activa: Nueva medición se marca con un aro */
     #mainControls[data-mode="polygon"] #newBtn.bg-sky-500 { box-shadow: 0 0 0 2px rgba(110, 231, 183, 0.55) !important; }
@@ -1494,6 +1491,8 @@
       };
       document.getElementById('saveBtn').onclick = () => {
         pulseButton('saveBtn');
+        // En recorrido: si se está grabando, Guardar detiene la grabación y abre el guardado
+        if (trackMode && gpsWatchId !== null && points.length >= 2) stopGpsTracking({ keepMode: true });
         openSaveModal();
       };
       document.getElementById('newBtn').onclick = () => {

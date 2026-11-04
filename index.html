@@ -205,12 +205,12 @@
     #liveReadout .lr-val { font-size: 16px; font-weight: 800; }
     #liveReadout .lr-sub { font-size: 10px; font-weight: 600; opacity: .9; }
     .dist-label-live {
-      color: var(--label-text, var(--theme-color, #00ff66));
+      color: #fff;
       font-weight: 800; white-space: nowrap;
       pointer-events: none; transform: translate(-50%, -50%);
       padding: 3px 6px; border-radius: 4px;
-      background: radial-gradient(ellipse at center, var(--label-center, rgba(0,255,102,0.55)) 0%, var(--label-mid, rgba(0,255,102,0.22)) 58%, transparent 100%);
-      text-shadow: 0 1px 2px rgba(0,0,0,0.75);
+      background: radial-gradient(closest-side at center, var(--label-center, rgba(0,255,102,0.55)) 0%, var(--label-mid, rgba(0,255,102,0.22)) 58%, transparent 100%);
+      text-shadow: 0 1px 3px rgba(0,0,0,0.9), 0 0 2px rgba(0,0,0,0.6);
     }
     .angle-label-live {
       color: #fbbf24;

@@ -31,6 +31,10 @@
     #mainControls[data-mode="line"] #saveBtn {
       background: #0284c7 !important; color: #fff !important; border-color: #0ea5e9 !important;
     }
+    /* Modo Ver / Medir: en Ver se oculta el panel de medición (mapa limpio) y desaparece la flecha de colapsar */
+    #mainControls.view-only #panelBody,
+    #mainControls.view-only #panelCollapsedBar { display: none !important; }
+    #panelToggleBtn, #collapseHint { display: none !important; }
     /* Recorrido: Guardar usa el mismo rojo sólido que Iniciar/Detener grabación (inactivo = atenuado) */
     #mainControls[data-mode="track"] #saveBtn {
       background: #f43f5e !important; color: #fff !important; border-color: #fb7185 !important;
@@ -472,6 +476,10 @@
           <span class="text-[10px] uppercase tracking-wide text-slate-500 mr-0.5">Buscar</span>
           <button id="modePlaceBtn" type="button" class="px-2.5 py-1 rounded-lg text-[11px] font-bold bg-amber-500 text-slate-950">Por lugar</button>
           <button id="modeCoordsBtn" type="button" class="px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-slate-800 text-slate-300 border border-slate-600">Por coordenadas</button>
+          <div id="viewSwitch" class="ml-auto flex items-stretch rounded-lg border border-slate-600 overflow-hidden flex-shrink-0" role="group" aria-label="Modo de la app">
+            <button id="viewVerBtn" type="button" class="px-2 py-1 text-[11px] font-bold inline-flex items-center gap-1" aria-pressed="true"><i data-lucide="eye" class="w-3.5 h-3.5"></i>Ver</button>
+            <button id="viewMedirBtn" type="button" class="relative px-2 py-1 text-[11px] font-bold inline-flex items-center gap-1" aria-pressed="false"><i data-lucide="ruler" class="w-3.5 h-3.5"></i>Medir<span id="viewMedirDot" class="hidden absolute top-0.5 right-0.5 w-2 h-2 rounded-full bg-rose-500"></span></button>
+          </div>
         </div>
         <div id="searchRow" class="flex items-center mt-1.5">
           <i data-lucide="search" class="w-4 h-4 text-slate-400 mr-2 flex-shrink-0"></i>
@@ -1413,6 +1421,7 @@
         if (dragging || isLocked || closePromptOpen) return;
         if (inspectItem) return;
         if (navPoi) { stopNav(); return; }
+        if (appView === 'ver') return; // modo Ver: el mapa no agrega puntos
         if (poiMode) {
           openPoiModal(e.latlng);
           return;
@@ -1706,6 +1715,9 @@
       setDrawingActive(false);
       updateLockUI();
       document.getElementById('mainControls')?.classList.remove('panel-collapsed');
+      document.getElementById('viewVerBtn').onclick = () => setAppView('ver');
+      document.getElementById('viewMedirBtn').onclick = () => setAppView('medir');
+      applyAppView(); // arranca en Ver
       updateCollapseBtn();
     }
 
@@ -1789,7 +1801,7 @@
 
     // ========== DRAG ==========
     function startDrag(index, e) {
-      if (isLocked) { e.preventDefault(); e.stopPropagation(); return; }
+      if (isLocked || appView === 'ver') { e.preventDefault(); e.stopPropagation(); return; }
       e.preventDefault(); e.stopPropagation();
       if (e.stopImmediatePropagation) e.stopImmediatePropagation();
       dragging = true;
@@ -2305,7 +2317,7 @@
           interactive: false
         }).addTo(map);
         labels.push(label);
-        if (!isLocked) {
+        if (!isLocked && appView === 'medir') {
           const mid = L.marker(midLL, { icon: midIcon }).addTo(map);
           mid.on('click', (e) => { L.DomEvent.stopPropagation(e); if (isLocked) return; addPoint(midLL, i + 1); });
           midMarkers.push(mid);
@@ -2349,10 +2361,11 @@
     function updateLiveBadge() {
       const el = document.getElementById('liveReadout');
       if (!el) return;
+      updateViewSwitchUI();
       const info = document.getElementById('infoPanel');
       const infoOpen = !!(info && !info.classList.contains('hidden'));
-      const active = (drawingActive || trackMode || !!editingId) && !infoOpen && !poiMode;
       const recording = gpsWatchId !== null;
+      const active = (drawingActive || trackMode || !!editingId) && !infoOpen && !poiMode && (appView === 'medir' || recording);
       if (!active || (points.length < 2 && !(trackMode && recording))) { removeLiveBadge(); return; }
       const item = (cap, val, sub) =>
         `<div class="lr-item"><div class="lr-cap">${cap}</div><div class="lr-val">${val}</div>${sub ? `<div class="lr-sub">${sub}</div>` : ''}</div>`;
@@ -2978,6 +2991,44 @@
       mc?.setAttribute('data-mode', m);
       mc?.setAttribute('data-rec', (trackMode && gpsWatchId !== null) ? '1' : '0');
     }
+    // ========== VISTA: Ver / Medir ==========
+    // Ver = mapa limpio, solo consulta. Medir = panel de medición. La app arranca en Ver.
+    let appView = 'ver';
+    function hasPendingWork() { return points.length > 0 || gpsWatchId !== null || !!editingId; }
+    function ensureMedir() { if (appView !== 'medir') { appView = 'medir'; applyAppView(); } }
+    function setAppView(v) {
+      if (v === appView) return;
+      if (v === 'ver') {
+        if (poiMode) exitPoiMode(false);
+        // Si no hay nada en curso, todo vuelve a reposo; si hay grabación o borrador, se conservan
+        if (!hasPendingWork()) {
+          if (trackMode) setMode('polygon');
+          setDrawingActive(false);
+        }
+      }
+      appView = v;
+      applyAppView();
+    }
+    function updateViewSwitchUI() {
+      const ver = document.getElementById('viewVerBtn'), med = document.getElementById('viewMedirBtn');
+      if (!ver || !med) return;
+      const on = 'bg-slate-100 text-slate-900', off = 'bg-slate-800 text-slate-300';
+      ver.classList.remove(...on.split(' '), ...off.split(' '));
+      med.classList.remove(...on.split(' '), ...off.split(' '));
+      ver.classList.add(...(appView === 'ver' ? on : off).split(' '));
+      med.classList.add(...(appView === 'medir' ? on : off).split(' '));
+      ver.setAttribute('aria-pressed', appView === 'ver' ? 'true' : 'false');
+      med.setAttribute('aria-pressed', appView === 'medir' ? 'true' : 'false');
+      document.getElementById('viewMedirDot')?.classList.toggle('hidden', !(appView === 'ver' && hasPendingWork()));
+    }
+    function applyAppView() {
+      document.getElementById('mainControls')?.classList.toggle('view-only', appView === 'ver');
+      updateViewSwitchUI();
+      updateLiveBadge();
+      if (points.length) { try { rebuildMarkers(); redraw(); } catch (e) {} }
+      updateCollapseBtn();
+    }
+
     function updateCollapseBtn() {
       updateModeTheme();
       const btn = document.getElementById('panelToggleBtn');
@@ -3001,6 +3052,7 @@
     }
 
     function setDrawingActive(on) {
+      if (on) ensureMedir();
       drawingActive = !!on;
       updateDrawingUI();
       updateSessionButtons();
@@ -3113,6 +3165,7 @@
     }
 
     function enterPoiMode() {
+      ensureMedir();
       if (isLocked) return;
       if (gpsWatchId !== null) stopGpsTracking();
       else if (trackMode) { trackMode = false; setGpsBtnState(false); refreshTrackBar(); }
@@ -4279,6 +4332,7 @@
     }
 
     function enterTrackMode() {
+      ensureMedir();
       if (isLocked) return toast({ type: 'warning', title: 'Medición bloqueada', message: 'Entrá en Editar para modificarla.' });
       if (poiMode) exitPoiMode(false);
       setDrawingActive(false);

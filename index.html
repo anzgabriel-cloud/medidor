@@ -5,6 +5,17 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>Medidor de Terrenos</title>
 
+  <!-- App instalable (pantalla completa en iPhone: Compartir > Añadir a pantalla de inicio) -->
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="apple-touch-icon" href="icon-180.png">
+  <meta name="theme-color" content="#0b1120">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Medidor">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <!-- Versión: debe coincidir con APP_VERSION (app.js) y --app-version (styles.css) -->
+  <meta name="app-version" content="2026.11.09-1">
+
   <!-- Dependencias externas -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <script src="https://cdn.tailwindcss.com/3.4.16"></script>
@@ -141,72 +152,7 @@
     <div class="max-w-xl mx-auto flex flex-col">
       <div id="toastContainer" aria-live="polite" aria-atomic="true"></div>
 
-      <!-- Toggle arrow -->
-      <button id="panelToggleBtn" type="button" title="Ocultar / mostrar panel" aria-label="Ocultar o mostrar el panel" aria-expanded="true">
-        <i data-lucide="chevron-down" class="w-5 h-5"></i>
-      </button>
-      <div id="collapseHint">Para ver datos de cada medición, tocala</div>
-
-      <!-- Compact bar when collapsed -->
-      <div id="panelCollapsedBar">
-        <div class="flex items-center gap-3 min-w-0">
-          <span class="text-[10px] font-bold uppercase tracking-wider text-slate-400 flex-shrink-0" id="collapsedModeLabel">Superficie</span>
-          <span class="text-sm font-bold text-emerald-400 truncate" id="collapsedHa">0,00 ha</span>
-          <span class="text-sm font-bold text-sky-400 truncate" id="collapsedKm">0,00 km</span>
-        </div>
-        <span class="text-[10px] text-slate-500 flex-shrink-0" id="collapsedPoints">0 pts</span>
-      </div>
-
       <div id="panelBody">
-      <!-- Datos -->
-      <div id="metricsPanel" class="pointer-events-auto backdrop-blur-md rounded-2xl px-3 py-2 shadow-2xl" style="background: rgba(15,23,42,0.90); border: 2px solid rgba(245, 158, 11, 0.5);">
-        <div class="flex items-center gap-3">
-          <i id="modeIcon" data-lucide="pentagon" class="w-5 h-5 text-emerald-400 flex-shrink-0"></i>
-          <div class="flex items-center gap-3 ml-auto text-right min-w-0">
-            <div class="leading-tight">
-              <div class="text-[10px] text-slate-400">Puntos</div>
-              <div class="text-sm font-bold text-slate-100" id="pointCount">0</div>
-            </div>
-            <div id="areaBox" class="leading-tight">
-              <div class="text-[10px] text-slate-400">Superficie</div>
-              <div class="text-sm font-bold text-emerald-400" id="haDisplay">0,00 <span class="text-[10px] font-normal">ha</span></div>
-            </div>
-            <div id="distBox" class="leading-tight">
-              <div class="text-[10px] text-slate-400" id="distLabel">Perímetro</div>
-              <div class="text-sm font-bold text-sky-400" id="kmDisplay">0,00 <span class="text-[10px] font-normal">km</span></div>
-            </div>
-          </div>
-        </div>
-        <div class="hidden" id="m2Display">0 m²</div>
-        <div class="hidden" id="mDisplay">0 m</div>
-        <div id="bearingBox" class="hidden mt-2 pt-2 border-t border-slate-800/80">
-          <div class="flex items-center justify-between mb-1">
-            <span class="text-[11px] font-semibold text-slate-400 flex items-center gap-1">
-              <i data-lucide="compass" class="w-3.5 h-3.5"></i> Rumbo último tramo
-            </span>
-            <span class="text-[10px] text-slate-500" id="declinationHint">Declinación</span>
-          </div>
-          <div class="grid grid-cols-2 gap-2">
-            <div class="bg-slate-950/70 rounded-xl px-2.5 py-1.5 border border-slate-800">
-              <div class="text-[10px] text-slate-500 uppercase">Norte verdadero</div>
-              <div class="text-base font-bold text-amber-300" id="bearingTrue">—</div>
-              <div class="text-[10px] text-slate-500" id="bearingTrueCard">—</div>
-            </div>
-            <div class="bg-slate-950/70 rounded-xl px-2.5 py-1.5 border border-slate-800">
-              <div class="text-[10px] text-slate-500 uppercase">Norte magnético</div>
-              <div class="text-base font-bold text-rose-300" id="bearingMag">—</div>
-              <div class="text-[10px] text-slate-500" id="bearingMagCard">—</div>
-            </div>
-          </div>
-        </div>
-        <div id="selfIntersectWarning">
-          <i data-lucide="alert-triangle" class="w-4 h-4 flex-shrink-0"></i>
-          <span>Este polígono se cruza a sí mismo. La superficie puede ser incorrecta.</span>
-        </div>
-        <span id="modeTitle" class="hidden">Modo Superficie</span>
-        <span id="lockStatus" class="hidden"></span>
-      </div>
-
       <!-- Selector + acciones -->
       <div id="bottomToolbar" class="mt-1 pointer-events-auto backdrop-blur-md rounded-2xl p-2.5">
         <div class="flex items-center gap-2 mb-2">
@@ -328,10 +274,6 @@
             Declinación magnética
           </span>
           <span id="infoDeclinationValue" class="font-bold text-rose-300">—</span>
-        </div>
-        <div id="infoPois" class="hidden mb-2 px-2.5 py-2 rounded-xl bg-slate-950/80 border border-amber-500/25 text-[11px] text-slate-300">
-          <div class="text-[10px] uppercase tracking-wide text-amber-300 mb-1">POI en esta zona</div>
-          <div id="infoPoisList"></div>
         </div>
         <div class="flex gap-1 flex-wrap">
           <button id="infoToggleSegs" class="flex-1 min-w-[22%] text-[10px] font-semibold py-2 rounded-lg border bg-emerald-500/15 text-emerald-300 border-emerald-500/40 flex items-center justify-center gap-1">

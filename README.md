@@ -4,7 +4,9 @@ Estructura de archivos:
 
 - **index.html** — Estructura HTML limpia. Solo markup y enlaces a CSS/JS.
 - **styles.css** — Todos los estilos (antes embebidos). Agrupados con los comentarios originales.
-- **app.js** — Toda la lógica JavaScript (~3500 líneas). 
+- **app.js** — Toda la lógica JavaScript (~3300 líneas).
+- **sw.js** — Service worker: guarda la app completa desde la primera visita y permite usarla sin conexión.
+- **manifest.webmanifest** e **icon-*.png** — Hacen que la app se pueda instalar (pantalla completa en el iPhone).
 
 ## Secciones principales en `app.js`
 
@@ -32,6 +34,20 @@ El código mantiene los comentarios de sección originales para facilitar la nav
 - SAVE / LOAD
 - GPS
 
+## Versión (para no mezclar archivos)
+
+La versión está escrita en tres lugares y deben coincidir; si no, la app avisa «Actualización incompleta»:
+
+- `index.html` → `<meta name="app-version" content="…">`
+- `styles.css` → `:root { --app-version: "…"; }`
+- `app.js` → `const APP_VERSION = '…';`
+
+Al publicar cambios, subir siempre `index.html`, `styles.css` y `app.js` juntos (y `sw.js` / `manifest` / íconos solo si cambiaron).
+
+## Instalar en el iPhone (pantalla completa)
+
+Safari → Compartir → **Añadir a pantalla de inicio**. La app instalada guarda sus datos aparte de Safari: hay que **Exportar** las mediciones y POI en Safari e **Importar** el archivo en la app instalada (los Ajustes se vuelven a configurar).
+
 ## Cómo usar
 
 1. Serví la carpeta con un servidor local (necesario para geolocalización y service worker):
@@ -42,6 +58,7 @@ El código mantiene los comentarios de sección originales para facilitar la nav
 
 ## Notas
 
+- Código muerto eliminado (flecha de colapsar, panel de datos oculto, funciones sin uso).
 - Se eliminó la indentación artificial que tenía el JS por estar dentro del `<script>`.
 - El comportamiento es idéntico al original.
 - Próximos pasos recomendados (si querés seguir):

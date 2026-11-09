@@ -87,7 +87,6 @@ let poiSessionRedo = [];
 let navPoi = null;
 let navLine = null;
 let navLabel = null;
-let wasCollapsed = false;
 
 const OFFSET = 70;
 let dragGrabOffsetX = 0;
@@ -209,7 +208,6 @@ function applySettings() {
       refreshInspectOverlays();
     }
   } catch (e) {}
-  try { updateBearingUI(); } catch (e) {}
 }
 
 function refreshSettingsUI() {
@@ -606,13 +604,8 @@ function init() {
   };
   map.on('move', updatePoiCenterCoords);
   map.on('zoom', updatePoiCenterCoords);
-  function restorePanelToggle() {
-  if (poiMode) return;
-  if (!document.getElementById('infoPanel')?.classList.contains('hidden')) return;
-  document.getElementById('panelToggleBtn')?.classList.remove('hidden');
-}
-document.getElementById('closePoiBtn').onclick = (e) => { e.preventDefault(); e.stopPropagation(); document.getElementById('poiDrawer').classList.add('hidden'); restorePanelToggle(); };
-  document.getElementById('poiDrawer').onclick = (e) => { if (e.target.id === 'poiDrawer') { document.getElementById('poiDrawer').classList.add('hidden'); restorePanelToggle(); } };
+document.getElementById('closePoiBtn').onclick = (e) => { e.preventDefault(); e.stopPropagation(); document.getElementById('poiDrawer').classList.add('hidden'); };
+  document.getElementById('poiDrawer').onclick = (e) => { if (e.target.id === 'poiDrawer') { document.getElementById('poiDrawer').classList.add('hidden'); } };
   const poiPanel = document.getElementById('poiDrawerPanel');
   if (poiPanel) poiPanel.onclick = (e) => e.stopPropagation();
   document.getElementById('cancelPoiBtn').onclick = () => {
@@ -661,8 +654,8 @@ document.getElementById('closePoiBtn').onclick = (e) => { e.preventDefault(); e.
       });
     };
   });
-  document.getElementById('closeSavedBtn').onclick = (e) => { e.preventDefault(); e.stopPropagation(); document.getElementById('savedDrawer').classList.add('hidden'); restorePanelToggle(); };
-  document.getElementById('savedDrawer').onclick = (e) => { if (e.target.id === 'savedDrawer') { document.getElementById('savedDrawer').classList.add('hidden'); restorePanelToggle(); } };
+  document.getElementById('closeSavedBtn').onclick = (e) => { e.preventDefault(); e.stopPropagation(); document.getElementById('savedDrawer').classList.add('hidden'); };
+  document.getElementById('savedDrawer').onclick = (e) => { if (e.target.id === 'savedDrawer') { document.getElementById('savedDrawer').classList.add('hidden'); } };
   const savedPanel = document.getElementById('savedDrawerPanel');
   if (savedPanel) savedPanel.onclick = (e) => e.stopPropagation();
   document.getElementById('cancelSaveBtn').onclick = () => document.getElementById('saveModal').classList.add('hidden');
@@ -754,41 +747,32 @@ document.getElementById('closePoiBtn').onclick = (e) => { e.preventDefault(); e.
   updateLockUI();
   setTimeout(checkDraft, 700);
 
-  // Panel collapse toggle
-  const panelToggle = document.getElementById('panelToggleBtn');
-  if (panelToggle) {
-    try {
-      if (localStorage.getItem('medidor_panel_collapsed') === '1') {
-        document.getElementById('mainControls').classList.add('panel-collapsed');
-        panelToggle.setAttribute('aria-expanded', 'false');
-      }
-    } catch (e) {}
-    const togglePanel = () => {
-      const main = document.getElementById('mainControls');
-      const collapsed = main.classList.toggle('panel-collapsed');
-      panelToggle.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
-      try { localStorage.setItem('medidor_panel_collapsed', collapsed ? '1' : '0'); } catch (e) {}
-      lucide.createIcons();
-    };
-    panelToggle.onclick = togglePanel;
-    const collapsedBar = document.getElementById('panelCollapsedBar');
-    if (collapsedBar) collapsedBar.onclick = () => {
-      if (document.getElementById('mainControls').classList.contains('panel-collapsed')) togglePanel();
-    };
-  }
-
   setDrawingActive(false);
   updateLockUI();
-  document.getElementById('mainControls')?.classList.remove('panel-collapsed');
   document.getElementById('viewVerBtn').onclick = () => onViewSwitch('ver');
   document.getElementById('viewMedirBtn').onclick = () => onViewSwitch('medir');
   document.getElementById('viewHintOk').onclick = () => hideViewHint(true);
   applyAppView(); // arranca en Medir
+  checkAppVersion();
   setTimeout(showViewHint, 900);
-  updateCollapseBtn();
+  updateModeTheme();
 }
 
 // ========== LOCK UI ==========
+/** Detecta archivos de distintas versiones (p. ej. se subió app.js nuevo pero no index.html) */
+function checkAppVersion() {
+  try {
+    const html = document.querySelector('meta[name="app-version"]')?.content || '';
+    const css = getComputedStyle(document.documentElement).getPropertyValue('--app-version').replace(/["'\s]/g, '');
+    const bad = [];
+    if (html !== APP_VERSION) bad.push('index.html');
+    if (css !== APP_VERSION) bad.push('styles.css');
+    if (bad.length) {
+      toast({ type: 'warning', title: 'Actualización incompleta', message: `Falta actualizar ${bad.join(' y ')} (la app es ${APP_VERSION}). Subí index.html, styles.css y app.js juntos y recargá.`, duration: 15000 });
+    }
+  } catch (e) {}
+}
+
 function updateSaveBtnLabel() {
   const label = document.getElementById('saveBtnLabel');
   const btn = document.getElementById('saveBtn');
@@ -805,8 +789,6 @@ function updateSaveBtnLabel() {
 }
 
 function updateLockUI() {
-  const status = document.getElementById('lockStatus');
-  if (status) status.classList.toggle('hidden', !isLocked);
   // Nueva siempre habilitada (sirve para arrancar o reiniciar)
   ['modePolyBtn', 'modeLineBtn'].forEach(id => {
     const el = document.getElementById(id);
@@ -1127,44 +1109,12 @@ function magneticBearing(trueBrg, decl) {
   return (trueBrg - decl + 360) % 360;
 }
 
-function formatBearing(deg) {
-  const r = Math.round((((deg % 360) + 360) % 360) * 10) / 10;
-  return `${(r >= 360 ? 0 : r).toFixed(1)}°`;
-}
 function brg0(deg) { return String(Math.round((((deg % 360) + 360) % 360)) % 360); }
 
 function bearingCardinal(deg) {
   const dirs = ['N', 'NNE', 'NE', 'ENE', 'E', 'ESE', 'SE', 'SSE', 'S', 'SSO', 'SO', 'OSO', 'O', 'ONO', 'NO', 'NNO'];
   const idx = Math.round(deg / 22.5) % 16;
   return dirs[idx];
-}
-
-function updateBearingUI() {
-  const box = document.getElementById('bearingBox');
-  if (!box) return;
-  if (mode !== 'line' || points.length < 2) {
-    box.classList.add('hidden');
-    return;
-  }
-  box.classList.remove('hidden');
-  const from = points[points.length - 2];
-  const to = points[points.length - 1];
-  const trueBrg = trueBearing(from, to);
-  const midLat = (from.lat + to.lat) / 2;
-  const midLng = (from.lng + to.lng) / 2;
-  const decl = magneticDeclination(midLat, midLng);
-  const magBrg = magneticBearing(trueBrg, decl);
-
-  document.getElementById('bearingTrue').textContent = formatBearing(trueBrg);
-  document.getElementById('bearingTrueCard').textContent = bearingCardinal(trueBrg);
-  document.getElementById('bearingMag').textContent = formatBearing(magBrg);
-  document.getElementById('bearingMagCard').textContent = bearingCardinal(magBrg);
-
-  const absDecl = Math.abs(decl).toFixed(1);
-  const side = decl >= 0 ? 'E' : 'O';
-  const hint = document.getElementById('declinationHint');
-  const tag = getDeclOverride() !== null ? 'manual' : 'estimada';
-  hint.textContent = `Declinación ${absDecl}° ${side} (${tag})`;
 }
 
 // ========== HISTORY ==========
@@ -1340,7 +1290,6 @@ function redraw() {
   midMarkers = []; labels = [];
   updateGeometry();
   const n = points.length;
-  document.getElementById('pointCount').textContent = `${n} ${n === 1 ? 'punto' : 'puntos'}`;
   updateClearBtnState();
   updateSessionButtons();
   if (n < 2) return;
@@ -1436,6 +1385,11 @@ function updateLiveBadge() {
   if (!active || (points.length < 2 && !(trackMode && recording))) { removeLiveBadge(); return; }
   const item = (cap, val, sub) =>
     `<div class="lr-item"><div class="lr-cap">${cap}</div><div class="lr-val">${val}</div>${sub ? `<div class="lr-sub">${sub}</div>` : ''}</div>`;
+  const bearingItem = (brg, ref) => {
+    if (brg === null || !ref) return item('Rumbo', '—');
+    const mag = magneticBearing(brg, magneticDeclination(ref.lat, ref.lng));
+    return item('Rumbo', `${brg0(brg)}° V`, `${brg0(mag)}° M · ${bearingCardinal(brg)}`);
+  };
   let html;
   if (trackMode) {
     const n = points.length;
@@ -1443,12 +1397,7 @@ function updateLiveBadge() {
     // Rumbo: el del GPS en marcha; si no, el del último tramo
     let brg = gpsLive.heading;
     if (brg === null && n >= 2) brg = trueBearing(points[n - 2], points[n - 1]);
-    let brgHtml = item('Rumbo', '—');
-    if (brg !== null) {
-      const ref = n >= 1 ? points[n - 1] : { lat: 0, lng: 0 };
-      const mag = magneticBearing(brg, magneticDeclination(ref.lat, ref.lng));
-      brgHtml = item('Rumbo', `${brg0(brg)}° V`, `${brg0(mag)}° M · ${bearingCardinal(brg)}`);
-    }
+    const brgHtml = bearingItem(brg, n >= 1 ? points[n - 1] : null);
     const secs = (gpsLive.recMs + (gpsLive.recStart ? Date.now() - gpsLive.recStart : 0)) / 1000;
     const avg = secs > 5 && liveDist > 0 ? liveDist / secs : null;
     html = item('Recorrido', fmtLenShort(liveDist))
@@ -1458,36 +1407,30 @@ function updateLiveBadge() {
   } else if (mode === 'polygon' && points.length >= 3) {
     const am = areaMain(liveArea);
     html = item('Superficie', `${nf2.format(am.v)} ${am.u}`, areaSub(liveArea)) + item('Perímetro', fmtLenShort(liveDist));
+    if (liveSelfIntersect) {
+      html += '<div class="lr-item lr-warn"><div class="lr-cap">Atención</div><div class="lr-val">Se cruza</div><div class="lr-sub">la superficie puede ser incorrecta</div></div>';
+    }
   } else {
     html = item(mode === 'polygon' ? 'Distancia' : 'Largo', fmtLenShort(liveDist));
+    if (mode === 'line' && points.length >= 2) {
+      // Rumbo del último tramo (verdadero y magnético)
+      html += bearingItem(trueBearing(points[points.length - 2], points[points.length - 1]), points[points.length - 1]);
+    }
   }
   el.innerHTML = html;
   el.classList.add('on');
 }
 function updateMetrics(areaM2, distM) {
   liveArea = areaM2; liveDist = distM;
-  const fmt = new Intl.NumberFormat('es-AR', { maximumFractionDigits: 2 });
-  const fmt0 = new Intl.NumberFormat('es-AR', { maximumFractionDigits: 0 });
-  const am = areaMain(areaM2), lm = lenMain(distM);
-  document.getElementById('haDisplay').innerHTML = `${fmt.format(am.v)} <span class="text-xs font-normal text-emerald-300">${am.u}</span>`;
-  document.getElementById('m2Display').textContent = areaSub(areaM2);
-  document.getElementById('kmDisplay').innerHTML = `${fmt.format(lm.v)} <span class="text-xs font-normal text-sky-300">${lm.u}</span>`;
-  document.getElementById('mDisplay').textContent = lenSub(distM);
-  // Compact bar (panel collapsed)
-  const cHa = document.getElementById('collapsedHa');
-  const cKm = document.getElementById('collapsedKm');
-  const cPts = document.getElementById('collapsedPoints');
-  const cMode = document.getElementById('collapsedModeLabel');
-  if (cHa) cHa.textContent = `${fmt.format(am.v)} ${am.u}`;
-  if (cKm) cKm.textContent = `${fmt.format(lm.v)} ${lm.u}`;
-  if (cPts) cPts.textContent = `${points.length} pts`;
-  if (cMode) cMode.textContent = mode === 'polygon' ? 'Superficie' : 'Distancia';
   updateLiveBadge();
-  updateBearingUI();
 }
+const APP_VERSION = '2026.11.09-1';
+let liveSelfIntersect = false; // el polígono se cruza a sí mismo (los marcadores rojos ya lo señalan)
 function updateSelfIntersectWarning(show) {
-  const el = document.getElementById('selfIntersectWarning');
-  if (el) el.classList.toggle('visible', !!show);
+  const v = !!show;
+  if (v === liveSelfIntersect) return;
+  liveSelfIntersect = v;
+  updateLiveBadge();
 }
 function drawKinkMarkers(features) {
   clearKinkMarkers();
@@ -1574,11 +1517,6 @@ function vertexAngleInfo(latlngs, i, closed, ccw) {
   const isCCW = (ccw === undefined) ? polygonIsCCW(latlngs) : ccw;
   const deg = isCCW ? swing : 360 - swing;
   return { deg, reflex: deg > 180 };
-}
-
-function vertexAngleDeg(latlngs, i, closed) {
-  const info = vertexAngleInfo(latlngs, i, closed);
-  return info ? info.deg : null;
 }
 
 /** Geometría del arco en pantalla (Mercator es conforme: los ángulos se conservan). */
@@ -1859,39 +1797,12 @@ function showMeasurementInfo(item) {
   }
   updateInfoToggleUI();
   refreshInspectOverlays();
-  document.getElementById('infoPois')?.classList.add('hidden');
   const main = document.getElementById('mainControls');
-  if (main) {
-    wasCollapsed = main.classList.contains('panel-collapsed');
-    main.classList.remove('hidden');
-  }
-  updateCollapseBtn();
-  document.getElementById('panelToggleBtn')?.classList.add('hidden');
-  document.getElementById('collapseHint')?.classList.add('hidden');
+  if (main) main.classList.remove('hidden');
+  updateModeTheme();
   document.getElementById('infoPanel').classList.remove('hidden');
   try { updateLiveBadge(); } catch (e) {}
   lucide.createIcons();
-}
-
-function showNearbyPois(latlngs) {
-  const box = document.getElementById('infoPois');
-  const list = document.getElementById('infoPoisList');
-  if (!box || !list) return;
-  if (!latlngs || latlngs.length < 2 || !pois.length) {
-    box.classList.add('hidden');
-    return;
-  }
-  const bounds = L.latLngBounds(latlngs.map(p => [p.lat, p.lng]));
-  bounds.pad(0.15);
-  const near = pois.filter(p => p.visible !== false && bounds.contains([p.lat, p.lng]));
-  if (!near.length) {
-    box.classList.add('hidden');
-    return;
-  }
-  list.innerHTML = near.map(p =>
-    `<div class="flex items-center gap-1.5 py-0.5"><span class="w-1.5 h-1.5 rounded-full" style="background:${POI_COLORS[p.cat] || '#f59e0b'}"></span><span class="truncate">${escapeHtml(p.name)}</span><span class="text-slate-500 ml-auto">${POI_LABELS[p.cat] || 'Pin'}</span></div>`
-  ).join('');
-  box.classList.remove('hidden');
 }
 
 function showPoiInfo(p) {
@@ -1917,11 +1828,9 @@ function showPoiInfo(p) {
       ${fmtCoordLines(p.lat, p.lng).map(t => `<div class="text-[12px] font-mono text-slate-200">${escapeHtml(t)}</div>`).join('')}
     </div>`;
   document.getElementById('infoDeclination')?.classList.add('hidden');
-  document.getElementById('infoPois')?.classList.add('hidden');
   document.querySelector('#infoPanel .flex.gap-1')?.classList.add('hidden');
   const main = document.getElementById('mainControls');
-  if (main) { wasCollapsed = main.classList.contains('panel-collapsed'); main.classList.add('hidden'); }
-  document.getElementById('panelToggleBtn')?.classList.add('hidden');
+  if (main) main.classList.add('hidden');
   document.getElementById('infoPanel').classList.remove('hidden');
   lucide.createIcons();
 }
@@ -1932,9 +1841,7 @@ function hideMeasurementInfo() {
   document.querySelector('#infoPanel .flex.gap-1')?.classList.remove('hidden');
   const main = document.getElementById('mainControls');
   if (main) main.classList.remove('hidden');
-  if (wasCollapsed && main) main.classList.add('panel-collapsed');
-  wasCollapsed = false;
-  updateCollapseBtn();
+  updateModeTheme();
   clearInspectLayers();
   inspectItem = null;
 }
@@ -2031,7 +1938,6 @@ function clearActiveMeasurement(opts = {}) {
   points = [];
   polyLayer = lineLayer = guideLine = touchDot = null;
   updateMetrics(0, 0);
-  document.getElementById('pointCount').textContent = '0 puntos';
   updateSelfIntersectWarning(false);
   resetHistory();
 
@@ -2116,29 +2022,7 @@ function applyAppView() {
   updateViewSwitchUI();
   updateLiveBadge();
   if (points.length) { try { rebuildMarkers(); redraw(); } catch (e) {} }
-  updateCollapseBtn();
-}
-
-function updateCollapseBtn() {
   updateModeTheme();
-  const btn = document.getElementById('panelToggleBtn');
-  if (!btn) return;
-  const infoOpen = !document.getElementById('infoPanel')?.classList.contains('hidden');
-  const contemplating = !drawingActive && !poiMode && !trackMode && !isLocked && !infoOpen;
-  btn.classList.toggle('hidden', !contemplating);
-  // Red de seguridad: si el botón de mostrar/ocultar está oculto (editando, dibujando,
-  // grabando o en modo POI), el panel no puede quedar colapsado: sin ese botón
-  // el usuario no tendría cómo recuperar "Guardar cambios".
-  const mainEl = document.getElementById('mainControls');
-  if (!contemplating && !infoOpen && mainEl && mainEl.classList.contains('panel-collapsed')) {
-    mainEl.classList.remove('panel-collapsed');
-    btn.setAttribute('aria-expanded', 'true');
-  }
-  const hint = document.getElementById('collapseHint');
-  if (hint) {
-    const hasItems = saved.some(s => s.visible !== false) || pois.some(p => p.visible !== false);
-    hint.classList.toggle('hidden', !hasItems);
-  }
 }
 
 function setDrawingActive(on) {
@@ -2146,13 +2030,12 @@ function setDrawingActive(on) {
   drawingActive = !!on;
   updateDrawingUI();
   updateSessionButtons();
-  updateCollapseBtn();
+  updateModeTheme();
 }
 
 function updateDrawingUI() {
   updateModeTheme();
   const newBtn = document.getElementById('newBtn');
-  const hint = document.getElementById('drawHint');
   if (newBtn) {
     if (drawingActive && !isLocked) {
       newBtn.classList.remove('bg-sky-500/20', 'text-sky-300', 'border-sky-500/40');
@@ -2162,22 +2045,6 @@ function updateDrawingUI() {
       newBtn.classList.add('bg-sky-500/20', 'text-sky-300', 'border-sky-500/40');
       newBtn.classList.remove('bg-sky-500', 'text-white', 'border-sky-400', 'ring-2', 'ring-sky-400/40');
       newBtn.title = 'Empezar una medición nueva (habilita tocar el mapa)';
-    }
-  }
-  if (hint) {
-    hint.classList.remove('hidden');
-    if (poiMode) {
-      hint.textContent = 'Modo POI · mové el mapa hasta la cruz · Ubicar POI fija el punto';
-    } else if (trackMode) {
-      hint.textContent = gpsWatchId !== null
-        ? 'Grabando recorrido · Detener grabación para parar · Guardar recorrido cuando termines'
-        : 'Modo Recorrido · tocá Iniciar grabación para empezar';
-    } else if (isLocked) {
-      hint.textContent = 'Medición en solo lectura · usá Editar en Guardadas para modificarla';
-    } else if (drawingActive) {
-      hint.textContent = 'Medición activa · tocá el mapa para agregar puntos · Arrastrá para mover · Guardar fija la medición';
-    } else {
-      hint.textContent = 'Tocá «Nueva medición» para empezar a medir · así evitás puntos por toques accidentales';
     }
   }
   try {
@@ -2204,7 +2071,6 @@ function setMode(m) {
   const polyBtn = document.getElementById('modePolyBtn');
   const lineBtn = document.getElementById('modeLineBtn');
   const poiBtn = document.getElementById('modePoiBtn');
-  const modeIcon = document.getElementById('modeIcon');
   const on = 'w-full flex items-center gap-2 py-2 px-2 rounded-lg text-xs font-bold text-white shadow min-h-[36px]';
   const off = 'w-full flex items-center gap-2 py-2 px-2 rounded-lg text-xs font-bold text-slate-300 bg-slate-800/70 border border-slate-600/50 min-h-[36px]';
   if (polyBtn) polyBtn.className = off;
@@ -2212,46 +2078,12 @@ function setMode(m) {
   if (poiBtn) poiBtn.className = off;
   if (m === 'polygon') {
     polyBtn.className = on + ' bg-emerald-600';
-    document.getElementById('modeTitle').textContent = 'Modo Superficie';
-    document.getElementById('distLabel').textContent = 'Perímetro';
-    document.getElementById('areaBox').classList.remove('hidden');
-    document.getElementById('distBox').classList.remove('col-span-2');
-    if (modeIcon) {
-      const icon = document.createElement('i');
-      icon.id = 'modeIcon';
-      icon.setAttribute('data-lucide', 'pentagon');
-      icon.className = 'w-4 h-4 text-emerald-400';
-      modeIcon.replaceWith(icon);
-    }
   } else if (m === 'line') {
     lineBtn.className = on + ' bg-sky-600';
-    document.getElementById('modeTitle').textContent = 'Modo Distancia';
-    document.getElementById('distLabel').textContent = 'Distancia Total';
-    document.getElementById('areaBox').classList.add('hidden');
-    document.getElementById('distBox').classList.add('col-span-2');
-    if (modeIcon) {
-      const icon = document.createElement('i');
-      icon.id = 'modeIcon';
-      icon.setAttribute('data-lucide', 'ruler');
-      icon.className = 'w-4 h-4 text-sky-400';
-      modeIcon.replaceWith(icon);
-    }
   }
   lucide.createIcons();
   updateModeTheme();
   redraw();
-}
-
-function refreshPoiMetric() {
-  const area = document.getElementById('areaBox');
-  const dist = document.getElementById('distBox');
-  const count = document.getElementById('pointCount');
-  if (area) area.classList.toggle('hidden', poiMode);
-  if (dist) dist.classList.toggle('hidden', poiMode);
-  if (poiMode && count) {
-    const n = pois.length;
-    count.textContent = `${n} ${n === 1 ? 'POI' : 'POI'}`;
-  }
 }
 
 function enterPoiMode() {
@@ -2272,20 +2104,8 @@ function enterPoiMode() {
   if (polyBtn) polyBtn.className = off;
   if (lineBtn) lineBtn.className = off;
   if (poiBtn) poiBtn.className = on + ' bg-amber-500 text-slate-950';
-  const title = document.getElementById('modeTitle');
-  if (title) title.textContent = 'Modo POI';
-  const modeIcon = document.getElementById('modeIcon');
-  if (modeIcon) {
-    const icon = document.createElement('i');
-    icon.id = 'modeIcon';
-    icon.setAttribute('data-lucide', 'map-pin');
-    icon.className = 'w-4 h-4 text-amber-400';
-    modeIcon.replaceWith(icon);
-    lucide.createIcons();
-  }
   setPoiAim(true);
-  refreshPoiMetric();
-  updateCollapseBtn();
+  updateModeTheme();
   const nb = document.getElementById('newBtn');
   if (nb) nb.disabled = true;
   document.getElementById('saveBtn')?.classList.add('hidden');
@@ -2296,12 +2116,11 @@ function enterPoiMode() {
 function exitPoiMode(openList) {
   poiMode = false;
   setPoiAim(false);
-  refreshPoiMetric();
   const nb = document.getElementById('newBtn');
   if (nb) { nb.classList.remove('hidden'); nb.disabled = false; }
   document.getElementById('saveBtn')?.classList.remove('hidden');
   document.getElementById('poiDoneBtn')?.classList.add('hidden');
-  updateCollapseBtn();
+  updateModeTheme();
   setMode(mode);
   if (openList !== false) { /* stay on map */ }
 }
@@ -2694,36 +2513,8 @@ function setPoiAim(on) {
       : 'text-xs font-semibold bg-amber-500/20 text-amber-300 border border-amber-500/40 rounded-md inline-flex items-center justify-center gap-1 h-8 px-2';
     placeBtn.title = poiMode ? 'Ubicar el POI en la cruz' : 'Se activa en modo POI';
   }
-  const toggle = document.getElementById('panelToggleBtn');
-  if (toggle) {
-    const infoOpen = !document.getElementById('infoPanel')?.classList.contains('hidden');
-    const hide = poiMode || drawingActive || trackMode || isLocked || infoOpen;
-    toggle.classList.toggle('hidden', hide);
-  }
-  if (poiMode) document.getElementById('mainControls')?.classList.remove('panel-collapsed');
   if (on) updatePoiCenterCoords();
   updateDrawingUI();
-}
-
-function startPoiAim() {
-  if (!poiMode) return;
-  setPoiAim(true);
-  toast({ type: 'info', title: 'Cruz activa', message: 'Mové el mapa hasta el punto y tocá Colocar POI.', duration: 2200 });
-}
-
-function togglePoiMode() {
-  poiMode = !poiMode;
-  const btn = document.getElementById('poiBtn');
-  if (btn) {
-    btn.classList.toggle('bg-amber-500/20', poiMode);
-    btn.classList.toggle('border-amber-500/50', poiMode);
-    btn.classList.toggle('text-amber-200', poiMode);
-    btn.title = poiMode
-      ? 'Modo POI activo · mové el mapa y tocá Colocar aquí'
-      : 'Insertar punto de interés';
-  }
-  setPoiAim(poiMode);
-  if (!poiMode) openPoiDrawer();
 }
 
 function setPoiCatUI(cat) {
@@ -2861,7 +2652,6 @@ function persistPois() {
   if (badge) badge.textContent = pois.length;
   const btn = document.getElementById('poiBtn');
   if (btn) btn.disabled = pois.length === 0;
-  refreshPoiMetric();
 }
 
 function loadPois() {
@@ -3012,7 +2802,6 @@ function deletePoi(id) {
 function openPoiDrawer() {
   renderPoiList();
   document.getElementById('poiDrawer').classList.remove('hidden');
-  document.getElementById('panelToggleBtn')?.classList.add('hidden');
 }
 
 // ========== SAVE / LOAD ==========
@@ -3111,7 +2900,6 @@ function loadSaved() {
 function openSaved() {
   renderSaved();
   document.getElementById('savedDrawer').classList.remove('hidden');
-  document.getElementById('panelToggleBtn')?.classList.add('hidden');
 }
 
 function renderSaved() {
@@ -3375,23 +3163,12 @@ function setGpsBtnState(active) {
   gpsBtn.disabled = false;
   gpsBtn.innerHTML = `<i id="gpsBtnIcon" data-lucide="route" class="w-4 h-4"></i> Medir recorrido`;
   lucide.createIcons();
-  const title = document.getElementById('modeTitle');
-  const modeIcon = document.getElementById('modeIcon');
   if (selected) {
-    if (title) title.textContent = 'Modo Recorrido';
     const idle = 'w-full flex items-center gap-2 py-2 px-2 rounded-lg text-xs font-bold text-slate-300 bg-slate-800/70 border border-slate-600/50 min-h-[36px]';
     ['modePolyBtn', 'modeLineBtn', 'modePoiBtn'].forEach(id => {
       const b = document.getElementById(id);
       if (b) b.className = idle;
     });
-    if (modeIcon) {
-      const icon = document.createElement('i');
-      icon.id = 'modeIcon';
-      icon.setAttribute('data-lucide', 'route');
-      icon.className = 'w-4 h-4 text-rose-400';
-      modeIcon.replaceWith(icon);
-      lucide.createIcons();
-    }
   }
 }
 
@@ -3430,7 +3207,7 @@ function enterTrackMode() {
   mode = 'line';
   setGpsBtnState(false);
   refreshTrackBar();
-  updateCollapseBtn();
+  updateModeTheme();
 }
 
 function toggleGpsTracking() {
@@ -3503,7 +3280,7 @@ function stopGpsTracking(opts = {}) {
   refreshTrackBar();
   setGpsBtnState(false);
   updateSessionButtons();
-  updateCollapseBtn();
+  updateModeTheme();
   if (points.length) {
     rebuildMarkers();
     redraw();

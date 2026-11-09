@@ -8,7 +8,34 @@ const MAX_TILES = 4000;
 const TILE_HOSTS = ['server.arcgisonline.com', 'tile.openstreetmap.org'];
 const LIB_HOSTS = ['unpkg.com', 'cdn.jsdelivr.net', 'cdn.tailwindcss.com'];
 
-self.addEventListener('install', () => self.skipWaiting());
+// Se guarda TODO al instalar (primera visita), así la app abre sin conexión desde el principio.
+const CORE_FILES = ['./', 'index.html', 'styles.css', 'app.js', 'manifest.webmanifest',
+  'icon-180.png', 'icon-192.png', 'icon-512.png', 'icon-maskable-512.png'];
+const CORE_LIBS = [
+  'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css',
+  'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js',
+  'https://cdn.tailwindcss.com/3.4.16',
+  'https://cdn.jsdelivr.net/npm/@turf/turf@6.5.0/turf.min.js',
+  'https://unpkg.com/lucide@0.469.0'
+];
+
+// Descarga con tope de tiempo: una librería lenta no debe trabar la instalación
+function fetchWithTimeout(url, opts, ms) {
+  const ctl = new AbortController();
+  const t = setTimeout(() => ctl.abort(), ms);
+  return fetch(url, { ...opts, signal: ctl.signal }).finally(() => clearTimeout(t));
+}
+
+async function precache() {
+  const cache = await caches.open(APP_CACHE);
+  // allSettled: si un archivo falla (p. ej. sin internet) no se cancela la instalación
+  await Promise.allSettled([
+    ...CORE_FILES.map(f => fetchWithTimeout(f, { cache: 'reload' }, 15000).then(r => { if (r.ok) return cache.put(f, r); })),
+    ...CORE_LIBS.map(u => fetchWithTimeout(u, { mode: 'no-cors' }, 15000).then(r => cache.put(u, r)))
+  ]);
+}
+
+self.addEventListener('install', (e) => { e.waitUntil(precache().then(() => self.skipWaiting())); });
 self.addEventListener('activate', (e) => {
   e.waitUntil(
     caches.keys()
@@ -31,8 +58,13 @@ async function networkFirst(req, cacheName) {
     if (res && (res.ok || res.type === 'opaque')) cache.put(req, res.clone());
     return res;
   } catch (err) {
-    const hit = await cache.match(req, { ignoreSearch: false });
+    const hit = await cache.match(req, { ignoreSearch: req.mode === 'navigate' });
     if (hit) return hit;
+    // Abrir la app sin conexión (inicio, ?parámetros, etc.): servir index.html guardado
+    if (req.mode === 'navigate') {
+      const home = await cache.match('index.html') || await cache.match('./');
+      if (home) return home;
+    }
     throw err;
   }
 }

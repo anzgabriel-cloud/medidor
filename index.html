@@ -14,7 +14,7 @@
   <meta name="apple-mobile-web-app-title" content="Medidor">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <!-- Versión: debe coincidir con APP_VERSION (app.js) y --app-version (styles.css) -->
-  <meta name="app-version" content="2026.11.09-10">
+  <meta name="app-version" content="2026.11.09-11">
 
   <!-- Dependencias externas -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -71,16 +71,16 @@
 
       <div id="cg-dec" class="cg-panel">
         <span class="cg-label">Latitud</span>
-        <div class="flex gap-2"><input id="cgDecLat" class="cg-input" inputmode="decimal" placeholder="38,950000" autocomplete="off"><select id="cgDecLatH" class="cg-input" style="width:84px"><option value="S">Sur</option><option value="N">Norte</option></select></div>
+        <div class="flex gap-2"><input id="cgDecLat" class="cg-input" inputmode="decimal" placeholder="38,950000" autocomplete="off"><select id="cgDecLatH" class="cg-input" style="width:92px"><option value="S">Sur</option><option value="N">Norte</option></select></div>
         <span class="cg-label">Longitud</span>
-        <div class="flex gap-2"><input id="cgDecLng" class="cg-input" inputmode="decimal" placeholder="68,060000" autocomplete="off"><select id="cgDecLngH" class="cg-input" style="width:84px"><option value="O">Oeste</option><option value="E">Este</option></select></div>
+        <div class="flex gap-2"><input id="cgDecLng" class="cg-input" inputmode="decimal" placeholder="68,060000" autocomplete="off"><select id="cgDecLngH" class="cg-input" style="width:92px"><option value="O">Oeste</option><option value="E">Este</option></select></div>
       </div>
 
       <div id="cg-dms" class="cg-panel hidden">
         <span class="cg-label">Latitud</span>
-        <div class="flex gap-1.5 items-center"><input id="cgDmsLatD" class="cg-input" inputmode="numeric" placeholder="38" autocomplete="off"><span class="cg-unit">°</span><input id="cgDmsLatM" class="cg-input" inputmode="numeric" placeholder="57" autocomplete="off"><span class="cg-unit">′</span><input id="cgDmsLatS" class="cg-input" inputmode="decimal" placeholder="0,00" autocomplete="off"><span class="cg-unit">″</span><select id="cgDmsLatH" class="cg-input" style="width:84px"><option value="S">Sur</option><option value="N">Norte</option></select></div>
+        <div class="flex gap-1.5 items-center"><input id="cgDmsLatD" class="cg-input" inputmode="numeric" placeholder="38" autocomplete="off"><span class="cg-unit">°</span><input id="cgDmsLatM" class="cg-input" inputmode="numeric" placeholder="57" autocomplete="off"><span class="cg-unit">′</span><input id="cgDmsLatS" class="cg-input" inputmode="decimal" placeholder="0,00" autocomplete="off"><span class="cg-unit">″</span><select id="cgDmsLatH" class="cg-input" style="width:92px"><option value="S">Sur</option><option value="N">Norte</option></select></div>
         <span class="cg-label">Longitud</span>
-        <div class="flex gap-1.5 items-center"><input id="cgDmsLngD" class="cg-input" inputmode="numeric" placeholder="68" autocomplete="off"><span class="cg-unit">°</span><input id="cgDmsLngM" class="cg-input" inputmode="numeric" placeholder="3" autocomplete="off"><span class="cg-unit">′</span><input id="cgDmsLngS" class="cg-input" inputmode="decimal" placeholder="36,00" autocomplete="off"><span class="cg-unit">″</span><select id="cgDmsLngH" class="cg-input" style="width:84px"><option value="O">Oeste</option><option value="E">Este</option></select></div>
+        <div class="flex gap-1.5 items-center"><input id="cgDmsLngD" class="cg-input" inputmode="numeric" placeholder="68" autocomplete="off"><span class="cg-unit">°</span><input id="cgDmsLngM" class="cg-input" inputmode="numeric" placeholder="3" autocomplete="off"><span class="cg-unit">′</span><input id="cgDmsLngS" class="cg-input" inputmode="decimal" placeholder="36,00" autocomplete="off"><span class="cg-unit">″</span><select id="cgDmsLngH" class="cg-input" style="width:92px"><option value="O">Oeste</option><option value="E">Este</option></select></div>
       </div>
 
       <div id="cg-utm" class="cg-panel hidden">

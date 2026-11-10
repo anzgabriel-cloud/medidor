@@ -2,7 +2,7 @@
    Separado del HTML para mejor mantenimiento
 */
 
-:root { --app-version: "2026.11.09-9"; }
+:root { --app-version: "2026.11.09-10"; }
 
 .leaflet-control-attribution { font-size: 9px !important; background: rgba(15,23,42,0.7) !important; color: #94a3b8 !important; }
 .leaflet-control-attribution a { color: #94a3b8 !important; }
@@ -51,6 +51,9 @@
 }
 #searchRow:focus-within svg, #searchRow:focus-within i { color: #1c1100; stroke: #1c1100; }
 #searchRow input { color: #f1f5f9; caret-color: #1c1100; }
+#searchRow input::placeholder { color: #cbd5e1; opacity: 1; }
+#modeCoordsBtn .chev { transition: transform .2s; }
+#modeCoordsBtn.open .chev { transform: rotate(180deg); }
 #searchRow:focus-within input { color: #1c1100; font-weight: 600; }
 #searchRow:focus-within input::placeholder { color: #78716c; font-weight: 400; opacity: 1; }
 #searchRow:focus-within #clearSearchBtn { color: #44403c; }

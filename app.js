@@ -1424,7 +1424,7 @@ function updateMetrics(areaM2, distM) {
   liveArea = areaM2; liveDist = distM;
   updateLiveBadge();
 }
-const APP_VERSION = '2026.11.09-9';
+const APP_VERSION = '2026.11.09-10';
 let liveSelfIntersect = false; // el polígono se cruza a sí mismo (los marcadores rojos ya lo señalan)
 function updateSelfIntersectWarning(show) {
   const v = !!show;
@@ -2399,7 +2399,7 @@ function closeCoordModal() { setSearchMode('place'); }
 function initCoordUI() {
   const si = document.getElementById('searchInput');
   si.addEventListener('focus', () => { si.placeholder = 'Escribe un nombre de lugar'; if (searchMode === 'coords') setSearchMode('place'); updateSearchLock(); });
-  si.addEventListener('blur', () => { si.placeholder = 'Buscar por lugar…'; setTimeout(updateSearchLock, 0); });
+  si.addEventListener('blur', () => { si.placeholder = 'Buscar por lugar'; setTimeout(updateSearchLock, 0); });
   document.getElementById('modeCoordsBtn').onclick = () => setSearchMode(searchMode === 'coords' ? 'place' : 'coords');
   const modal = document.getElementById('coordPanel');
   modal.addEventListener('input', (e) => {

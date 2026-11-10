@@ -14,7 +14,7 @@
   <meta name="apple-mobile-web-app-title" content="Medidor">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <!-- Versión: debe coincidir con APP_VERSION (app.js) y --app-version (styles.css) -->
-  <meta name="app-version" content="2026.11.09-8">
+  <meta name="app-version" content="2026.11.09-9">
 
   <!-- Dependencias externas -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -32,11 +32,7 @@
     <div class="relative shadow-2xl">
       <div class="bg-slate-900/95 backdrop-blur-md border border-slate-700/80 rounded-xl flex items-stretch overflow-hidden">
         <div class="flex-1 min-w-0 flex flex-col">
-          <button id="modeCoordsBtn" type="button" class="flex items-center gap-2 px-3 py-2.5 text-left text-xs sm:text-sm text-slate-300 border-b border-slate-700/80" aria-expanded="false">
-            <i data-lucide="map-pinned" class="w-4 h-4 text-amber-400 flex-shrink-0"></i>
-            <span class="truncate">Buscar por coordenadas</span>
-          </button>
-          <div id="searchRow" class="flex items-center px-3 py-2.5">
+          <div id="searchRow" class="flex items-center px-3 py-2.5 border-b border-slate-700/80">
             <i data-lucide="search" class="w-4 h-4 text-amber-400 mr-2 flex-shrink-0"></i>
             <input id="searchInput" type="text" placeholder="Buscar por lugar…" enterkeyhint="search"
               class="bg-transparent border-none outline-none text-xs sm:text-sm w-full text-slate-100 placeholder-slate-400" autocomplete="off">
@@ -44,6 +40,10 @@
               <i data-lucide="x" class="w-4 h-4"></i>
             </button>
           </div>
+          <button id="modeCoordsBtn" type="button" class="flex items-center gap-2 px-3 py-2.5 text-left text-xs sm:text-sm text-slate-300 border-t border-slate-700/80" aria-expanded="false">
+            <i data-lucide="map-pinned" class="w-4 h-4 text-amber-400 flex-shrink-0"></i>
+            <span class="truncate">Buscar por coordenadas</span>
+          </button>
         </div>
         <div id="viewSwitch" class="flex flex-col items-stretch flex-shrink-0 w-[150px] border-l-2 border-slate-500" role="group" aria-label="Modo de la app">
           <button id="viewVerBtn" type="button" class="flex-1 px-2 text-[13px] font-extrabold inline-flex items-center justify-center gap-1.5 whitespace-nowrap" aria-pressed="false"><i data-lucide="eye" class="w-4 h-4"></i>Modo vista</button>

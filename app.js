@@ -1424,7 +1424,7 @@ function updateMetrics(areaM2, distM) {
   liveArea = areaM2; liveDist = distM;
   updateLiveBadge();
 }
-const APP_VERSION = '2026.11.09-4';
+const APP_VERSION = '2026.11.09-5';
 let liveSelfIntersect = false; // el polígono se cruza a sí mismo (los marcadores rojos ya lo señalan)
 function updateSelfIntersectWarning(show) {
   const v = !!show;
@@ -2385,11 +2385,21 @@ function setSearchMode(m) {
   btn.classList.toggle('open', coords);
   btn.setAttribute('aria-expanded', coords ? 'true' : 'false');
   if (coords) prefillCoordForm();
+  updateSearchLock();
+}
+/** Mientras se busca (panel de coordenadas abierto o cursor en el campo de lugar) no se puede cambiar de modo */
+function updateSearchLock() {
+  const lock = searchMode === 'coords' || document.activeElement === document.getElementById('searchInput');
+  document.getElementById('viewSwitch')?.classList.toggle('locked', lock);
+  ['viewVerBtn', 'viewMedirBtn'].forEach(id => { const b = document.getElementById(id); if (b) b.disabled = lock; });
+  if (lock) hideViewHint(false);
 }
 function openCoordModal() { setSearchMode('coords'); }
 function closeCoordModal() { setSearchMode('place'); }
 function initCoordUI() {
-  document.getElementById('searchInput').addEventListener('focus', () => { if (searchMode === 'coords') setSearchMode('place'); });
+  const si = document.getElementById('searchInput');
+  si.addEventListener('focus', () => { if (searchMode === 'coords') setSearchMode('place'); updateSearchLock(); });
+  si.addEventListener('blur', () => setTimeout(updateSearchLock, 0));
   document.getElementById('modeCoordsBtn').onclick = () => setSearchMode(searchMode === 'coords' ? 'place' : 'coords');
   const modal = document.getElementById('coordPanel');
   modal.addEventListener('input', (e) => {

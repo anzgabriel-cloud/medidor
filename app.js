@@ -1424,7 +1424,7 @@ function updateMetrics(areaM2, distM) {
   liveArea = areaM2; liveDist = distM;
   updateLiveBadge();
 }
-const APP_VERSION = '2026.11.09-1';
+const APP_VERSION = '2026.11.09-3';
 let liveSelfIntersect = false; // el polígono se cruza a sí mismo (los marcadores rojos ya lo señalan)
 function updateSelfIntersectWarning(show) {
   const v = !!show;
@@ -2378,23 +2378,23 @@ function prefillCoordForm() {
   document.querySelectorAll('#coordPanel input.cg-input').forEach(i => i.value = '');
   updateCoordForm();
 }
-/** Alterna la barra de búsqueda entre "Por lugar" y "Por coordenadas" */
+/** Abre/cierra el panel de coordenadas; el buscador por lugar queda siempre visible */
 function setSearchMode(m) {
   searchMode = m;
   const coords = m === 'coords';
-  document.getElementById('searchRow').classList.toggle('hidden', coords);
   document.getElementById('coordPanel').classList.toggle('hidden', !coords);
   document.getElementById('searchResults').classList.add('hidden');
-  const on = 'px-2.5 py-1 rounded-lg text-[11px] font-bold bg-amber-500 text-slate-950';
-  const off = 'px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-slate-800 text-slate-300 border border-slate-600';
-  document.getElementById('modePlaceBtn').className = coords ? off : on;
-  document.getElementById('modeCoordsBtn').className = coords ? on : off;
+  const btn = document.getElementById('modeCoordsBtn');
+  btn.classList.toggle('bg-amber-500/15', coords);
+  btn.classList.toggle('text-amber-200', coords);
+  btn.classList.toggle('text-slate-300', !coords);
+  btn.setAttribute('aria-expanded', coords ? 'true' : 'false');
   if (coords) prefillCoordForm();
 }
 function openCoordModal() { setSearchMode('coords'); }
 function closeCoordModal() { setSearchMode('place'); }
 function initCoordUI() {
-  document.getElementById('modePlaceBtn').onclick = () => setSearchMode('place');
+  document.getElementById('searchInput').addEventListener('focus', () => { if (searchMode === 'coords') setSearchMode('place'); });
   document.getElementById('modeCoordsBtn').onclick = () => setSearchMode(searchMode === 'coords' ? 'place' : 'coords');
   const modal = document.getElementById('coordPanel');
   modal.addEventListener('input', (e) => {
@@ -3084,12 +3084,15 @@ function importGeoJSON(e) {
       if (!features.length) throw new Error('Sin features');
       let count = 0;
       let poiCount = 0;
+      let holes = 0;     // polígonos con huecos (no soportados)
+      let invalid = 0;   // geometrías sin puntos válidos o de tipo no soportado
+      let dupes = 0;     // POI ya existentes
       features.forEach(f => {
-        if (!f.geometry || !f.geometry.coordinates) return;
+        if (!f.geometry || !f.geometry.coordinates) { invalid++; return; }
         const t = f.geometry.type;
         const props = f.properties || {};
         const push = (raw, isPoly, suffix = '') => {
-          if (!Array.isArray(raw)) return;
+          if (!Array.isArray(raw)) { invalid++; return; }
           let coords = raw;
           if (isPoly && coords.length > 1 &&
               coords[0][0] === coords[coords.length-1][0] &&
@@ -3100,7 +3103,7 @@ function importGeoJSON(e) {
             Array.isArray(c) && Number.isFinite(+c[0]) && Number.isFinite(+c[1]) &&
             Math.abs(+c[0]) <= 180 && Math.abs(+c[1]) <= 90
           );
-          if (clean.length < (isPoly ? 3 : 2)) return;
+          if (clean.length < (isPoly ? 3 : 2)) { invalid++; return; }
           saved.push({
             id: Date.now().toString() + Math.random().toString(16).slice(2),
             name: String(props.name || 'Importado') + suffix,
@@ -3116,10 +3119,10 @@ function importGeoJSON(e) {
           const pts = t === 'Point' ? [f.geometry.coordinates] : f.geometry.coordinates;
           pts.forEach((c, i) => {
             if (!Array.isArray(c) || !Number.isFinite(+c[0]) || !Number.isFinite(+c[1]) ||
-                Math.abs(+c[0]) > 180 || Math.abs(+c[1]) > 90) return;
+                Math.abs(+c[0]) > 180 || Math.abs(+c[1]) > 90) { invalid++; return; }
             const lat = +c[1], lng = +c[0];
             const name = String(props.name || 'POI importado') + (t === 'MultiPoint' ? ` (${i + 1})` : '');
-            if (pois.some(p => p.name === name && Math.abs(p.lat - lat) < 1e-7 && Math.abs(p.lng - lng) < 1e-7)) return;
+            if (pois.some(p => p.name === name && Math.abs(p.lat - lat) < 1e-7 && Math.abs(p.lng - lng) < 1e-7)) { dupes++; return; }
             pois.push({
               id: Date.now().toString() + Math.random().toString(16).slice(2),
               name, note: String(props.note || ''),
@@ -3131,15 +3134,31 @@ function importGeoJSON(e) {
           });
           return;
         }
-        if (t === 'Polygon' && f.geometry.coordinates.length === 1) push(f.geometry.coordinates[0], true);
-        else if (t === 'MultiPolygon') f.geometry.coordinates.forEach((poly, i) => { if (poly.length === 1) push(poly[0], true, ` (${i+1})`); });
+        if (t === 'Polygon') {
+          if (f.geometry.coordinates.length === 1) push(f.geometry.coordinates[0], true);
+          else holes++;
+        }
+        else if (t === 'MultiPolygon') f.geometry.coordinates.forEach((poly, i) => {
+          if (poly.length === 1) push(poly[0], true, ` (${i+1})`); else holes++;
+        });
         else if (t === 'LineString') push(f.geometry.coordinates, false);
         else if (t === 'MultiLineString') f.geometry.coordinates.forEach((line, i) => push(line, false, ` (${i+1})`));
+        else invalid++;
       });
       if (!count && !poiCount) throw new Error('Sin geometrías válidas');
       if (count) { persist(); renderSaved(); refreshLockedLayers(); }
       if (poiCount) { persistPois(); renderPois(); }
-      toast({ type: 'success', title: 'Importado', message: `${count} medición(es) y ${poiCount} POI importados.` });
+      const omitted = [];
+      if (holes) omitted.push(`${holes} polígono(s) con huecos`);
+      if (invalid) omitted.push(`${invalid} geometría(s) inválida(s) o no soportada(s)`);
+      if (dupes) omitted.push(`${dupes} POI ya existente(s)`);
+      toast({
+        type: omitted.length ? 'warning' : 'success',
+        title: 'Importado',
+        duration: omitted.length ? 8000 : 3500,
+        message: `${count} medición(es) y ${poiCount} POI importados.` +
+          (omitted.length ? ` Omitidos: ${omitted.join(', ')}.` : '')
+      });
     } catch (err) {
       toast({ type: 'error', title: 'Error al importar', message: 'Verificá que sea un GeoJSON válido (Polygon, MultiPolygon, LineString, MultiLineString o Point).' });
     }

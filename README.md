@@ -67,3 +67,12 @@ Safari → Compartir → **Añadir a pantalla de inicio**. La app instalada guar
   - Añadir tests básicos para las funciones de cálculo (área, rumbo, conversiones UTM/GK).
 
 El código original no fue modificado en lógica, solo reorganizado para ser más mantenible.
+
+## Tests (solo desarrollo)
+
+Verifican los cálculos puros (ángulos, rumbos, declinación, UTM y Gauss-Krüger, parseo de coordenadas).
+No hace falta subir la carpeta `tests/` a GitHub Pages.
+
+```
+node --test tests/calculos.test.js
+```

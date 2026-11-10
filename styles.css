@@ -2,7 +2,7 @@
    Separado del HTML para mejor mantenimiento
 */
 
-:root { --app-version: "2026.11.09-5"; }
+:root { --app-version: "2026.11.09-6"; }
 
 .leaflet-control-attribution { font-size: 9px !important; background: rgba(15,23,42,0.7) !important; color: #94a3b8 !important; }
 .leaflet-control-attribution a { color: #94a3b8 !important; }
@@ -43,12 +43,12 @@
 /* Buscadores: íconos naranjas; "coordenadas" abierto = naranja; campo de lugar activo = gris hundido */
 #modeCoordsBtn { width: 100%; transition: background .15s, color .15s; }
 #modeCoordsBtn.open { background: linear-gradient(#fbbf24, #f59e0b); color: #1c1100; font-weight: 700; }
-#modeCoordsBtn.open i { color: #1c1100 !important; }
+#modeCoordsBtn.open svg, #modeCoordsBtn.open i { color: #1c1100 !important; stroke: #1c1100 !important; }
 #searchRow { transition: background .15s, box-shadow .15s; }
 #searchRow:focus-within {
   background: #475569; box-shadow: inset 0 4px 9px rgba(0,0,0,.6), inset 0 -1px 0 rgba(255,255,255,.08);
 }
-#searchRow:focus-within i { color: #fbbf24; }
+#searchRow:focus-within svg, #searchRow:focus-within i { color: #fbbf24; }
 #searchRow input { color: #f1f5f9; }
 #searchRow:focus-within input::placeholder { color: #cbd5e1; }
 #viewHint { background: rgba(15,23,42,0.97); border: 2px solid #f59e0b; }

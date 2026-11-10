@@ -1424,7 +1424,7 @@ function updateMetrics(areaM2, distM) {
   liveArea = areaM2; liveDist = distM;
   updateLiveBadge();
 }
-const APP_VERSION = '2026.11.09-3';
+const APP_VERSION = '2026.11.09-4';
 let liveSelfIntersect = false; // el polígono se cruza a sí mismo (los marcadores rojos ya lo señalan)
 function updateSelfIntersectWarning(show) {
   const v = !!show;
@@ -1985,10 +1985,7 @@ function setAppView(v) {
 function updateViewSwitchUI() {
   const ver = document.getElementById('viewVerBtn'), med = document.getElementById('viewMedirBtn');
   if (!ver || !med) return;
-  const all = ['bg-sky-500', 'bg-emerald-500', 'text-white', 'bg-slate-800', 'text-slate-300'];
-  ver.classList.remove(...all); med.classList.remove(...all);
-  ver.classList.add(...(appView === 'ver' ? ['bg-sky-500', 'text-white'] : ['bg-slate-800', 'text-slate-300']));
-  med.classList.add(...(appView === 'medir' ? ['bg-emerald-500', 'text-white'] : ['bg-slate-800', 'text-slate-300']));
+  // El aspecto (3D naranja si está activo) lo define styles.css según aria-pressed
   ver.setAttribute('aria-pressed', appView === 'ver' ? 'true' : 'false');
   med.setAttribute('aria-pressed', appView === 'medir' ? 'true' : 'false');
   document.getElementById('viewMedirDot')?.classList.toggle('hidden', !(appView === 'ver' && hasPendingWork()));
@@ -2385,9 +2382,7 @@ function setSearchMode(m) {
   document.getElementById('coordPanel').classList.toggle('hidden', !coords);
   document.getElementById('searchResults').classList.add('hidden');
   const btn = document.getElementById('modeCoordsBtn');
-  btn.classList.toggle('bg-amber-500/15', coords);
-  btn.classList.toggle('text-amber-200', coords);
-  btn.classList.toggle('text-slate-300', !coords);
+  btn.classList.toggle('open', coords);
   btn.setAttribute('aria-expanded', coords ? 'true' : 'false');
   if (coords) prefillCoordForm();
 }

@@ -2,7 +2,7 @@
    Separado del HTML para mejor mantenimiento
 */
 
-:root { --app-version: "2026.11.09-3"; }
+:root { --app-version: "2026.11.09-4"; }
 
 .leaflet-control-attribution { font-size: 9px !important; background: rgba(15,23,42,0.7) !important; color: #94a3b8 !important; }
 .leaflet-control-attribution a { color: #94a3b8 !important; }
@@ -24,6 +24,32 @@
 #mainControls[data-mode="line"] #saveBtn {
   background: #0284c7 !important; color: #fff !important; border-color: #0ea5e9 !important;
 }
+/* Interruptor Modo vista / Modo medición: naranja; el activo se ve en relieve 3D, el inactivo hundido */
+#viewSwitch { padding: 7px 7px 10px; gap: 8px; background: #0b1220; }
+#viewSwitch button {
+  border-radius: 11px; color: #fbbf24; border: 1px solid rgba(245,158,11,.5);
+  background: linear-gradient(#111827, #1e293b);
+  box-shadow: inset 0 3px 6px rgba(0,0,0,.65);
+  transition: transform .12s, box-shadow .12s, background .12s, color .12s;
+}
+#viewSwitch button[aria-pressed="true"] {
+  color: #1c1100; border-color: #fde68a;
+  background: linear-gradient(#fde68a 0%, #fbbf24 35%, #f59e0b 70%, #d97706 100%);
+  box-shadow: 0 4px 0 #92400e, 0 7px 10px rgba(0,0,0,.55), inset 0 1px 0 rgba(255,255,255,.75);
+  transform: translateY(-2px);
+}
+#viewSwitch button:active { transform: translateY(1px); }
+/* Buscadores: íconos naranjas; "coordenadas" abierto = naranja; campo de lugar activo = gris hundido */
+#modeCoordsBtn { width: 100%; transition: background .15s, color .15s; }
+#modeCoordsBtn.open { background: linear-gradient(#fbbf24, #f59e0b); color: #1c1100; font-weight: 700; }
+#modeCoordsBtn.open i { color: #1c1100 !important; }
+#searchRow { transition: background .15s, box-shadow .15s; }
+#searchRow:focus-within {
+  background: #475569; box-shadow: inset 0 4px 9px rgba(0,0,0,.6), inset 0 -1px 0 rgba(255,255,255,.08);
+}
+#searchRow:focus-within i { color: #fbbf24; }
+#searchRow input { color: #f1f5f9; }
+#searchRow:focus-within input::placeholder { color: #cbd5e1; }
 #viewHint { background: rgba(15,23,42,0.97); border: 2px solid #f59e0b; }
 #viewHint::before {
   content: ''; position: absolute; top: -8px; right: 46px; width: 14px; height: 14px;

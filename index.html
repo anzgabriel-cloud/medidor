@@ -14,7 +14,7 @@
   <meta name="apple-mobile-web-app-title" content="Medidor">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <!-- Versión: debe coincidir con APP_VERSION (app.js) y --app-version (styles.css) -->
-  <meta name="app-version" content="2026.11.09-12">
+  <meta name="app-version" content="2026.11.09-13">
 
   <!-- Dependencias externas -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -156,7 +156,7 @@
   <!-- BOTTOM PANEL -->
   <div id="liveReadout" aria-live="off"></div>
 
-  <div id="mainControls" class="absolute bottom-0 left-0 right-0 z-20 p-3 safe-bottom pointer-events-none">
+  <div id="mainControls" data-mode="polygon" class="absolute bottom-0 left-0 right-0 z-20 p-3 safe-bottom pointer-events-none">
     <div class="max-w-xl mx-auto flex flex-col">
       <div id="toastContainer" aria-live="polite" aria-atomic="true"></div>
 
@@ -195,24 +195,25 @@
               <i data-lucide="map-pin" class="w-4 h-4"></i> POI
             </button>
           </div>
-          <div class="w-[148px] flex flex-col gap-1.5">
-            <button id="newBtn" class="text-xs font-semibold bg-sky-500/20 text-sky-300 border border-sky-500/40 rounded-md inline-flex items-center justify-center gap-1 h-8 px-2" aria-label="Nueva medición">
+          <div id="actionCol" class="w-[148px] flex flex-col gap-1.5">
+            <button id="newBtn" class="text-xs font-semibold rounded-md inline-flex items-center justify-center gap-1 h-8 px-2 act-btn act-measure bg-sky-500/20 text-sky-300 border border-sky-500/40" aria-label="Nueva medición">
               <i data-lucide="plus" class="w-3.5 h-3.5"></i> Nueva medición
             </button>
-            <button id="trackRecordBtn" class="hidden text-xs font-semibold bg-rose-500 text-white border border-rose-400 rounded-md inline-flex items-center justify-center gap-1 h-8 px-2" aria-label="Iniciar grabación">
-              <i data-lucide="circle" class="w-3.5 h-3.5"></i>
-              <span id="trackRecordLabel">Iniciar grabación</span>
+            <button id="trackPauseBtn" class="text-xs font-semibold rounded-md inline-flex items-center justify-center gap-1 h-8 px-2 act-btn act-track bg-rose-500 text-white border border-rose-400" aria-label="Pausar" disabled>
+              <i data-lucide="pause" class="w-3.5 h-3.5"></i> Pausar
             </button>
-            <button id="saveBtn" class="text-xs font-semibold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 rounded-md inline-flex items-center justify-center gap-1 h-8 px-2" aria-label="Guardar medición">
+            <button id="trackStopBtn" class="text-xs font-semibold rounded-md inline-flex items-center justify-center gap-1 h-8 px-2 act-btn act-track bg-rose-500 text-white border border-rose-400" aria-label="Detener" disabled>
+              <i data-lucide="square" class="w-3.5 h-3.5"></i> Detener
+            </button>
+            <button id="saveBtn" class="text-xs font-semibold rounded-md inline-flex items-center justify-center gap-1 h-8 px-2 act-btn act-measure bg-emerald-500/20 text-emerald-300 border border-emerald-500/40" aria-label="Guardar medición">
               <i data-lucide="save" class="w-3.5 h-3.5"></i>
               <span id="saveBtnLabel">Guardar medición</span>
             </button>
-            <button id="poiDoneBtn" class="hidden text-xs font-semibold bg-amber-500 text-slate-950 border border-amber-400 rounded-md inline-flex items-center justify-center gap-1 h-8 px-2" aria-label="Terminar POI">
-              <i data-lucide="check" class="w-3.5 h-3.5"></i> Terminar POI
+            <button id="poiPlaceHeaderBtn" class="text-xs font-semibold rounded-md inline-flex items-center justify-center gap-1 h-8 px-2 act-btn act-poi bg-amber-500 text-slate-950 border border-amber-400" aria-label="Nuevo POI" disabled>
+              <i data-lucide="map-pin" class="w-3.5 h-3.5"></i> Nuevo POI
             </button>
-            <button id="saveBtnTrack" class="hidden" aria-hidden="true"></button>
-            <button id="poiPlaceHeaderBtn" class="text-xs font-semibold bg-amber-500/20 text-amber-300 border border-amber-500/40 rounded-md inline-flex items-center justify-center gap-1 h-8 px-2" aria-label="Ubicar POI" disabled>
-              <i data-lucide="map-pin" class="w-3.5 h-3.5"></i> Ubicar POI
+            <button id="poiDoneBtn" class="text-xs font-semibold rounded-md inline-flex items-center justify-center gap-1 h-8 px-2 act-btn act-poi bg-amber-500 text-slate-950 border border-amber-400" aria-label="Guardar POI" disabled>
+              <i data-lucide="save" class="w-3.5 h-3.5"></i> Guardar POI
             </button>
             <div class="flex gap-1 mt-auto">
               <button id="undoBtn" class="flex-1 flex items-center justify-center py-2 rounded-lg bg-slate-800 text-slate-200 border border-slate-700 min-h-[36px]" title="Deshacer" aria-label="Deshacer">

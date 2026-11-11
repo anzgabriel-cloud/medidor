@@ -2,7 +2,7 @@
    Separado del HTML para mejor mantenimiento
 */
 
-:root { --app-version: "2026.11.09-12"; }
+:root { --app-version: "2026.11.09-13"; }
 
 .leaflet-control-attribution { font-size: 9px !important; background: rgba(15,23,42,0.7) !important; color: #94a3b8 !important; }
 .leaflet-control-attribution a { color: #94a3b8 !important; }
@@ -90,6 +90,21 @@ select.cg-input:focus {
 #viewSwitch.attention { animation: viewPulse 1.4s ease-in-out infinite; }
 /* Modo Ver: se oculta el panel de medición (mapa limpio) */
 #mainControls.view-only #panelBody { display: none !important; }
+/* Botones de acción: solo los del modo activo */
+.act-measure, .act-track, .act-poi { display: none !important; }
+#mainControls[data-mode="polygon"] .act-measure,
+#mainControls[data-mode="line"] .act-measure,
+#mainControls[data-mode="track"] .act-measure,
+#mainControls[data-mode="track"] .act-track,
+#mainControls[data-mode="poi"] .act-poi { display: inline-flex !important; }
+/* Recorrido tiene 4 acciones: se compactan para no agrandar el panel */
+#mainControls[data-mode="track"] #actionCol { gap: 4px; }
+#mainControls[data-mode="track"] .act-btn { height: 30px; }
+#mainControls[data-mode="track"] #newBtn,
+#mainControls[data-mode="track"] #trackPauseBtn,
+#mainControls[data-mode="track"] #trackStopBtn {
+  background: #f43f5e !important; color: #fff !important; border-color: #fb7185 !important;
+}
 /* Recorrido: Guardar usa el mismo rojo sólido que Iniciar/Detener grabación (inactivo = atenuado) */
 #mainControls[data-mode="track"] #saveBtn {
   background: #f43f5e !important; color: #fff !important; border-color: #fb7185 !important;

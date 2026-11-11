@@ -70,6 +70,8 @@ let closePromptOpen = false;
 let closeMagnet = null;
 let gpsWatchId = null;
 let trackMode = false;
+let trackStarted = false;  // hubo grabación en este recorrido
+let trackEnded = false;    // se tocó Detener (ya no se puede reanudar)
 let lastGpsPoint = null;
 let userLocMarker = null;
 let userAccCircle = null;
@@ -529,10 +531,20 @@ function init() {
   document.getElementById('modeLineBtn').onclick = () => { if (!isLocked) setMode('line'); };
   document.getElementById('modePoiBtn').onclick = () => { if (!isLocked) enterPoiMode(); };
   document.getElementById('modeTrackBtn').onclick = enterTrackMode;
-  document.getElementById('trackRecordBtn').onclick = toggleGpsTracking;
-  document.getElementById('saveBtnTrack').onclick = () => {
-    pulseButton('saveBtnTrack');
-    openSaveModal();
+  document.getElementById('trackPauseBtn').onclick = () => {
+    const ph = trackPhase();
+    if (ph === 'rec') {
+      stopGpsTracking({ keepMode: true, noClose: true });
+      toast({ type: 'info', title: 'Grabación en pausa', message: 'Tocá Reanudar para seguir sumando puntos.', duration: 2200 });
+    } else if (ph === 'paused') startGpsRecording();
+  };
+  document.getElementById('trackStopBtn').onclick = () => {
+    const ph = trackPhase();
+    if (ph !== 'rec' && ph !== 'paused') return;
+    trackEnded = true;
+    if (ph === 'rec') stopGpsTracking({ keepMode: true });
+    else { refreshTrackBar(); updateSessionButtons(); }
+    toast({ type: 'info', title: 'Recorrido detenido', message: 'Guardalo o empezá una nueva medición.', duration: 2400 });
   };
   document.getElementById('undoBtn').onclick = undo;
   document.getElementById('redoBtn').onclick = redo;
@@ -569,6 +581,7 @@ function init() {
   };
   document.getElementById('newBtn').onclick = () => {
     if (isLocked) return toast({ type: 'warning', title: 'Medición bloqueada', message: 'Entrá en Editar para modificarla.' });
+    if (trackMode) return newTrack();
     stopGpsTracking();
     clearActiveMeasurement({ keepDrawing: true });
     setDrawingActive(true);
@@ -817,16 +830,7 @@ function updateSessionButtons() {
       : 'Agregá al menos 2 puntos para guardar';
     saveBtn.classList.toggle('opacity-35', !canSave);
   }
-  const saveTrack = document.getElementById('saveBtnTrack');
-  if (saveTrack) {
-    const stopped = gpsWatchId === null;
-    const canSave = !isLocked && points.length >= 2 && trackMode && stopped;
-    saveTrack.disabled = !canSave;
-    saveTrack.title = canSave
-      ? 'Guardar recorrido'
-      : (gpsWatchId !== null ? 'Detené la grabación para guardar' : 'Agregá al menos 2 puntos para guardar');
-    saveTrack.classList.toggle('opacity-35', !canSave);
-  }
+  updateTrackButtons();
   if (gpsBtn && gpsWatchId === null) {
     gpsBtn.disabled = isLocked;
     gpsBtn.title = isLocked
@@ -1424,7 +1428,7 @@ function updateMetrics(areaM2, distM) {
   liveArea = areaM2; liveDist = distM;
   updateLiveBadge();
 }
-const APP_VERSION = '2026.11.09-12';
+const APP_VERSION = '2026.11.09-13';
 let liveSelfIntersect = false; // el polígono se cruza a sí mismo (los marcadores rojos ya lo señalan)
 function updateSelfIntersectWarning(show) {
   const v = !!show;
@@ -1924,6 +1928,7 @@ function refreshLockedLayers() {
 function clearActiveMeasurement(opts = {}) {
   clearDraft();
   stopGpsTracking();
+  gpsLive.recMs = 0; gpsLive.recStart = null;
   hideMeasurementInfo();
   markers.forEach(m => map.removeLayer(m));
   midMarkers.forEach(m => map.removeLayer(m));
@@ -2105,18 +2110,15 @@ function enterPoiMode() {
   updateModeTheme();
   const nb = document.getElementById('newBtn');
   if (nb) nb.disabled = true;
-  document.getElementById('saveBtn')?.classList.add('hidden');
   const done = document.getElementById('poiDoneBtn');
-  if (done) { done.classList.remove('hidden'); done.disabled = true; }
+  if (done) done.disabled = true;
 }
 
 function exitPoiMode(openList) {
   poiMode = false;
   setPoiAim(false);
   const nb = document.getElementById('newBtn');
-  if (nb) { nb.classList.remove('hidden'); nb.disabled = false; }
-  document.getElementById('saveBtn')?.classList.remove('hidden');
-  document.getElementById('poiDoneBtn')?.classList.add('hidden');
+  if (nb) nb.disabled = false;
   updateModeTheme();
   setMode(mode);
   if (openList !== false) { /* stay on map */ }
@@ -2514,8 +2516,8 @@ function setPoiAim(on) {
   if (placeBtn) {
     placeBtn.disabled = !poiMode;
     placeBtn.className = poiMode
-      ? 'text-xs font-semibold bg-amber-500 text-slate-950 border border-amber-400 rounded-md inline-flex items-center justify-center gap-1 h-8 px-2'
-      : 'text-xs font-semibold bg-amber-500/20 text-amber-300 border border-amber-500/40 rounded-md inline-flex items-center justify-center gap-1 h-8 px-2';
+      ? 'text-xs font-semibold bg-amber-500 text-slate-950 border border-amber-400 rounded-md inline-flex items-center justify-center gap-1 h-8 px-2 act-btn act-poi'
+      : 'text-xs font-semibold bg-amber-500/20 text-amber-300 border border-amber-500/40 rounded-md inline-flex items-center justify-center gap-1 h-8 px-2 act-btn act-poi';
     placeBtn.title = poiMode ? 'Ubicar el POI en la cruz' : 'Se activa en modo POI';
   }
   if (on) updatePoiCenterCoords();
@@ -2858,7 +2860,9 @@ function commitSave(name) {
   renderSaved();
   removeLockedLayer(item.id);
   addLockedLayer(item);
+  const wasTrack = trackMode;
   clearActiveMeasurement();
+  if (wasTrack) enterTrackMode();
   const badge = document.getElementById('savedBadge');
   badge.classList.add('scale-125');
   setTimeout(() => badge.classList.remove('scale-125'), 300);
@@ -3198,16 +3202,7 @@ function setGpsBtnState(active) {
 
 function refreshTrackBar() {
   updateModeTheme();
-  const label = document.getElementById('trackRecordLabel');
-  const btn = document.getElementById('trackRecordBtn');
-  const recording = gpsWatchId !== null;
-  if (label) label.textContent = recording ? 'Detener grabación' : 'Iniciar grabación';
-  if (btn) {
-    btn.setAttribute('aria-label', recording ? 'Detener grabación' : 'Iniciar grabación');
-    btn.classList.toggle('hidden', !trackMode);
-  }
-  const newBtn = document.getElementById('newBtn');
-  if (newBtn) newBtn.classList.toggle('hidden', trackMode);
+  updateTrackButtons();
   const saveLabel = document.getElementById('saveBtnLabel');
   if (saveLabel && !document.getElementById('saveBtn')?.dataset.editing) {
     saveLabel.textContent = trackMode ? 'Guardar recorrido' : (editingId ? 'Guardar cambios' : 'Guardar medición');
@@ -3217,36 +3212,69 @@ function refreshTrackBar() {
   if (place) {
     place.disabled = !poiMode;
     place.className = poiMode
-      ? 'text-xs font-semibold bg-amber-500 text-slate-950 border border-amber-400 rounded-md inline-flex items-center justify-center gap-1 h-8 px-2'
-      : 'text-xs font-semibold bg-amber-500/20 text-amber-300 border border-amber-500/40 rounded-md inline-flex items-center justify-center gap-1 h-8 px-2';
+      ? 'text-xs font-semibold bg-amber-500 text-slate-950 border border-amber-400 rounded-md inline-flex items-center justify-center gap-1 h-8 px-2 act-btn act-poi'
+      : 'text-xs font-semibold bg-amber-500/20 text-amber-300 border border-amber-500/40 rounded-md inline-flex items-center justify-center gap-1 h-8 px-2 act-btn act-poi';
   }
 }
 
+/** Fase del recorrido: idle (sin empezar) · rec (grabando) · paused · done (detenido) */
+function trackPhase() {
+  if (gpsWatchId !== null) return 'rec';
+  if (trackEnded) return 'done';
+  return trackStarted ? 'paused' : 'idle';
+}
+function updateTrackButtons() {
+  const pause = document.getElementById('trackPauseBtn');
+  const stop = document.getElementById('trackStopBtn');
+  if (!pause || !stop) return;
+  const ph = trackPhase();
+  const label = ph === 'paused' ? 'Reanudar' : 'Pausar';
+  if (pause.dataset.state !== label) {
+    pause.dataset.state = label;
+    pause.innerHTML = `<i data-lucide="${ph === 'paused' ? 'play' : 'pause'}" class="w-3.5 h-3.5"></i> ${label}`;
+    pause.setAttribute('aria-label', label);
+    lucide.createIcons();
+  }
+  const active = (ph === 'rec' || ph === 'paused') && !isLocked;
+  pause.disabled = !active;
+  stop.disabled = !active;
+}
 function enterTrackMode() {
   ensureMedir();
   if (isLocked) return toast({ type: 'warning', title: 'Medición bloqueada', message: 'Entrá en Editar para modificarla.' });
   if (poiMode) exitPoiMode(false);
   setDrawingActive(false);
   trackMode = true;
+  trackStarted = false; trackEnded = false;
   mode = 'line';
   setGpsBtnState(false);
   refreshTrackBar();
   updateModeTheme();
 }
 
-function toggleGpsTracking() {
+/** Nueva medición en modo recorrido: descarta lo grabado y empieza a grabar de cero */
+async function newTrack() {
+  if (points.length >= 2) {
+    const ok = await confirmToast({ title: '¿Empezar un recorrido nuevo?', message: 'Se descarta el recorrido actual si no lo guardaste.', confirmLabel: 'Descartar', danger: true });
+    if (!ok) return;
+  }
+  pulseButton('newBtn');
+  clearActiveMeasurement({ keepDrawing: false });
+  enterTrackMode();
+  startGpsRecording();
+}
+
+/** Empieza (o reanuda) la grabación de puntos por GPS */
+function startGpsRecording() {
   if (isLocked) return toast({ type: 'warning', title: 'Medición bloqueada', message: 'Entrá en Editar para modificarla.' });
   if (!trackMode) enterTrackMode();
-  if (gpsWatchId !== null) {
-    stopGpsTracking({ keepMode: true });
-    toast({ type: 'info', title: 'Grabación detenida', message: 'Seguís en modo Recorrido. Tocá Iniciar para reanudar.', duration: 2200 });
-    return;
-  }
+  if (gpsWatchId !== null) return;
   if (!navigator.geolocation) {
     return toast({ type: 'error', title: 'GPS no disponible', message: 'Tu navegador no soporta geolocalización.' });
   }
   gpsLive.msg = 'Buscando señal…'; gpsLive.speed = null; gpsLive.heading = null; gpsLive.lastFix = null;
   gpsLive.recStart = Date.now();
+  trackStarted = true; trackEnded = false;
   setGpsBtnState(true);
 
   gpsWatchId = navigator.geolocation.watchPosition(
@@ -3289,7 +3317,7 @@ function toggleGpsTracking() {
     redraw();
   }
 
-  toast({ type: 'info', title: 'Grabando recorrido', message: `Caminá: se agregarán puntos solos (mín. ${fmtAcc(settings.gpsMinStep)}, precisión ≤ ${fmtAcc(settings.gpsMaxAcc)}). Tocá de nuevo para detener.` });
+  toast({ type: 'info', title: 'Grabando recorrido', message: `Caminá: se agregarán puntos solos (mín. ${fmtAcc(settings.gpsMinStep)}, precisión ≤ ${fmtAcc(settings.gpsMaxAcc)}). Usá Pausar o Detener.` });
 }
 
 function stopGpsTracking(opts = {}) {
@@ -3308,7 +3336,7 @@ function stopGpsTracking(opts = {}) {
   if (points.length) {
     rebuildMarkers();
     redraw();
-    if (opts.keepMode && points.length >= 3 && points[points.length - 1].distanceTo(points[0]) <= closeThresholdMeters()) {
+    if (opts.keepMode && !opts.noClose && points.length >= 3 && points[points.length - 1].distanceTo(points[0]) <= closeThresholdMeters()) {
       offerClosePolygon();
     }
   }

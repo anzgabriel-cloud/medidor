@@ -120,7 +120,7 @@ function loadSettings() {
       if (r.units === 'metric' || r.units === 'imperial') settings.units = r.units;
       if (['dec', 'dms', 'utm', 'gk'].includes(r.coords)) settings.coords = r.coords;
       if ([5, 10, 20, 30, 50].includes(+r.gpsMaxAcc)) settings.gpsMaxAcc = +r.gpsMaxAcc;
-      if ([1, 2, 3, 5, 10].includes(+r.gpsMinStep)) settings.gpsMinStep = +r.gpsMinStep;
+      if ([1, 2, 3, 5, 10, 20, 50, 100].includes(+r.gpsMinStep)) settings.gpsMinStep = +r.gpsMinStep;
     }
   } catch (e) {}
 }
@@ -230,7 +230,7 @@ function refreshSettingsUI() {
   const accSel = document.getElementById('setGpsAcc'), stepSel = document.getElementById('setGpsStep');
   const u = (m) => isImp() ? `${Math.round(m * FT)} ft` : `${m} m`;
   accSel.innerHTML = [5, 10, 20, 30, 50].map(v => `<option value="${v}">±${u(v)}</option>`).join('');
-  stepSel.innerHTML = [1, 2, 3, 5, 10].map(v => `<option value="${v}">${u(v)}</option>`).join('');
+  stepSel.innerHTML = [1, 2, 3, 5, 10, 20, 50, 100].map(v => `<option value="${v}">${u(v)}</option>`).join('');
   accSel.value = String(settings.gpsMaxAcc);
   stepSel.value = String(settings.gpsMinStep);
 }
@@ -823,11 +823,12 @@ function updateSessionButtons() {
   const saveBtn = document.getElementById('saveBtn');
   const gpsBtn = document.getElementById('modeTrackBtn');
   if (saveBtn) {
-    const canSave = !isLocked && points.length >= 2 && (drawingActive || trackMode);
+    const recording = trackMode && gpsWatchId !== null;
+    const canSave = !isLocked && points.length >= 2 && (drawingActive || trackMode) && !recording;
     saveBtn.disabled = !canSave;
     saveBtn.title = canSave
       ? (editingId ? 'Guardar los cambios de esta medición' : 'Guardar medición')
-      : 'Agregá al menos 2 puntos para guardar';
+      : (recording ? 'Pausá o detené la grabación para guardar' : 'Agregá al menos 2 puntos para guardar');
     saveBtn.classList.toggle('opacity-35', !canSave);
   }
   updateTrackButtons();
@@ -1428,7 +1429,7 @@ function updateMetrics(areaM2, distM) {
   liveArea = areaM2; liveDist = distM;
   updateLiveBadge();
 }
-const APP_VERSION = '2026.11.09-14';
+const APP_VERSION = '2026.11.09-16';
 let liveSelfIntersect = false; // el polígono se cruza a sí mismo (los marcadores rojos ya lo señalan)
 function updateSelfIntersectWarning(show) {
   const v = !!show;
@@ -3184,6 +3185,34 @@ function importGeoJSON(e) {
   e.target.value = '';
 }
 // ========== GPS ==========
+// Mantener la pantalla encendida mientras se graba: si el iPhone la apaga, Safari suspende el GPS y queda una brecha
+let wakeLock = null;
+async function acquireWakeLock() {
+  try {
+    if (!('wakeLock' in navigator) || wakeLock) return;
+    wakeLock = await navigator.wakeLock.request('screen');
+    wakeLock.addEventListener('release', () => { wakeLock = null; });
+  } catch (e) { wakeLock = null; }
+}
+function releaseWakeLock() {
+  try { if (wakeLock) wakeLock.release(); } catch (e) {}
+  wakeLock = null;
+}
+let hiddenAt = null;
+document.addEventListener('visibilitychange', () => {
+  const recording = gpsWatchId !== null;
+  if (document.visibilityState === 'hidden') {
+    hiddenAt = recording ? Date.now() : null;
+    return;
+  }
+  if (!recording) { hiddenAt = null; return; }
+  acquireWakeLock(); // el bloqueo se pierde al apagarse la pantalla: se vuelve a pedir
+  if (hiddenAt && Date.now() - hiddenAt > 20000) {
+    const secs = Math.round((Date.now() - hiddenAt) / 1000);
+    toast({ type: 'warning', title: 'Se perdió un tramo', message: `La pantalla estuvo apagada ${secs} s y el GPS no registró puntos. Se unió con una línea recta. Mantené la pantalla encendida al grabar.`, duration: 9000 });
+  }
+  hiddenAt = null;
+});
 // Estado en vivo del recorrido (se muestra en los números flotantes de la derecha)
 const gpsLive = { msg: '', speed: null, heading: null, lastFix: null, recStart: null, recMs: 0 };
 
@@ -3283,6 +3312,7 @@ function startGpsRecording() {
   gpsLive.msg = 'Buscando señal…'; gpsLive.speed = null; gpsLive.heading = null; gpsLive.lastFix = null;
   gpsLive.recStart = Date.now();
   trackStarted = true; trackEnded = false;
+  acquireWakeLock();
   setGpsBtnState(true);
 
   gpsWatchId = navigator.geolocation.watchPosition(
@@ -3319,13 +3349,14 @@ function startGpsRecording() {
     { enableHighAccuracy: true, maximumAge: 1000, timeout: 15000 }
   );
   refreshTrackBar();
+  updateSessionButtons();
 
   if (points.length) {
     rebuildMarkers();
     redraw();
   }
 
-  toast({ type: 'info', title: 'Grabando recorrido', message: `Caminá: se agregarán puntos solos (mín. ${fmtAcc(settings.gpsMinStep)}, precisión ≤ ${fmtAcc(settings.gpsMaxAcc)}). Usá Pausar o Detener.` });
+  toast({ type: 'info', title: 'Grabando recorrido', message: `Caminá: se agregarán puntos solos (mín. ${fmtAcc(settings.gpsMinStep)}, precisión ≤ ${fmtAcc(settings.gpsMaxAcc)}). La pantalla se mantiene encendida. Usá Pausar o Detener.` });
 }
 
 function stopGpsTracking(opts = {}) {
@@ -3334,6 +3365,7 @@ function stopGpsTracking(opts = {}) {
     gpsWatchId = null;
   }
   lastGpsPoint = null;
+  releaseWakeLock();
   if (gpsLive.recStart) { gpsLive.recMs += Date.now() - gpsLive.recStart; gpsLive.recStart = null; }
   gpsLive.msg = ''; gpsLive.speed = null; gpsLive.heading = null; gpsLive.lastFix = null;
   if (!opts.keepMode) trackMode = false;

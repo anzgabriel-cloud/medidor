@@ -1428,7 +1428,7 @@ function updateMetrics(areaM2, distM) {
   liveArea = areaM2; liveDist = distM;
   updateLiveBadge();
 }
-const APP_VERSION = '2026.11.09-13';
+const APP_VERSION = '2026.11.09-14';
 let liveSelfIntersect = false; // el polígono se cruza a sí mismo (los marcadores rojos ya lo señalan)
 function updateSelfIntersectWarning(show) {
   const v = !!show;
@@ -1857,6 +1857,14 @@ function addLockedLayer(item) {
   const color = item.color || '#00ff66';
   const layers = [];
   const onShapeClick = (e) => {
+    // Midiendo o ubicando POI, las mediciones guardadas no interceptan el toque: pasa al mapa
+    if ((drawingActive && !isLocked) || poiMode) {
+      if (e.target instanceof L.Marker && e.originalEvent) {
+        // los marcadores no propagan el clic al mapa: se reenvía
+        map.fire('click', { latlng: map.mouseEventToLatLng(e.originalEvent), originalEvent: e.originalEvent });
+      }
+      return;
+    }
     L.DomEvent.stopPropagation(e);
     if (e.originalEvent) e.originalEvent.stopPropagation();
     showMeasurementInfo(item);

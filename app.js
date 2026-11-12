@@ -88,7 +88,6 @@ let poiSession = [];
 let poiSessionRedo = [];
 let navPoi = null;
 let navLine = null;
-let navLabel = null;
 
 const OFFSET = 70;
 let dragGrabOffsetX = 0;
@@ -1381,6 +1380,24 @@ function calcLine() {
 // Medidas en vivo: números flotantes en un costado de la pantalla (solo al crear/editar)
 let liveArea = 0, liveDist = 0;
 function removeLiveBadge() { document.getElementById('liveReadout')?.classList.remove('on'); }
+const lrItem = (cap, val, sub) =>
+  `<div class="lr-item"><div class="lr-cap">${cap}</div><div class="lr-val">${val}</div>${sub ? `<div class="lr-sub">${sub}</div>` : ''}</div>`;
+function clearReadoutTint(el) { el.style.removeProperty('--label-center'); el.style.removeProperty('--label-mid'); }
+/** Navegación hacia un POI: rumbo (verdadero y magnético) y distancia en vivo, con el halo del color del POI */
+function renderNavReadout(el) {
+  const from = userLocMarker.getLatLng();
+  const to = L.latLng(navPoi.lat, navPoi.lng);
+  const brg = trueBearing(from, to);
+  const mag = magneticBearing(brg, magneticDeclination(from.lat, from.lng));
+  const color = safeColor(navPoi.color, '#38bdf8');
+  const { r, g, b, lum } = labelLuminance(color);
+  const dark = lum < 0.22;
+  el.style.setProperty('--label-center', dark ? 'rgba(0,0,0,0.7)' : `rgba(${r},${g},${b},0.55)`);
+  el.style.setProperty('--label-mid', dark ? 'rgba(0,0,0,0.35)' : `rgba(${r},${g},${b},0.2)`);
+  el.innerHTML = lrItem('Rumbo', `${brg0(brg)}° V`, `${brg0(mag)}° M · ${bearingCardinal(brg)}`)
+    + lrItem('Distancia', fmtLenShort(from.distanceTo(to)), `a ${escapeHtml(navPoi.name || 'POI')}`);
+  el.classList.add('on');
+}
 function updateLiveBadge() {
   const el = document.getElementById('liveReadout');
   if (!el) return;
@@ -1389,9 +1406,13 @@ function updateLiveBadge() {
   const infoOpen = !!(info && !info.classList.contains('hidden'));
   const recording = gpsWatchId !== null;
   const active = (drawingActive || trackMode || !!editingId) && !infoOpen && !poiMode && (appView === 'medir' || recording);
-  if (!active || (points.length < 2 && !(trackMode && recording))) { removeLiveBadge(); return; }
-  const item = (cap, val, sub) =>
-    `<div class="lr-item"><div class="lr-cap">${cap}</div><div class="lr-val">${val}</div>${sub ? `<div class="lr-sub">${sub}</div>` : ''}</div>`;
+  if (!active || (points.length < 2 && !(trackMode && recording))) {
+    // Sin medición en curso: si se navega hacia un POI, se muestran rumbo y distancia a ese punto
+    if (navPoi && userLocMarker && !infoOpen && !poiMode) { renderNavReadout(el); return; }
+    clearReadoutTint(el); removeLiveBadge(); return;
+  }
+  clearReadoutTint(el);
+  const item = lrItem;
   const bearingItem = (brg, ref) => {
     if (brg === null || !ref) return item('Rumbo', '—');
     const mag = magneticBearing(brg, magneticDeclination(ref.lat, ref.lng));
@@ -1431,7 +1452,7 @@ function updateMetrics(areaM2, distM) {
   liveArea = areaM2; liveDist = distM;
   updateLiveBadge();
 }
-const APP_VERSION = '2026.11.09-20';
+const APP_VERSION = '2026.11.09-21';
 let liveSelfIntersect = false; // el polígono se cruza a sí mismo (los marcadores rojos ya lo señalan)
 function updateSelfIntersectWarning(show) {
   const v = !!show;
@@ -1845,6 +1866,7 @@ function showPoiInfo(p) {
   const main = document.getElementById('mainControls');
   if (main) main.classList.add('hidden');
   document.getElementById('infoPanel').classList.remove('hidden');
+  try { updateLiveBadge(); } catch (e) {}
   lucide.createIcons();
 }
 
@@ -2772,8 +2794,8 @@ function renderPoiList() {
 
 function stopNav() {
   navPoi = null;
+  setTimeout(updateLiveBadge, 0);
   if (navLine) { map.removeLayer(navLine); navLine = null; }
-  if (navLabel) { map.removeLayer(navLabel); navLabel = null; }
 }
 
 function startNavToPoi(p) {
@@ -2794,7 +2816,6 @@ function updateNavLine() {
   const from = userLocMarker.getLatLng();
   const to = L.latLng(navPoi.lat, navPoi.lng);
   const dist = from.distanceTo(to);
-  const brg = trueBearing(from, to);
   const color = safeColor(navPoi.color, '#38bdf8');
   if (!navLine) {
     navLine = L.polyline([from, to], { color, weight: 3, dashArray: '8,6', interactive: false }).addTo(map);
@@ -2802,17 +2823,7 @@ function updateNavLine() {
     navLine.setLatLngs([from, to]);
     navLine.setStyle({ color });
   }
-  const mid = L.latLng((from.lat + to.lat) / 2, (from.lng + to.lng) / 2);
-  const distTxt = fmtLenShort(dist);
-  const decl = magneticDeclination(from.lat, from.lng);
-  const mag = magneticBearing(brg, decl);
-  const html = `<div style="background:rgba(15,23,42,0.92);border:1px solid ${color};color:${color};font-size:11px;font-weight:700;padding:3px 7px;border-radius:8px;white-space:nowrap;">${brg0(brg)}° V · ${brg0(mag)}° M · ${distTxt}</div>`;
-  if (!navLabel) {
-    navLabel = L.marker(mid, { icon: L.divIcon({ className: '', html, iconSize: [120, 22], iconAnchor: [60, 11] }), interactive: false, zIndexOffset: 1300 }).addTo(map);
-  } else {
-    navLabel.setLatLng(mid);
-    navLabel.setIcon(L.divIcon({ className: '', html, iconSize: [120, 22], iconAnchor: [60, 11] }));
-  }
+  updateLiveBadge();   // rumbo y distancia en vivo en los números flotantes
   if (dist < 15) {
     toast({ type: 'success', title: 'Llegaste', message: `Estás en «${navPoi.name}».`, duration: 2500 });
     stopNav();
@@ -2954,11 +2965,8 @@ function renderSaved() {
           </div>
           <span class="text-[11px] text-slate-500 mt-0.5">${item.points.length} pts · ${item.date}</span>
         </div>
-        <button class="p-1.5 text-red-500 hover:text-red-400 flex-shrink-0" data-del="${item.id}" title="Eliminar">
-          <i data-lucide="trash-2" class="w-4 h-4"></i>
-        </button>
       </div>
-      <div class="flex gap-1.5 mt-2">
+      <div class="flex items-center gap-1.5 mt-2">
         <button data-vis="${item.id}" class="flex-1 text-[11px] font-semibold py-1.5 rounded-lg border ${isVisible ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30' : 'bg-slate-800 text-slate-400 border-slate-700'}">
           ${isVisible ? 'Visible' : 'Oculta'}
         </button>
@@ -2967,6 +2975,9 @@ function renderSaved() {
         </button>
         <button data-focus="${item.id}" class="flex-1 text-[11px] font-semibold py-1.5 rounded-lg border bg-slate-800 text-slate-300 border-slate-700">
           Ir
+        </button>
+        <button class="p-1.5 text-red-500 hover:text-red-400 flex-shrink-0" data-del="${item.id}" title="Eliminar">
+          <i data-lucide="trash-2" class="w-4 h-4"></i>
         </button>
       </div>`;
     list.appendChild(div);

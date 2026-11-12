@@ -2,7 +2,7 @@
    Separado del HTML para mejor mantenimiento
 */
 
-:root { --app-version: "2026.11.09-16"; }
+:root { --app-version: "2026.11.09-17"; }
 
 .leaflet-control-attribution { font-size: 9px !important; background: rgba(15,23,42,0.7) !important; color: #94a3b8 !important; }
 .leaflet-control-attribution a { color: #94a3b8 !important; }
@@ -98,8 +98,12 @@ select.cg-input:focus {
 #mainControls[data-mode="track"] .act-track,
 #mainControls[data-mode="poi"] .act-poi { display: inline-flex !important; }
 /* Recorrido tiene 4 acciones: se compactan para no agrandar el panel */
+/* Altura del panel constante: 4 botones de modo de 40 px + 3 huecos de 4 px = 172 px en ambas columnas */
+#modePolyBtn, #modeLineBtn, #modeTrackBtn, #modePoiBtn { min-height: 40px; }
+#actionCol { min-height: 172px; }
+#actionCol .act-btn { height: 40px; }
 #mainControls[data-mode="track"] #actionCol { gap: 4px; }
-#mainControls[data-mode="track"] .act-btn { height: 30px; }
+#mainControls[data-mode="track"] #actionCol .act-btn { height: 30px; }
 #mainControls[data-mode="track"] #newBtn,
 #mainControls[data-mode="track"] #trackPauseBtn,
 #mainControls[data-mode="track"] #trackStopBtn {

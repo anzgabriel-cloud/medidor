@@ -221,17 +221,46 @@ function refreshSettingsUI() {
   const c = map ? map.getCenter() : { lat: -38.95, lng: -68.06 };
   document.getElementById('setCoordsExample').textContent = 'Ej. centro del mapa: ' + fmtCoord(c.lat, c.lng);
   const ov = getDeclOverride();
-  document.getElementById('setDecl').value = ov === null ? '' : String(ov);
   const est = (() => { const o = ov; setDeclOverride(null); const v = magneticDeclination(c.lat, c.lng); if (o !== null) setDeclOverride(o); return v; })();
+  // El teclado numérico del iPhone no tiene signo: se escribe el valor y se elige Este (+) u Oeste (−)
+  if (ov !== null) declSign = ov < 0 ? -1 : 1;
+  else declSign = est < 0 ? -1 : 1;          // por defecto, el sentido de la estimación del lugar
+  document.getElementById('setDecl').value = ov === null ? '' : String(Math.abs(ov));
+  document.getElementById('setDecl').placeholder = `Auto: ${Math.abs(est).toFixed(1)}° ${est < 0 ? 'O' : 'E'}`;
+  updateDeclSignUI();
   document.getElementById('setDeclHint').textContent = ov === null
-    ? `Usando estimación aproximada: ${est.toFixed(1)}° (puede tener varios grados de error). Cargá el valor real del lugar (NOAA/NCEI).`
-    : `Valor manual en uso. La estimación aquí sería ${est.toFixed(1)}°.`;
+    ? `Usando estimación aproximada: ${fmtDecl(est)} (puede tener varios grados de error). Escribí el valor real del lugar (NOAA/NCEI) y elegí Este u Oeste.`
+    : `Valor manual en uso: ${fmtDecl(ov)}. La estimación aquí sería ${fmtDecl(est)}.`;
   const accSel = document.getElementById('setGpsAcc'), stepSel = document.getElementById('setGpsStep');
   const u = (m) => isImp() ? `${Math.round(m * FT)} ft` : `${m} m`;
   accSel.innerHTML = [5, 10, 20, 30, 50].map(v => `<option value="${v}">±${u(v)}</option>`).join('');
   stepSel.innerHTML = [1, 2, 3, 5, 10, 20, 50, 100].map(v => `<option value="${v}">${u(v)}</option>`).join('');
   accSel.value = String(settings.gpsMaxAcc);
   stepSel.value = String(settings.gpsMinStep);
+}
+let declSign = -1;
+const fmtDecl = (v) => `${v < 0 ? '−' : '+'}${Math.abs(v).toFixed(1)}° (${v < 0 ? 'Oeste' : 'Este'})`;
+function updateDeclSignUI() {
+  document.querySelectorAll('.set-decl-sign').forEach(b => {
+    const on = +b.dataset.declSign === declSign;
+    b.className = 'set-decl-sign px-2.5 py-2 rounded-xl text-xs font-bold border ' +
+      (on ? 'bg-emerald-600 text-white border-emerald-500' : 'bg-slate-800 text-slate-300 border-slate-600');
+  });
+}
+/** Aplica lo escrito en el campo de declinación junto con el sentido elegido (Este +, Oeste −) */
+function applyDeclInput() {
+  const input = document.getElementById('setDecl');
+  const t = input.value.trim().replace(',', '.');
+  if (t === '') { setDeclOverride(null); refreshSettingsUI(); applySettings(); return; }
+  let v = parseFloat(t);
+  if (/^[-−]/.test(t)) declSign = -1;        // con teclado externo también se acepta el signo
+  v = declSign * Math.abs(v);
+  if (!Number.isFinite(v) || Math.abs(v) > 40) {
+    toast({ type: 'error', title: 'Valor inválido', message: 'Ingresá un número entre 0 y 40 y elegí Este u Oeste.' });
+    return refreshSettingsUI();
+  }
+  setDeclOverride(v);
+  refreshSettingsUI(); applySettings();
 }
 function openSettings() { refreshSettingsUI(); document.getElementById('settingsModal').classList.remove('hidden'); }
 function closeSettings() { document.getElementById('settingsModal').classList.add('hidden'); }
@@ -245,19 +274,12 @@ function initSettingsUI() {
   document.getElementById('setCoords').onchange = (e) => {
     settings.coords = e.target.value; saveSettings(); refreshSettingsUI(); applySettings();
   };
-  document.getElementById('setDecl').onchange = (e) => {
-    const t = e.target.value.trim().replace(',', '.');
-    if (t === '') setDeclOverride(null);
-    else {
-      const v = parseFloat(t);
-      if (!Number.isFinite(v) || Math.abs(v) > 40) {
-        toast({ type: 'error', title: 'Valor inválido', message: 'Ingresá un número entre -40 y 40.' });
-        return refreshSettingsUI();
-      }
-      setDeclOverride(v);
-    }
-    refreshSettingsUI(); applySettings();
-  };
+  document.getElementById('setDecl').onchange = applyDeclInput;
+  document.querySelectorAll('.set-decl-sign').forEach(b => b.onclick = () => {
+    declSign = +b.dataset.declSign;
+    updateDeclSignUI();
+    if (document.getElementById('setDecl').value.trim() !== '') applyDeclInput();  // con campo vacío solo cambia el sentido para lo que se escriba
+  });
   document.getElementById('setDeclAuto').onclick = () => { setDeclOverride(null); refreshSettingsUI(); applySettings(); };
   document.getElementById('setGpsAcc').onchange = (e) => { settings.gpsMaxAcc = +e.target.value; saveSettings(); };
   document.getElementById('setGpsStep').onchange = (e) => { settings.gpsMinStep = +e.target.value; saveSettings(); };
@@ -1452,7 +1474,7 @@ function updateMetrics(areaM2, distM) {
   liveArea = areaM2; liveDist = distM;
   updateLiveBadge();
 }
-const APP_VERSION = '2026.11.09-23';
+const APP_VERSION = '2026.11.09-24';
 let liveSelfIntersect = false; // el polígono se cruza a sí mismo (los marcadores rojos ya lo señalan)
 function updateSelfIntersectWarning(show) {
   const v = !!show;

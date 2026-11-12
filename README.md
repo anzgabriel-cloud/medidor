@@ -74,5 +74,12 @@ Verifican los cálculos puros (ángulos, rumbos, declinación, UTM y Gauss-Krüg
 No hace falta subir la carpeta `tests/` a GitHub Pages.
 
 ```
-node --test tests/calculos.test.js
+node --test tests/calculos.test.js tests/altitud.test.js
 ```
+
+## Altitud (s.n.m.) y perfil
+
+- Se pide a [Open-Meteo](https://open-meteo.com/en/docs/elevation-api) (Copernicus DEM GLO-90, 90 m); si falla, a Open Topo Data (SRTM).
+- Hace falta conexión la primera vez; después queda guardada en el navegador (caché por punto y dentro de cada medición).
+- Es un modelo de superficie: precisión de varios metros y, bajo monte, incluye la copa de los árboles.
+- Superficies: media por malla interior (pesa por área) + mínimo, máximo y desnivel. Distancias y recorridos: perfil con subida y bajada acumuladas.

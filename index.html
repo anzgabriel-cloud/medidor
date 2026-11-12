@@ -14,7 +14,7 @@
   <meta name="apple-mobile-web-app-title" content="Medidor">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <!-- Versión: debe coincidir con APP_VERSION (app.js) y --app-version (styles.css) -->
-  <meta name="app-version" content="2026.11.09-18">
+  <meta name="app-version" content="2026.11.09-19">
 
   <!-- Dependencias externas -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -304,6 +304,22 @@
     </div>
   </div>
   <div id="infoBackdrop" class="hidden"></div>
+
+  <!-- PERFIL DE ALTURA -->
+  <div id="profileModal" class="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-sm hidden flex items-center justify-center p-4">
+    <div class="w-full max-w-md bg-slate-900 border border-slate-700 rounded-2xl p-4 shadow-2xl">
+      <div class="flex items-center justify-between gap-2 pb-3 border-b border-slate-800">
+        <div class="flex items-center gap-2 min-w-0">
+          <i data-lucide="mountain" class="w-5 h-5 text-amber-400 flex-shrink-0"></i>
+          <h2 id="profileTitle" class="font-bold text-base truncate">Perfil de altura</h2>
+        </div>
+        <button id="profileCloseBtn" class="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-slate-800 border border-slate-600 text-slate-200 text-xs font-semibold flex-shrink-0">
+          <i data-lucide="x" class="w-4 h-4"></i> Cerrar
+        </button>
+      </div>
+      <div id="profileBody" class="mt-3"></div>
+    </div>
+  </div>
 
   <!-- POI MODAL -->
   <div id="poiModal" class="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-sm hidden flex items-center justify-center p-4">

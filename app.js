@@ -752,6 +752,7 @@ document.getElementById('closePoiBtn').onclick = (e) => { e.preventDefault(); e.
     if (!searchBox.classList.contains('hidden') && !searchInput.closest('.relative').contains(e.target)) searchBox.classList.add('hidden');
   });
   initCoordUI();
+  initProfileUI();
 
   loadSaved();
   loadPois();
@@ -1429,7 +1430,7 @@ function updateMetrics(areaM2, distM) {
   liveArea = areaM2; liveDist = distM;
   updateLiveBadge();
 }
-const APP_VERSION = '2026.11.09-18';
+const APP_VERSION = '2026.11.09-19';
 let liveSelfIntersect = false; // el polígono se cruza a sí mismo (los marcadores rojos ya lo señalan)
 function updateSelfIntersectWarning(show) {
   const v = !!show;
@@ -1800,6 +1801,9 @@ function showMeasurementInfo(item) {
         <div class="text-[11px] text-slate-500">${lenSub(stats.total)}</div>
       </div>${bearingHtml}`;
   }
+  metrics.insertAdjacentHTML('beforeend', elevCard(''));
+  inspectPoi = null;
+  loadInfoElevForItem(item);
   updateInfoToggleUI();
   refreshInspectOverlays();
   const main = document.getElementById('mainControls');
@@ -1812,6 +1816,7 @@ function showMeasurementInfo(item) {
 
 function showPoiInfo(p) {
   inspectItem = null;
+  inspectPoi = p;
   const color = safeColor(p.color, '#f59e0b');
   document.getElementById('infoColorDot').style.background = color;
   document.getElementById('infoName').textContent = p.name || 'POI';
@@ -1832,6 +1837,8 @@ function showPoiInfo(p) {
       <div class="text-[10px] text-slate-400 uppercase">Coordenadas</div>
       ${fmtCoordLines(p.lat, p.lng).map(t => `<div class="text-[12px] font-mono text-slate-200">${escapeHtml(t)}</div>`).join('')}
     </div>`;
+  document.getElementById('infoMetrics').insertAdjacentHTML('beforeend', elevCard(''));
+  loadInfoElevForPoi(p);
   document.getElementById('infoDeclination')?.classList.add('hidden');
   document.querySelector('#infoPanel .flex.gap-1')?.classList.add('hidden');
   const main = document.getElementById('mainControls');
@@ -1842,6 +1849,7 @@ function showPoiInfo(p) {
 
 function hideMeasurementInfo() {
   document.getElementById('infoPanel').classList.add('hidden');
+  inspectPoi = null;
   try { updateLiveBadge(); } catch (e) {}
   document.querySelector('#infoPanel .flex.gap-1')?.classList.remove('hidden');
   const main = document.getElementById('mainControls');
@@ -2610,6 +2618,9 @@ function confirmPoi() {
       visible: true
     };
     pois.push(created);
+    fetchElevations([L.latLng(created.lat, created.lng)]).then(v => {
+      if (v[0] !== null) { created.elev = v[0]; created.elevAt = elevKey(created); persistPois(); renderPoiList(); }
+    });
     if (poiMode) {
       poiSession.push(created.id);
       poiSessionRedo = [];
@@ -2736,7 +2747,7 @@ function renderPoiList() {
         <span class="w-2.5 h-2.5 rounded-full flex-shrink-0" style="background:${safeColor(p.color, POI_COLORS[p.cat] || '#f59e0b')}"></span>
         <div class="flex-1 min-w-0">
           <div class="font-bold text-xs truncate">${escapeHtml(p.name)}</div>
-          <div class="text-[10px] text-slate-500">${POI_LABELS[p.cat] || 'Pin'} · ${escapeHtml(settings.coords === 'dec' ? (+p.lat).toFixed(5) + ', ' + (+p.lng).toFixed(5) : fmtCoord(p.lat, p.lng))}</div>
+          <div class="text-[10px] text-slate-500">${POI_LABELS[p.cat] || 'Pin'} · ${escapeHtml(settings.coords === 'dec' ? (+p.lat).toFixed(5) + ', ' + (+p.lng).toFixed(5) : fmtCoord(p.lat, p.lng))}${(typeof p.elev === 'number' && p.elevAt === elevKey(p)) ? ' · ' + fmtElev(p.elev) + ' s.n.m.' : ''}</div>
         </div>
         <button data-nav="${p.id}" class="text-[11px] font-semibold px-2 py-1 rounded-lg border ${navigating ? 'bg-rose-500/15 text-rose-300 border-rose-500/40' : 'bg-sky-500/15 text-sky-300 border-sky-500/40'}">${navigating ? 'Dejar de navegar' : 'Navegar'}</button>
         <button data-edit="${p.id}" class="text-[11px] font-semibold px-2 py-1 rounded-lg border bg-amber-500/15 text-amber-200 border-amber-500/30">Editar</button>
@@ -3184,6 +3195,286 @@ function importGeoJSON(e) {
   reader.readAsText(file);
   e.target.value = '';
 }
+// ========== ALTITUD (s.n.m.) y PERFIL ==========
+// Fuente: Copernicus DEM GLO-90 (90 m) vía Open-Meteo; respaldo: Open Topo Data (SRTM).
+// Es un modelo de superficie: precisión de varios metros y, bajo monte, incluye la copa de los árboles.
+const ELEV_CACHE_KEY = 'medidor_elev_v1';
+let elevCache = null;
+const elevKey = (ll) => (+ll.lat).toFixed(4) + ',' + (+ll.lng).toFixed(4); // ≈ 11 m
+function loadElevCache() {
+  if (elevCache) return;
+  try { elevCache = JSON.parse(localStorage.getItem(ELEV_CACHE_KEY)) || {}; } catch (e) { elevCache = {}; }
+}
+function saveElevCache() {
+  try {
+    const keys = Object.keys(elevCache);
+    if (keys.length > 4000) keys.slice(0, keys.length - 4000).forEach(k => delete elevCache[k]);
+    localStorage.setItem(ELEV_CACHE_KEY, JSON.stringify(elevCache));
+  } catch (e) {}
+}
+const elevConv = (m) => isImp() ? m * FT : m;
+const elevUnit = () => isImp() ? 'ft' : 'm';
+const fmtElev = (m) => `${nf0.format(elevConv(m))} ${elevUnit()}`;
+
+async function requestElevations(chunk) {
+  if (navigator.onLine === false) return null;
+  const get = async (url, parse) => {
+    const ctl = new AbortController();
+    const t = setTimeout(() => ctl.abort(), 9000);
+    try {
+      const r = await fetch(url, { signal: ctl.signal });
+      if (!r.ok) return null;
+      return parse(await r.json());
+    } catch (e) { return null; } finally { clearTimeout(t); }
+  };
+  const lat = chunk.map(c => c.lat).join(','), lng = chunk.map(c => c.lng).join(',');
+  let v = await get(`https://api.open-meteo.com/v1/elevation?latitude=${lat}&longitude=${lng}`,
+    j => Array.isArray(j.elevation) ? j.elevation : null);
+  if (v && v.length === chunk.length) return v;
+  const locs = chunk.map(c => c.lat + ',' + c.lng).join('|');
+  v = await get(`https://api.opentopodata.org/v1/srtm30m?locations=${locs}`,
+    j => Array.isArray(j.results) ? j.results.map(r => r.elevation) : null);
+  return (v && v.length === chunk.length) ? v : null;
+}
+/** Altitudes (m) de una lista de puntos; null donde no se pudo obtener (sin conexión, etc.) */
+async function fetchElevations(lls) {
+  loadElevCache();
+  const out = new Array(lls.length).fill(null);
+  const idx = new Map(), need = [];
+  lls.forEach((ll, i) => {
+    const k = elevKey(ll);
+    if (typeof elevCache[k] === 'number') { out[i] = elevCache[k]; return; }
+    if (!idx.has(k)) { idx.set(k, []); need.push({ k, lat: +(+ll.lat).toFixed(4), lng: +(+ll.lng).toFixed(4) }); }
+    idx.get(k).push(i);
+  });
+  for (let s = 0; s < need.length; s += 100) {
+    const chunk = need.slice(s, s + 100);
+    const vals = await requestElevations(chunk);
+    if (!vals) break;
+    chunk.forEach((c, j) => {
+      const v = vals[j];
+      if (typeof v === 'number' && isFinite(v)) { elevCache[c.k] = v; idx.get(c.k).forEach(i => { out[i] = v; }); }
+    });
+  }
+  if (need.length) saveElevCache();
+  return out;
+}
+function itemSig(item) {
+  const str = item.mode + '|' + item.points.map(p => (+p.lat).toFixed(6) + ',' + (+p.lng).toFixed(6)).join(';');
+  let h = 5381;
+  for (let i = 0; i < str.length; i++) h = ((h << 5) + h + str.charCodeAt(i)) | 0;
+  return String(h);
+}
+
+/** Superficie: puntos de muestra = vértices + malla interior uniforme (la media de la malla pesa por área) */
+function polygonElevStats(item) {
+  const lls = item.points.map(p => L.latLng(p.lat, p.lng));
+  const ring = lls.map(p => [p.lng, p.lat]); ring.push(ring[0]);
+  let inner = [];
+  let extra = [];
+  try {
+    const poly = turf.polygon([ring]);
+    const pof = turf.pointOnFeature(poly).geometry.coordinates;
+    extra.push(L.latLng(pof[1], pof[0]));
+    const room = Math.max(0, 100 - lls.length - 1);
+    if (room >= 4) {
+      const cell = Math.max(30, Math.sqrt(turf.area(poly) / Math.min(room, 64)));
+      const grid = turf.pointGrid(turf.bbox(poly), cell / 1000, { units: 'kilometers', mask: poly }).features;
+      const step = Math.max(1, Math.ceil(grid.length / room));
+      for (let i = 0; i < grid.length; i += step) inner.push(L.latLng(grid[i].geometry.coordinates[1], grid[i].geometry.coordinates[0]));
+    }
+  } catch (e) {}
+  return { lls, inner, extra };
+}
+async function getItemElev(item) {
+  const sig = itemSig(item);
+  if (item.elev && item.elev.sig === sig) return item.elev;
+  const { lls, inner, extra } = polygonElevStats(item);
+  const all = lls.concat(extra, inner);
+  const z = await fetchElevations(all);
+  const ok = z.filter(v => v !== null);
+  if (!ok.length) return null;
+  const zi = z.slice(lls.length + extra.length).filter(v => v !== null);
+  const zb = z.slice(0, lls.length + extra.length).filter(v => v !== null);
+  const base = zi.length >= 3 ? zi : zb;             // malla interior si hay; si no, vértices
+  const mean = base.reduce((a, b) => a + b, 0) / base.length;
+  item.elev = { sig, mean, min: Math.min(...ok), max: Math.max(...ok), n: ok.length };
+  persist();
+  return item.elev;
+}
+
+/** Línea/recorrido: muestras equiespaciadas a lo largo del trazado (≤ 100) */
+function lineSamples(lls) {
+  const cum = [0];
+  for (let i = 1; i < lls.length; i++) cum.push(cum[i - 1] + lls[i - 1].distanceTo(lls[i]));
+  const total = cum[cum.length - 1];
+  if (!(total >= 1)) return null;
+  const n = Math.min(100, Math.max(2, Math.ceil(total / 50) + 1));
+  const out = [];
+  let seg = 1;
+  for (let k = 0; k < n; k++) {
+    const d = total * k / (n - 1);
+    while (seg < cum.length - 1 && cum[seg] < d) seg++;
+    const a = lls[seg - 1], b = lls[seg];
+    const t = Math.min(1, Math.max(0, (d - cum[seg - 1]) / ((cum[seg] - cum[seg - 1]) || 1)));
+    out.push({ d, ll: L.latLng(a.lat + (b.lat - a.lat) * t, a.lng + (b.lng - a.lng) * t) });
+  }
+  return { samples: out, total };
+}
+function profileStats(z) {
+  // Subida/bajada sobre serie suavizada (media móvil de 3) para no inflar el ruido del modelo
+  const zs = z.map((v, i) => { if (i === 0 || i === z.length - 1) return v; const w = z.slice(i - 1, i + 2); return (w[0] + w[1] + w[2]) / 3; });
+  let up = 0, down = 0;
+  for (let i = 1; i < zs.length; i++) { const d = zs[i] - zs[i - 1]; if (d > 0) up += d; else down -= d; }
+  return { min: Math.min(...z), max: Math.max(...z), start: z[0], end: z[z.length - 1], up, down };
+}
+async function getItemProfile(item) {
+  const sig = itemSig(item);
+  if (item.prof && item.prof.sig === sig) return item.prof;
+  const smp = lineSamples(item.points.map(p => L.latLng(p.lat, p.lng)));
+  if (!smp) return null;
+  const z = await fetchElevations(smp.samples.map(s => s.ll));
+  if (z.every(v => v === null)) return null;
+  // huecos sueltos: se interpolan con los vecinos
+  for (let i = 0; i < z.length; i++) {
+    if (z[i] !== null) continue;
+    let a = i - 1; while (a >= 0 && z[a] === null) a--;
+    let b = i + 1; while (b < z.length && z[b] === null) b++;
+    z[i] = a < 0 ? z[b] : b >= z.length ? z[a] : z[a] + (z[b] - z[a]) * (i - a) / (b - a);
+  }
+  item.prof = { sig, d: smp.samples.map(s => Math.round(s.d)), z: z.map(v => Math.round(v * 10) / 10), total: smp.total };
+  persist();
+  return item.prof;
+}
+
+const elevCard = (inner) => `<div id="infoElev" class="col-span-2 bg-slate-950/80 rounded-xl p-2.5 border border-slate-800">${inner}</div>`;
+const elevMsg = (t) => `<div class="text-[10px] text-slate-400 uppercase">Altitud s.n.m.</div><div class="text-[11px] text-slate-500">${t}</div>`;
+const elevFail = '<span>No disponible sin conexión.</span> <button id="infoElevRetry" class="underline text-amber-300">Reintentar</button>';
+function setInfoElev(html, itemOrPoi, retry) {
+  if (inspectItem !== itemOrPoi && inspectPoi !== itemOrPoi) return;   // ya se cerró o se abrió otra consulta
+  const el = document.getElementById('infoElev');
+  if (!el) return;
+  el.innerHTML = html;
+  const r = document.getElementById('infoElevRetry');
+  if (r && retry) r.onclick = retry;
+  lucide.createIcons();
+}
+let inspectPoi = null;
+function loadInfoElevForItem(item) {
+  setInfoElev(elevMsg('Calculando…'), item);
+  const retry = () => loadInfoElevForItem(item);
+  if (item.mode === 'polygon') {
+    getItemElev(item).then(e => {
+      if (!e) return setInfoElev(elevMsg(elevFail), item, retry);
+      setInfoElev(`<div class="text-[10px] text-slate-400 uppercase">Altitud media s.n.m.</div>
+        <div class="text-lg font-bold text-amber-300">${fmtElev(e.mean)}</div>
+        <div class="text-[11px] text-slate-500">mín ${fmtElev(e.min)} · máx ${fmtElev(e.max)} · desnivel ${fmtElev(e.max - e.min)}</div>`, item);
+    });
+  } else {
+    getItemProfile(item).then(p => {
+      if (!p) return setInfoElev(elevMsg(elevFail), item, retry);
+      const st = profileStats(p.z);
+      setInfoElev(`<div class="flex items-center justify-between gap-2">
+        <div class="min-w-0">
+          <div class="text-[10px] text-slate-400 uppercase">Altitud s.n.m.</div>
+          <div class="text-sm font-bold text-amber-300">${fmtElev(st.start)} → ${fmtElev(st.end)}</div>
+          <div class="text-[11px] text-slate-500">subida +${fmtElev(st.up)} · bajada −${fmtElev(st.down)}</div>
+        </div>
+        <button id="infoProfileBtn" class="flex-shrink-0 text-[11px] font-bold px-3 py-2 rounded-lg border bg-amber-500/20 text-amber-200 border-amber-500/40 inline-flex items-center gap-1"><i data-lucide="mountain" class="w-3.5 h-3.5"></i> Ver perfil</button>
+      </div>`, item);
+      const b = document.getElementById('infoProfileBtn');
+      if (b) b.onclick = () => openProfile(item);
+    });
+  }
+}
+function loadInfoElevForPoi(p) {
+  const key = elevKey(p);
+  if (typeof p.elev === 'number' && p.elevAt === key) {
+    setInfoElev(`<div class="text-[10px] text-slate-400 uppercase">Altitud s.n.m.</div><div class="text-lg font-bold text-amber-300">${fmtElev(p.elev)}</div>`, p);
+    return;
+  }
+  setInfoElev(elevMsg('Calculando…'), p);
+  fetchElevations([L.latLng(p.lat, p.lng)]).then(v => {
+    if (v[0] === null) return setInfoElev(elevMsg(elevFail), p, () => loadInfoElevForPoi(p));
+    p.elev = v[0]; p.elevAt = key;
+    persistPois(); renderPoiList();
+    loadInfoElevForPoi(p);
+  });
+}
+
+// ----- Perfil de altura (gráfico) -----
+function openProfile(item) {
+  const modal = document.getElementById('profileModal');
+  document.getElementById('profileTitle').textContent = item.name || 'Perfil de altura';
+  const body = document.getElementById('profileBody');
+  body.innerHTML = '<div class="py-10 text-center text-xs text-slate-400">Calculando perfil…</div>';
+  modal.classList.remove('hidden');
+  lucide.createIcons();
+  getItemProfile(item).then(p => {
+    if (modal.classList.contains('hidden')) return;
+    if (!p) { body.innerHTML = '<div class="py-10 text-center text-xs text-slate-400">No hay datos de altura (se necesita conexión la primera vez).</div>'; return; }
+    drawProfile(body, item, p);
+  });
+}
+function closeProfile() { document.getElementById('profileModal')?.classList.add('hidden'); }
+function drawProfile(body, item, p) {
+  const W = 340, H = 180, l = 40, r = 10, t = 12, b = 24;
+  const zs = p.z.map(elevConv);
+  let zmin = Math.min(...zs), zmax = Math.max(...zs);
+  if (zmax - zmin < 4) { const c = (zmax + zmin) / 2; zmin = c - 2; zmax = c + 2; }
+  const pad = (zmax - zmin) * 0.08; zmin -= pad; zmax += pad;
+  const total = p.total || p.d[p.d.length - 1] || 1;
+  const X = (d) => l + (d / total) * (W - l - r);
+  const Y = (z) => t + (1 - (z - zmin) / (zmax - zmin)) * (H - t - b);
+  const pts = p.d.map((d, i) => [X(d), Y(zs[i])]);
+  const line = pts.map((q, i) => (i ? 'L' : 'M') + q[0].toFixed(1) + ' ' + q[1].toFixed(1)).join(' ');
+  const area = `${line} L${X(total).toFixed(1)} ${H - b} L${l} ${H - b} Z`;
+  const color = safeColor(item.color, '#f59e0b');
+  const yTicks = [0, 0.5, 1].map(f => zmin + (zmax - zmin) * f);
+  const grid = yTicks.map(v => `<line x1="${l}" x2="${W - r}" y1="${Y(v).toFixed(1)}" y2="${Y(v).toFixed(1)}" stroke="#334155" stroke-width="0.6" stroke-dasharray="3 3"/>
+    <text x="${l - 4}" y="${(Y(v) + 3).toFixed(1)}" text-anchor="end" font-size="9" fill="#94a3b8">${nf0.format(v)}</text>`).join('');
+  const xTicks = [0, 0.5, 1].map((f, i) => `<text x="${X(total * f).toFixed(1)}" y="${H - 8}" text-anchor="${i === 0 ? 'start' : i === 2 ? 'end' : 'middle'}" font-size="9" fill="#94a3b8">${escapeHtml(fmtLenShort(total * f))}</text>`).join('');
+  const st = profileStats(p.z);
+  const stat = (cap, val, cls) => `<div class="bg-slate-950/80 rounded-lg p-2 border border-slate-800 text-center"><div class="text-[9px] text-slate-400 uppercase">${cap}</div><div class="text-xs font-bold ${cls}">${val}</div></div>`;
+  body.innerHTML = `
+    <div id="profReadout" class="text-[11px] text-slate-300 h-4 mb-1 font-mono">Deslizá el dedo sobre el gráfico</div>
+    <svg id="profSvg" viewBox="0 0 ${W} ${H}" class="w-full rounded-lg bg-slate-950 border border-slate-800" style="touch-action:none">
+      <defs><linearGradient id="profGrad" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="${color}" stop-opacity=".55"/><stop offset="100%" stop-color="${color}" stop-opacity=".05"/></linearGradient></defs>
+      ${grid}${xTicks}
+      <path d="${area}" fill="url(#profGrad)"/>
+      <path d="${line}" fill="none" stroke="${color}" stroke-width="2" stroke-linejoin="round"/>
+      <line id="profCur" x1="0" x2="0" y1="${t}" y2="${H - b}" stroke="#fff" stroke-width="1" visibility="hidden"/>
+      <circle id="profDot" r="4" fill="#fff" stroke="${color}" stroke-width="2" visibility="hidden"/>
+    </svg>
+    <div class="text-[9px] text-slate-500 mt-1">Altura en ${elevUnit()} s.n.m. · distancia a lo largo del trazado</div>
+    <div class="grid grid-cols-4 gap-1.5 mt-2">
+      ${stat('Mínima', fmtElev(st.min), 'text-sky-300')}${stat('Máxima', fmtElev(st.max), 'text-rose-300')}
+      ${stat('Subida', '+' + fmtElev(st.up), 'text-emerald-300')}${stat('Bajada', '−' + fmtElev(st.down), 'text-amber-300')}
+    </div>
+    <p class="text-[10px] text-slate-500 mt-2 leading-snug">Datos: Copernicus DEM (90 m) vía Open-Meteo. Son aproximados: pueden variar varios metros y, bajo monte, incluyen la copa de los árboles.</p>`;
+  const svg = document.getElementById('profSvg');
+  const cur = document.getElementById('profCur'), dot = document.getElementById('profDot'), ro = document.getElementById('profReadout');
+  const move = (ev) => {
+    const rect = svg.getBoundingClientRect();
+    const x = (ev.clientX - rect.left) / rect.width * W;
+    const d = Math.min(total, Math.max(0, (x - l) / (W - l - r) * total));
+    let i = 0; while (i < p.d.length - 1 && p.d[i + 1] <= d) i++;
+    if (i < p.d.length - 1 && d - p.d[i] > p.d[i + 1] - d) i++;
+    cur.setAttribute('x1', pts[i][0]); cur.setAttribute('x2', pts[i][0]); cur.setAttribute('visibility', 'visible');
+    dot.setAttribute('cx', pts[i][0]); dot.setAttribute('cy', pts[i][1]); dot.setAttribute('visibility', 'visible');
+    const j = Math.min(p.d.length - 1, i + 1), k = Math.max(0, i - 1);
+    const run = p.d[j] - p.d[k];
+    const slope = run > 0 ? (p.z[j] - p.z[k]) / run * 100 : 0;
+    ro.textContent = `${fmtLenShort(p.d[i])} · ${fmtElev(p.z[i])} · pendiente ${slope >= 0 ? '+' : '−'}${Math.abs(slope).toFixed(0)}%`;
+  };
+  svg.onpointerdown = (ev) => { svg.setPointerCapture?.(ev.pointerId); move(ev); };
+  svg.onpointermove = move;
+}
+function initProfileUI() {
+  document.getElementById('profileCloseBtn').onclick = closeProfile;
+  document.getElementById('profileModal').onclick = (e) => { if (e.target.id === 'profileModal') closeProfile(); };
+}
+
 // ========== GPS ==========
 // Mantener la pantalla encendida mientras se graba: si el iPhone la apaga, Safari suspende el GPS y queda una brecha
 let wakeLock = null;

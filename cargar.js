@@ -40,8 +40,24 @@ const NOMBRES = [
   'polygonIsCCW', 'vertexAngleInfo', 'angleArcGeometry',
   'tmForward', 'toUTM', 'toGaussKruger', 'tmInverse', 'fromUTM', 'fromGaussKruger',
   'dmsStr', 'fmtCoordLines', 'fmtCoord',
-  'parseDecimalStr', 'parseMetersStr', 'isBlank', 'parseCoordForm'
+  'parseDecimalStr', 'parseMetersStr', 'isBlank', 'parseCoordForm',
+  'ELEV_CACHE_KEY', 'elevKey', 'loadElevCache', 'saveElevCache', 'elevConv', 'elevUnit', 'fmtElev',
+  'requestElevations', 'fetchElevations', 'itemSig', 'lineSamples', 'profileStats', 'getItemProfile'
 ];
+vm.runInContext('var elevCache = null;', ctx);
+// Piezas del navegador que usan las funciones de altitud (se reemplazan en cada test)
+const haversine = (a, b) => {
+  const R = 6371008.8, rad = Math.PI / 180;
+  const dLat = (b.lat - a.lat) * rad, dLng = (b.lng - a.lng) * rad;
+  const h = Math.sin(dLat / 2) ** 2 + Math.cos(a.lat * rad) * Math.cos(b.lat * rad) * Math.sin(dLng / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(h));
+};
+ctx.L = { latLng: (lat, lng) => ({ lat, lng, distanceTo(o) { return haversine(this, o); } }) };
+ctx.navigator = { onLine: true };
+ctx.AbortController = AbortController;
+ctx.setTimeout = setTimeout; ctx.clearTimeout = clearTimeout;
+ctx.persist = () => {};
+ctx.fetch = async () => { throw new Error('sin red'); };
 for (const n of NOMBRES) vm.runInContext(extraer(n), ctx, { filename: `app.js:${n}` });
 
 module.exports = {

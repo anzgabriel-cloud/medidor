@@ -768,6 +768,7 @@ document.getElementById('closePoiBtn').onclick = (e) => { e.preventDefault(); e.
   document.getElementById('viewHintOk').onclick = () => hideViewHint(true);
   applyAppView(); // arranca en Medir
   checkAppVersion();
+  setTimeout(checkBackupReminder, 3500);
   setTimeout(showViewHint, 900);
   updateModeTheme();
 }
@@ -1430,7 +1431,7 @@ function updateMetrics(areaM2, distM) {
   liveArea = areaM2; liveDist = distM;
   updateLiveBadge();
 }
-const APP_VERSION = '2026.11.09-19';
+const APP_VERSION = '2026.11.09-20';
 let liveSelfIntersect = false; // el polígono se cruza a sí mismo (los marcadores rojos ya lo señalan)
 function updateSelfIntersectWarning(show) {
   const v = !!show;
@@ -2928,6 +2929,7 @@ function loadSaved() {
 
 function openSaved() {
   renderSaved();
+  updateBackupInfo();
   document.getElementById('savedDrawer').classList.remove('hidden');
 }
 
@@ -3065,6 +3067,39 @@ function renderSaved() {
   lucide.createIcons();
 }
 
+// ----- Recordatorio de respaldo: los datos viven solo en este navegador -----
+const LAST_BACKUP_KEY = 'medidor_last_backup';
+const BACKUP_SNOOZE_KEY = 'medidor_backup_snooze';
+const BACKUP_EVERY_DAYS = 14;
+function readNum(key) { try { return +localStorage.getItem(key) || 0; } catch (e) { return 0; } }
+function backupAgeDays() { const t = readNum(LAST_BACKUP_KEY); return t ? (Date.now() - t) / 86400000 : null; }
+function updateBackupInfo() {
+  const el = document.getElementById('backupInfo');
+  if (!el) return;
+  const d = backupAgeDays();
+  el.textContent = d === null ? 'Todavía no exportaste una copia de tus datos.'
+    : d < 1 ? 'Última copia exportada: hoy.' : `Última copia exportada: hace ${Math.floor(d)} día${Math.floor(d) === 1 ? '' : 's'}.`;
+  el.classList.toggle('text-amber-300', d === null || d > BACKUP_EVERY_DAYS);
+  el.classList.toggle('text-slate-500', !(d === null || d > BACKUP_EVERY_DAYS));
+}
+function checkBackupReminder() {
+  if (!saved.length && !pois.length) return;
+  if (gpsWatchId !== null || Date.now() < readNum(BACKUP_SNOOZE_KEY)) return;
+  const d = backupAgeDays();
+  if (d !== null && d <= BACKUP_EVERY_DAYS) return;
+  toast({
+    type: 'warning', title: 'Copia de seguridad',
+    message: d === null
+      ? 'Tus mediciones y POI solo están en este navegador. Exportá una copia para no perderlos.'
+      : `Hace ${Math.floor(d)} días que no exportás una copia de tus datos.`,
+    duration: 0,
+    actions: [
+      { label: 'Luego', style: 'secondary', onClick: () => { try { localStorage.setItem(BACKUP_SNOOZE_KEY, String(Date.now() + 3 * 86400000)); } catch (e) {} } },
+      { label: 'Exportar ahora', onClick: exportGeoJSON }
+    ]
+  });
+}
+
 function exportGeoJSON() {
   if (!saved.length && !pois.length) {
     toast({ type: 'warning', title: 'Nada para exportar', message: 'Todavía no hay mediciones ni POI guardados.' });
@@ -3097,6 +3132,8 @@ function exportGeoJSON() {
   a.download = `mediciones_${Date.now()}.geojson`;
   a.click();
   setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  try { localStorage.setItem(LAST_BACKUP_KEY, String(Date.now())); } catch (e) {}
+  updateBackupInfo();
   toast({ type: 'success', title: 'Exportado', message: `${features.length - pois.length} medición(es) y ${pois.length} POI exportados.` });
 }
 
@@ -3219,13 +3256,17 @@ const fmtElev = (m) => `${nf0.format(elevConv(m))} ${elevUnit()}`;
 async function requestElevations(chunk) {
   if (navigator.onLine === false) return null;
   const get = async (url, parse) => {
-    const ctl = new AbortController();
-    const t = setTimeout(() => ctl.abort(), 9000);
-    try {
-      const r = await fetch(url, { signal: ctl.signal });
-      if (!r.ok) return null;
-      return parse(await r.json());
-    } catch (e) { return null; } finally { clearTimeout(t); }
+    for (let intento = 0; intento < 2; intento++) {
+      const ctl = new AbortController();
+      const t = setTimeout(() => ctl.abort(), 9000);
+      try {
+        const r = await fetch(url, { signal: ctl.signal });
+        if (r.ok) return parse(await r.json());
+        if (r.status >= 400 && r.status < 500 && r.status !== 429) return null; // pedido inválido: reintentar no sirve
+      } catch (e) { /* corte de red o tiempo agotado: se reintenta una vez */ } finally { clearTimeout(t); }
+      if (intento === 0) await new Promise(res => setTimeout(res, 800));
+    }
+    return null;
   };
   const lat = chunk.map(c => c.lat).join(','), lng = chunk.map(c => c.lng).join(',');
   let v = await get(`https://api.open-meteo.com/v1/elevation?latitude=${lat}&longitude=${lng}`,
@@ -3480,10 +3521,16 @@ function initProfileUI() {
 let wakeLock = null;
 async function acquireWakeLock() {
   try {
-    if (!('wakeLock' in navigator) || wakeLock) return;
+    if (!('wakeLock' in navigator)) return false;
+    if (wakeLock) return true;
     wakeLock = await navigator.wakeLock.request('screen');
-    wakeLock.addEventListener('release', () => { wakeLock = null; });
-  } catch (e) { wakeLock = null; }
+    wakeLock.addEventListener('release', () => {
+      wakeLock = null;
+      // si el sistema lo soltó con la app a la vista y se sigue grabando, se vuelve a pedir
+      if (gpsWatchId !== null && document.visibilityState === 'visible') acquireWakeLock();
+    });
+    return true;
+  } catch (e) { wakeLock = null; return false; }
 }
 function releaseWakeLock() {
   try { if (wakeLock) wakeLock.release(); } catch (e) {}
@@ -3603,7 +3650,7 @@ function startGpsRecording() {
   gpsLive.msg = 'Buscando señal…'; gpsLive.speed = null; gpsLive.heading = null; gpsLive.lastFix = null;
   gpsLive.recStart = Date.now();
   trackStarted = true; trackEnded = false;
-  acquireWakeLock();
+  const wakeOk = acquireWakeLock();
   setGpsBtnState(true);
 
   gpsWatchId = navigator.geolocation.watchPosition(
@@ -3647,7 +3694,13 @@ function startGpsRecording() {
     redraw();
   }
 
-  toast({ type: 'info', title: 'Grabando recorrido', message: `Caminá: se agregarán puntos solos (mín. ${fmtAcc(settings.gpsMinStep)}, precisión ≤ ${fmtAcc(settings.gpsMaxAcc)}). La pantalla se mantiene encendida. Usá Pausar o Detener.` });
+  wakeOk.then(ok => {
+    const base = `Caminá: se agregarán puntos solos (mín. ${fmtAcc(settings.gpsMinStep)}, precisión ≤ ${fmtAcc(settings.gpsMaxAcc)}). Usá Pausar o Detener.`;
+    if (ok) return toast({ type: 'info', title: 'Grabando recorrido', message: base + ' La pantalla se mantiene encendida.' });
+    // No se pudo mantener la pantalla encendida: si se apaga, el GPS deja de registrar puntos
+    const msg = 'Este iPhone no permite mantener la pantalla encendida desde la app. Poné Ajustes › Pantalla y brillo › Bloqueo automático en «Nunca» mientras grabás, o se perderán tramos.';
+    toast({ type: 'warning', title: 'Grabando, pero ojo con la pantalla', message: msg, duration: 12000 });
+  });
 }
 
 function stopGpsTracking(opts = {}) {

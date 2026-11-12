@@ -137,3 +137,21 @@ test('unidades: metros y pies', () => {
   assert.match(get('fmtElev')(300).replace(/\s/g, ' '), /^984 ft$/);
   ctx.settings.units = 'metric';
 });
+
+test('un corte de red pasajero se reintenta y se recupera', async () => {
+  reset();
+  let n = 0;
+  ctx.fetch = async (url) => { n++; if (n === 1) throw new Error('corte'); return respMeteo(() => 410)(url); };
+  const z = await get('fetchElevations')(llist(2));
+  assert.deepEqual(Array.from(z), [410, 410]);
+  assert.equal(n, 2);
+});
+
+test('un error 400 (pedido inválido) no se reintenta', async () => {
+  reset();
+  const hosts = [];
+  ctx.fetch = async (url) => { hosts.push(new URL(url).hostname); return { ok: false, status: 400 }; };
+  const z = await get('fetchElevations')(llist(1));
+  assert.deepEqual(Array.from(z), [null]);
+  assert.deepEqual(hosts, ['api.open-meteo.com', 'api.opentopodata.org']);   // una vez por servicio
+});

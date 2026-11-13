@@ -9,7 +9,7 @@ const TILE_HOSTS = ['server.arcgisonline.com', 'tile.openstreetmap.org'];
 const LIB_HOSTS = ['unpkg.com', 'cdn.jsdelivr.net', 'cdn.tailwindcss.com'];
 
 // Se guarda TODO al instalar (primera visita), así la app abre sin conexión desde el principio.
-const CORE_FILES = ['./', 'index.html', 'styles.css', 'app.js', 'manifest.webmanifest',
+const CORE_FILES = ['./', 'index.html', 'styles.css', 'app.js', 'backup.js', 'manifest.webmanifest',
   'icon-180.png', 'icon-192.png', 'icon-512.png', 'icon-maskable-512.png'];
 const CORE_LIBS = [
   'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css',

@@ -261,7 +261,7 @@ function applyDeclInput() {
   setDeclOverride(v);
   refreshSettingsUI(); applySettings();
 }
-function openSettings() { refreshSettingsUI(); document.getElementById('settingsModal').classList.remove('hidden'); }
+function openSettings() { refreshSettingsUI(); refreshBackupUI(); refreshTileInfo(); document.getElementById('settingsModal').classList.remove('hidden'); }
 function closeSettings() { document.getElementById('settingsModal').classList.add('hidden'); }
 function initSettingsUI() {
   document.getElementById('settingsBtn').onclick = openSettings;
@@ -710,8 +710,10 @@ document.getElementById('closePoiBtn').onclick = (e) => { e.preventDefault(); e.
     inspectShowSegs = false; inspectShowBearings = false; inspectShowAngles = false; inspectShowCoords = true;
     updateInfoToggleUI(); refreshInspectOverlays();
   };
-  document.getElementById('exportBtn').onclick = exportGeoJSON;
-  document.getElementById('importInput').onchange = importGeoJSON;
+  document.getElementById('exportBtn').onclick = exportBackup;
+  document.getElementById('importInput').onchange = importBackup;
+  document.querySelectorAll('.bk-fmt').forEach(b => b.onclick = () => setBackupFmt(b.dataset.fmt));
+  document.getElementById('tileClearBtn').onclick = clearTileCache;
 
   document.querySelectorAll('.color-swatch').forEach(btn => {
     btn.onclick = () => {
@@ -791,8 +793,9 @@ function checkAppVersion() {
     const bad = [];
     if (html !== APP_VERSION) bad.push('index.html');
     if (css !== APP_VERSION) bad.push('styles.css');
+    if (typeof BACKUP_VERSION === 'undefined' || BACKUP_VERSION !== APP_VERSION) bad.push('backup.js');
     if (bad.length) {
-      toast({ type: 'warning', title: 'Actualización incompleta', message: `Falta actualizar ${bad.join(' y ')} (la app es ${APP_VERSION}). Subí index.html, styles.css y app.js juntos y recargá.`, duration: 15000 });
+      toast({ type: 'warning', title: 'Actualización incompleta', message: `Falta actualizar ${bad.join(' y ')} (la app es ${APP_VERSION}). Subí index.html, styles.css, app.js y backup.js juntos y recargá.`, duration: 15000 });
     }
   } catch (e) {}
 }
@@ -1462,7 +1465,7 @@ function updateMetrics(areaM2, distM) {
   liveArea = areaM2; liveDist = distM;
   updateLiveBadge();
 }
-const APP_VERSION = '2026.11.09-26';
+const APP_VERSION = '2026.11.09-27';
 let liveSelfIntersect = false; // el polígono se cruza a sí mismo (los marcadores rojos ya lo señalan)
 function updateSelfIntersectWarning(show) {
   const v = !!show;
@@ -3096,142 +3099,148 @@ function checkBackupReminder() {
     duration: 0,
     actions: [
       { label: 'Luego', style: 'secondary', onClick: () => { try { localStorage.setItem(BACKUP_SNOOZE_KEY, String(Date.now() + 3 * 86400000)); } catch (e) {} } },
-      { label: 'Exportar ahora', onClick: exportGeoJSON }
+      { label: 'Exportar ahora', onClick: exportBackup }
     ]
   });
 }
 
-function exportGeoJSON() {
+// ========== COPIA DE SEGURIDAD (formatos en backup.js) ==========
+const BACKUP_FMT_KEY = 'medidor_backup_fmt';
+function getBackupFmt() {
+  try { const f = localStorage.getItem(BACKUP_FMT_KEY); if (BACKUP_FORMATS[f]) return f; } catch (e) {}
+  return 'geojson';
+}
+function setBackupFmt(f) { try { localStorage.setItem(BACKUP_FMT_KEY, f); } catch (e) {} refreshBackupUI(); }
+function refreshBackupUI() {
+  const f = getBackupFmt();
+  document.querySelectorAll('.bk-fmt').forEach(b => {
+    const on = b.dataset.fmt === f;
+    b.classList.toggle('bg-emerald-500/20', on);
+    b.classList.toggle('border-emerald-500', on);
+    b.classList.toggle('text-emerald-300', on);
+    b.classList.toggle('bg-slate-800', !on);
+    b.classList.toggle('border-slate-600', !on);
+    b.classList.toggle('text-slate-300', !on);
+    b.setAttribute('aria-pressed', on ? 'true' : 'false');
+  });
+  const h = document.getElementById('bkHelp');
+  if (h) h.textContent = BACKUP_FORMATS[f].help;
+  updateBackupInfo();
+}
+function exportBackup() {
   if (!saved.length && !pois.length) {
     toast({ type: 'warning', title: 'Nada para exportar', message: 'Todavía no hay mediciones ni POI guardados.' });
     return;
   }
-  const features = saved.map(m => {
-    const coords = m.points.map(p => [p.lng, p.lat]);
-    const asPoly = m.mode === 'polygon' && coords.length >= 3; // 2 puntos no forman polígono válido
-    if (asPoly) coords.push(coords[0]);
-    return {
-      type: 'Feature',
-      properties: { name: m.name, mode: asPoly ? 'polygon' : (m.mode === 'polygon' ? 'line' : m.mode), color: m.color, date: m.date },
-      geometry: {
-        type: asPoly ? 'Polygon' : 'LineString',
-        coordinates: asPoly ? [coords] : coords
-      }
-    };
-  });
-  pois.forEach(p => {
-    if (!Number.isFinite(+p.lat) || !Number.isFinite(+p.lng)) return;
-    features.push({
-      type: 'Feature',
-      properties: { kind: 'poi', name: p.name, note: p.note || '', color: p.color },
-      geometry: { type: 'Point', coordinates: [+p.lng, +p.lat] }
-    });
-  });
-  const blob = new Blob([JSON.stringify({ type: 'FeatureCollection', features }, null, 2)], { type: 'application/geo+json' });
+  const fmt = getBackupFmt();
+  const poiData = pois.map(p => ({ ...p, elev: (typeof p.elev === 'number' && p.elevAt === elevKey(p)) ? p.elev : null }));
+  const out = buildBackup(fmt, saved, poiData);
+  const blob = new Blob([out.text], { type: out.mime });
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
-  a.download = `mediciones_${Date.now()}.geojson`;
+  a.download = `mediciones_${Date.now()}.${out.ext}`;
   a.click();
   setTimeout(() => URL.revokeObjectURL(a.href), 1000);
   try { localStorage.setItem(LAST_BACKUP_KEY, String(Date.now())); } catch (e) {}
   updateBackupInfo();
-  toast({ type: 'success', title: 'Exportado', message: `${features.length - pois.length} medición(es) y ${pois.length} POI exportados.` });
+  toast({ type: 'success', title: 'Exportado (' + BACKUP_FORMATS[fmt].label + ')', message: `${saved.length} medición(es) y ${pois.length} POI exportados.` });
 }
 
-function importGeoJSON(e) {
+// Incorpora el modelo leído por backup.js; omite POI duplicados
+function applyBackupModel(model) {
+  let count = 0, poiCount = 0, dupes = 0;
+  const today = new Date().toLocaleDateString('es-AR');
+  model.measures.forEach(m => {
+    saved.push({
+      id: Date.now().toString() + Math.random().toString(16).slice(2),
+      name: m.name, mode: m.mode, color: m.color, date: m.date || today,
+      points: m.points, visible: true
+    });
+    count++;
+  });
+  model.pois.forEach(p => {
+    if (pois.some(q => q.name === p.name && Math.abs(q.lat - p.lat) < 1e-7 && Math.abs(q.lng - p.lng) < 1e-7)) { dupes++; return; }
+    pois.push({
+      id: Date.now().toString() + Math.random().toString(16).slice(2),
+      name: p.name, note: p.note, color: safeColor(p.color, POI_DEFAULT_COLOR),
+      lat: p.lat, lng: p.lng, visible: true
+    });
+    poiCount++;
+  });
+  if (!count && !poiCount) throw new Error('Sin geometrías válidas');
+  if (count) { persist(); renderSaved(); refreshLockedLayers(); }
+  if (poiCount) { persistPois(); renderPois(); }
+  const omitted = [];
+  if (model.holes) omitted.push(`${model.holes} polígono(s) con huecos`);
+  if (model.invalid) omitted.push(`${model.invalid} geometría(s) inválida(s) o no soportada(s)`);
+  if (dupes) omitted.push(`${dupes} POI ya existente(s)`);
+  toast({
+    type: omitted.length ? 'warning' : 'success',
+    title: 'Importado',
+    duration: omitted.length ? 8000 : 3500,
+    message: `${count} medición(es) y ${poiCount} POI importados.` + (omitted.length ? ` Omitidos: ${omitted.join(', ')}.` : '')
+  });
+}
+function importBackup(e) {
   const file = e.target.files[0];
+  e.target.value = '';
   if (!file) return;
   const reader = new FileReader();
   reader.onload = (ev) => {
     try {
-      const json = JSON.parse(ev.target.result);
-      const features = json.type === 'FeatureCollection'
-        ? (json.features || [])
-        : (json.type === 'Feature' ? [json] : []);
-      if (!features.length) throw new Error('Sin features');
-      let count = 0;
-      let poiCount = 0;
-      let holes = 0;     // polígonos con huecos (no soportados)
-      let invalid = 0;   // geometrías sin puntos válidos o de tipo no soportado
-      let dupes = 0;     // POI ya existentes
-      features.forEach(f => {
-        if (!f.geometry || !f.geometry.coordinates) { invalid++; return; }
-        const t = f.geometry.type;
-        const props = f.properties || {};
-        const push = (raw, isPoly, suffix = '') => {
-          if (!Array.isArray(raw)) { invalid++; return; }
-          let coords = raw;
-          if (isPoly && coords.length > 1 &&
-              coords[0][0] === coords[coords.length-1][0] &&
-              coords[0][1] === coords[coords.length-1][1]) {
-            coords = coords.slice(0, -1);
-          }
-          const clean = coords.filter(c =>
-            Array.isArray(c) && Number.isFinite(+c[0]) && Number.isFinite(+c[1]) &&
-            Math.abs(+c[0]) <= 180 && Math.abs(+c[1]) <= 90
-          );
-          if (clean.length < (isPoly ? 3 : 2)) { invalid++; return; }
-          saved.push({
-            id: Date.now().toString() + Math.random().toString(16).slice(2),
-            name: String(props.name || 'Importado') + suffix,
-            mode: isPoly ? 'polygon' : 'line',
-            color: /^#[0-9a-f]{6}$/i.test(props.color || '') ? props.color : '#00ff66',
-            date: new Date().toLocaleDateString('es-AR'),
-            points: clean.map(c => ({ lat: +c[1], lng: +c[0] })),
-            visible: true
-          });
-          count++;
-        };
-        if (t === 'Point' || t === 'MultiPoint') {
-          const pts = t === 'Point' ? [f.geometry.coordinates] : f.geometry.coordinates;
-          pts.forEach((c, i) => {
-            if (!Array.isArray(c) || !Number.isFinite(+c[0]) || !Number.isFinite(+c[1]) ||
-                Math.abs(+c[0]) > 180 || Math.abs(+c[1]) > 90) { invalid++; return; }
-            const lat = +c[1], lng = +c[0];
-            const name = String(props.name || 'POI importado') + (t === 'MultiPoint' ? ` (${i + 1})` : '');
-            if (pois.some(p => p.name === name && Math.abs(p.lat - lat) < 1e-7 && Math.abs(p.lng - lng) < 1e-7)) { dupes++; return; }
-            pois.push({
-              id: Date.now().toString() + Math.random().toString(16).slice(2),
-              name, note: String(props.note || ''),
-              color: safeColor(props.color, POI_DEFAULT_COLOR),
-              lat, lng, visible: true
-            });
-            poiCount++;
-          });
-          return;
-        }
-        if (t === 'Polygon') {
-          if (f.geometry.coordinates.length === 1) push(f.geometry.coordinates[0], true);
-          else holes++;
-        }
-        else if (t === 'MultiPolygon') f.geometry.coordinates.forEach((poly, i) => {
-          if (poly.length === 1) push(poly[0], true, ` (${i+1})`); else holes++;
-        });
-        else if (t === 'LineString') push(f.geometry.coordinates, false);
-        else if (t === 'MultiLineString') f.geometry.coordinates.forEach((line, i) => push(line, false, ` (${i+1})`));
-        else invalid++;
-      });
-      if (!count && !poiCount) throw new Error('Sin geometrías válidas');
-      if (count) { persist(); renderSaved(); refreshLockedLayers(); }
-      if (poiCount) { persistPois(); renderPois(); }
-      const omitted = [];
-      if (holes) omitted.push(`${holes} polígono(s) con huecos`);
-      if (invalid) omitted.push(`${invalid} geometría(s) inválida(s) o no soportada(s)`);
-      if (dupes) omitted.push(`${dupes} POI ya existente(s)`);
-      toast({
-        type: omitted.length ? 'warning' : 'success',
-        title: 'Importado',
-        duration: omitted.length ? 8000 : 3500,
-        message: `${count} medición(es) y ${poiCount} POI importados.` +
-          (omitted.length ? ` Omitidos: ${omitted.join(', ')}.` : '')
-      });
+      const text = String(ev.target.result || '').replace(/^﻿/, '');
+      const fmt = detectBackupFormat(file.name, text);
+      if (!fmt) throw new Error('Formato no reconocido');
+      applyBackupModel(parseBackup(fmt, text));
     } catch (err) {
-      toast({ type: 'error', title: 'Error al importar', message: 'Verificá que sea un GeoJSON válido (Polygon, MultiPolygon, LineString, MultiLineString o Point).' });
+      toast({ type: 'error', title: 'Error al importar', message: 'Verificá que sea un archivo GeoJSON, KML o GPX válido con mediciones o POI.' });
     }
   };
   reader.readAsText(file);
-  e.target.value = '';
 }
+
+// ========== MOSAICOS GUARDADOS (caché del service worker) ==========
+async function tileCacheInfo() {
+  if (!('caches' in window)) return null;
+  const names = (await caches.keys()).filter(n => /-tiles$/.test(n));
+  let count = 0;
+  for (const n of names) { const c = await caches.open(n); count += (await c.keys()).length; }
+  return { names, count };
+}
+async function refreshTileInfo() {
+  const el = document.getElementById('tileInfo');
+  const btn = document.getElementById('tileClearBtn');
+  if (!el) return;
+  try {
+    const info = await tileCacheInfo();
+    if (!info) { el.textContent = 'Este navegador no permite caché de mosaicos.'; if (btn) btn.disabled = true; return; }
+    let usage = '';
+    if (navigator.storage && navigator.storage.estimate) {
+      const est = await navigator.storage.estimate();
+      if (est && est.usage) usage = ` · almacenamiento total de la app: ${(est.usage / 1048576).toFixed(1)} MB`;
+    }
+    el.textContent = info.count ? `${info.count} mosaico(s) guardado(s)${usage}.` : 'No hay mosaicos guardados.';
+    if (btn) btn.disabled = !info.count;
+  } catch (e) { el.textContent = ''; }
+}
+async function clearTileCache() {
+  const info = await tileCacheInfo();
+  if (!info || !info.count) { refreshTileInfo(); return; }
+  const ok = await confirmToast({
+    title: 'Borrar mosaicos guardados',
+    message: `Se borran ${info.count} mosaicos del mapa guardados para uso sin conexión. Tus mediciones y POI no se tocan. Los mosaicos se vuelven a bajar cuando navegás el mapa con internet.`,
+    confirmLabel: 'Borrar', danger: true
+  });
+  if (!ok) return;
+  try {
+    await Promise.all(info.names.map(n => caches.delete(n)));
+    toast({ type: 'success', title: 'Mosaicos borrados', message: 'Se liberó el espacio de los mapas guardados.' });
+  } catch (e) {
+    toast({ type: 'error', title: 'No se pudo borrar', message: 'Probá de nuevo.' });
+  }
+  refreshTileInfo();
+}
+
 // ========== ALTITUD (s.n.m.) y PERFIL ==========
 // Fuente: Copernicus DEM GLO-90 (90 m) vía Open-Meteo; respaldo: Open Topo Data (SRTM).
 // Es un modelo de superficie: precisión de varios metros y, bajo monte, incluye la copa de los árboles.

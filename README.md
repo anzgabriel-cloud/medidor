@@ -5,6 +5,7 @@ Estructura de archivos:
 - **index.html** — Estructura HTML limpia. Solo markup y enlaces a CSS/JS.
 - **styles.css** — Todos los estilos (antes embebidos). Agrupados con los comentarios originales.
 - **app.js** — Toda la lógica JavaScript (~3300 líneas).
+- **backup.js** — Exportación e importación de copias de seguridad en GeoJSON, KML y GPX (escritores y lectores, sin dependencias de la app).
 - **sw.js** — Service worker: guarda la app completa desde la primera visita y permite usarla sin conexión.
 - **manifest.webmanifest** e **icon-*.png** — Hacen que la app se pueda instalar (pantalla completa en el iPhone).
 
@@ -41,8 +42,9 @@ La versión está escrita en tres lugares y deben coincidir; si no, la app avisa
 - `index.html` → `<meta name="app-version" content="…">`
 - `styles.css` → `:root { --app-version: "…"; }`
 - `app.js` → `const APP_VERSION = '…';`
+- `backup.js` → `const BACKUP_VERSION = '…';`
 
-Al publicar cambios, subir siempre `index.html`, `styles.css` y `app.js` juntos (y `sw.js` / `manifest` / íconos solo si cambiaron).
+Al publicar cambios, subir siempre `index.html`, `styles.css`, `app.js` y `backup.js` juntos (y `sw.js` / `manifest` / íconos solo si cambiaron).
 
 ## Instalar en el iPhone (pantalla completa)
 
@@ -83,3 +85,8 @@ node --test tests/calculos.test.js tests/altitud.test.js
 - Hace falta conexión la primera vez; después queda guardada en el navegador (caché por punto y dentro de cada medición).
 - Es un modelo de superficie: precisión de varios metros y, bajo monte, incluye la copa de los árboles.
 - Superficies: media por malla interior (pesa por área) + mínimo, máximo y desnivel. Distancias y recorridos: perfil con subida y bajada acumuladas.
+
+
+## Copias de seguridad y mosaicos
+- Ajustes → Copia de seguridad: elegir GeoJSON (copia completa), KML (Google Earth) o GPX (GPS). Al importar el formato se detecta solo. Los polígonos con huecos no se importan.
+- Ajustes → Mapas guardados: cuenta y borra la caché `medidor-v1-tiles` del service worker (no toca mediciones ni POI). No cambiar `VERSION` en sw.js: borraría también esa caché.

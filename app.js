@@ -1491,7 +1491,7 @@ function updateMetrics(areaM2, distM) {
   liveArea = areaM2; liveDist = distM;
   updateLiveBadge();
 }
-const APP_VERSION = '2026.11.09-38';
+const APP_VERSION = '2026.11.09-39';
 let liveSelfIntersect = false; // el polígono se cruza a sí mismo (los marcadores rojos ya lo señalan)
 function updateSelfIntersectWarning(show) {
   const v = !!show;
@@ -1830,7 +1830,8 @@ function showMeasurementInfo(item) {
         <div class="text-[10px] text-slate-400 uppercase">Perímetro</div>
         <div class="text-base font-bold text-sky-400">${fmt.format(lenMain(stats.total).v)} <span class="text-xs font-normal">${lenMain(stats.total).u}</span></div>
         <div class="text-[11px] text-slate-500">${lenSub(stats.total)}</div>
-      </div>`;
+      </div>
+      <div id="infoElev" class="flex-1 min-w-0 pl-3 border-l-2 border-slate-700 text-[11px] text-slate-300"></div>`;
   } else {
     const pts = stats.latlngs;
     let straight = pts.length === 2;
@@ -1866,7 +1867,7 @@ function showMeasurementInfo(item) {
   // Una sola tarjeta: datos arriba y altitud abajo
   metrics.innerHTML = `<div class="col-span-2 bg-slate-950/80 rounded-xl px-2.5 py-2 border border-slate-800">
     <div class="flex items-start gap-3">${topHtml}</div>
-    <div id="infoElev" class="mt-1.5 pt-1.5 border-t-2 border-slate-700"></div>
+    ${stats.isPoly ? '' : '<div id="infoElev" class="mt-1.5 pt-1.5 border-t-2 border-slate-700"></div>'}
   </div>`;
   inspectPoi = null;
   document.getElementById('infoToggles')?.classList.remove('hidden');
@@ -3507,13 +3508,9 @@ function loadInfoElevForItem(item) {
   if (item.mode === 'polygon') {
     getItemElev(item).then(e => {
       if (!e) return setInfoElev(elevMsg(elevFail), item, retry);
-      setInfoElev(`<div class="flex items-center justify-between gap-3">
-        <div class="flex-none flex items-baseline gap-1.5">
-          <span class="text-[10px] text-slate-400 uppercase">Alt. media s.n.m.</span>
-          <span class="text-base font-bold text-amber-300">${fmtElev(e.mean)}</span>
-        </div>
-        <div class="text-[11px] text-slate-500 text-right leading-snug">mín ${fmtElev(e.min)} · máx ${fmtElev(e.max)}<br>desnivel ${fmtElev(e.max - e.min)}</div>
-      </div>`, item);
+      setInfoElev(`<div class="text-[10px] text-slate-400 uppercase">Altitud media</div>
+        <div class="text-base font-bold text-amber-300">${fmtElev(e.mean)} <span class="text-[10px] font-normal text-amber-200/70">s.n.m.</span></div>
+        <div class="text-[11px] text-slate-500">${fmtElev(e.min).replace(/\s*m$/, '')}–${fmtElev(e.max)}</div>`, item);
     });
   } else {
     getItemProfile(item).then(p => {

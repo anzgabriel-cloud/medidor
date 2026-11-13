@@ -1465,7 +1465,7 @@ function updateMetrics(areaM2, distM) {
   liveArea = areaM2; liveDist = distM;
   updateLiveBadge();
 }
-const APP_VERSION = '2026.11.09-27';
+const APP_VERSION = '2026.11.09-28';
 let liveSelfIntersect = false; // el polígono se cruza a sí mismo (los marcadores rojos ya lo señalan)
 function updateSelfIntersectWarning(show) {
   const v = !!show;
@@ -1838,6 +1838,7 @@ function showMeasurementInfo(item) {
   }
   metrics.insertAdjacentHTML('beforeend', elevCard(''));
   inspectPoi = null;
+  document.getElementById('infoToggles')?.classList.remove('hidden');
   loadInfoElevForItem(item);
   updateInfoToggleUI();
   refreshInspectOverlays();
@@ -1875,7 +1876,7 @@ function showPoiInfo(p) {
   document.getElementById('infoMetrics').insertAdjacentHTML('beforeend', elevCard(''));
   loadInfoElevForPoi(p);
   document.getElementById('infoDeclination')?.classList.add('hidden');
-  document.querySelector('#infoPanel .flex.gap-1')?.classList.add('hidden');
+  document.getElementById('infoToggles')?.classList.add('hidden');
   const main = document.getElementById('mainControls');
   if (main) main.classList.add('hidden');
   document.getElementById('infoPanel').classList.remove('hidden');
@@ -1887,7 +1888,7 @@ function hideMeasurementInfo() {
   document.getElementById('infoPanel').classList.add('hidden');
   inspectPoi = null;
   try { updateLiveBadge(); } catch (e) {}
-  document.querySelector('#infoPanel .flex.gap-1')?.classList.remove('hidden');
+  document.getElementById('infoToggles')?.classList.remove('hidden');
   const main = document.getElementById('mainControls');
   if (main) main.classList.remove('hidden');
   updateModeTheme();

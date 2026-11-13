@@ -82,7 +82,6 @@ let poiMode = false;
 let poiAiming = false;
 let pendingPoi = null;
 let editingPoiId = null;
-let poiCategory = 'pin';
 let poiColor = '#f59e0b';
 let poiSession = [];
 let poiSessionRedo = [];
@@ -677,17 +676,6 @@ document.getElementById('closePoiBtn').onclick = (e) => { e.preventDefault(); e.
     };
     navigator.clipboard?.writeText(t.dataset.dec || t.textContent || '').then(show, show);
   };
-  document.querySelectorAll('.poi-cat').forEach(btn => {
-    btn.onclick = () => {
-      poiCategory = btn.dataset.cat || 'pin';
-      document.querySelectorAll('.poi-cat').forEach(b => {
-        const on = b === btn;
-        b.className = 'poi-cat px-2.5 py-1.5 text-[11px] font-semibold rounded-lg border ' + (on
-          ? 'bg-amber-500/20 text-amber-200 border-amber-500/50'
-          : 'bg-slate-800 text-slate-300 border-slate-700');
-      });
-    };
-  });
   document.getElementById('closeSavedBtn').onclick = (e) => { e.preventDefault(); e.stopPropagation(); document.getElementById('savedDrawer').classList.add('hidden'); };
   document.getElementById('savedDrawer').onclick = (e) => { if (e.target.id === 'savedDrawer') { document.getElementById('savedDrawer').classList.add('hidden'); } };
   const savedPanel = document.getElementById('savedDrawerPanel');
@@ -1474,7 +1462,7 @@ function updateMetrics(areaM2, distM) {
   liveArea = areaM2; liveDist = distM;
   updateLiveBadge();
 }
-const APP_VERSION = '2026.11.09-25';
+const APP_VERSION = '2026.11.09-26';
 let liveSelfIntersect = false; // el polígono se cruza a sí mismo (los marcadores rojos ya lo señalan)
 function updateSelfIntersectWarning(show) {
   const v = !!show;
@@ -2393,7 +2381,7 @@ let gotoMarker = null;
 function clearGotoMarker() { if (gotoMarker) { map.removeLayer(gotoMarker); gotoMarker = null; } }
 function showGotoMarker(lat, lng, label) {
   clearGotoMarker();
-  gotoMarker = L.marker([lat, lng], { icon: poiIcon('pin', '#fbbf24'), zIndexOffset: 1200 }).addTo(map);
+  gotoMarker = L.marker([lat, lng], { icon: poiIcon('#fbbf24'), zIndexOffset: 1200 }).addTo(map);
   gotoMarker.bindTooltip(`${escapeHtml(label)} ✕`, { permanent: true, direction: 'top', className: 'poi-label', offset: [0, -36] });
   gotoMarker.on('click', (e) => { L.DomEvent.stopPropagation(e); clearGotoMarker(); });
 }
@@ -2538,14 +2526,7 @@ async function doSearch(q) {
 }
 
 // ========== POIs ==========
-const POI_COLORS = {
-  pin: '#f59e0b', gate: '#fb923c', well: '#38bdf8',
-  tree: '#4ade80', house: '#f472b6', mark: '#e2e8f0'
-};
-const POI_LABELS = {
-  pin: 'Pin', gate: 'Tranquera', well: 'Pozo',
-  tree: 'Árbol', house: 'Casa', mark: 'Mojón'
-};
+const POI_DEFAULT_COLOR = '#f59e0b';
 
 function poiAimLatLng() {
   const el = document.getElementById('poiCrosshair');
@@ -2586,16 +2567,6 @@ function setPoiAim(on) {
   updateDrawingUI();
 }
 
-function setPoiCatUI(cat) {
-  poiCategory = cat || 'pin';
-  document.querySelectorAll('.poi-cat').forEach(b => {
-    const on = b.dataset.cat === poiCategory;
-    b.className = 'poi-cat px-2.5 py-1.5 text-[11px] font-semibold rounded-lg border ' + (on
-      ? 'bg-amber-500/20 text-amber-200 border-amber-500/50'
-      : 'bg-slate-800 text-slate-300 border-slate-700');
-  });
-}
-
 function openPoiModal(latlng, existing) {
   pendingPoi = latlng;
   editingPoiId = existing ? existing.id : null;
@@ -2617,7 +2588,6 @@ function openPoiModal(latlng, existing) {
     document.getElementById('poiColorLabel')?.classList.remove('hidden');
     document.getElementById('poiColorPicker')?.classList.remove('hidden');
     document.getElementById('poiColorPicker')?.classList.add('flex');
-    setPoiCatUI(existing.cat || 'pin');
     if (delBtn) delBtn.classList.remove('hidden');
     if (confirmBtn) confirmBtn.textContent = 'Guardar cambios';
   } else {
@@ -2628,7 +2598,6 @@ function openPoiModal(latlng, existing) {
     document.getElementById('poiColorLabel')?.classList.add('hidden');
     document.getElementById('poiColorPicker')?.classList.add('hidden');
     document.getElementById('poiColorPicker')?.classList.remove('flex');
-    setPoiCatUI('pin');
     if (delBtn) delBtn.classList.add('hidden');
     if (confirmBtn) confirmBtn.textContent = 'Guardar POI';
   }
@@ -2649,14 +2618,13 @@ function confirmPoi() {
   if (editingPoiId) {
     const idx = pois.findIndex(p => p.id === editingPoiId);
     if (idx >= 0) {
-      pois[idx] = { ...pois[idx], name, note, cat: poiCategory || pois[idx].cat, color: safeColor(poiColor, themeColor) };
+      pois[idx] = { ...pois[idx], name, note, color: safeColor(poiColor, themeColor) };
     }
   } else if (pendingPoi) {
     const created = {
       id: Date.now().toString(),
       name,
       note,
-      cat: poiCategory || 'pin',
       color: safeColor(poiColor || themeColor, '#00ff66'),
       lat: pendingPoi.lat,
       lng: pendingPoi.lng,
@@ -2744,8 +2712,8 @@ function loadPois() {
   renderPois();
 }
 
-function poiIcon(cat, color) {
-  const fill = safeColor(color || POI_COLORS[cat], POI_COLORS[cat] || '#f59e0b');
+function poiIcon(color) {
+  const fill = safeColor(color, POI_DEFAULT_COLOR);
   const svg = `<svg class="poi-pin" viewBox="0 0 22 34" xmlns="http://www.w3.org/2000/svg">
     <path d="M11 33.2 C11 33.2 1.4 20.2 1.4 12.4 C1.4 6.4 5.6 1.6 11 1.6 C16.4 1.6 20.6 6.4 20.6 12.4 C20.6 20.2 11 33.2 11 33.2 Z" fill="${fill}" stroke="#fff" stroke-width="1.6" stroke-linejoin="round"/>
     <circle cx="11" cy="12.2" r="3.2" fill="#fff"/>
@@ -2763,8 +2731,8 @@ function renderPois() {
   poiLayers = [];
   pois.forEach(p => {
     if (p.visible === false) return;
-    const marker = L.marker([p.lat, p.lng], { icon: poiIcon(p.cat, p.color), zIndexOffset: 1200 }).addTo(map);
-    marker.bindTooltip(`${escapeHtml(p.name)} · ${POI_LABELS[p.cat] || 'Pin'}`, { permanent: true, direction: 'top', className: 'poi-label', offset: [0, -36] });
+    const marker = L.marker([p.lat, p.lng], { icon: poiIcon(p.color), zIndexOffset: 1200 }).addTo(map);
+    marker.bindTooltip(escapeHtml(p.name), { permanent: true, direction: 'top', className: 'poi-label', offset: [0, -36] });
     marker.on('click', (e) => {
       L.DomEvent.stopPropagation(e);
       if (poiMode) return;
@@ -2789,10 +2757,10 @@ function renderPoiList() {
     const navigating = navPoi && navPoi.id === p.id;
     div.innerHTML = `
       <div class="flex items-center gap-2">
-        <span class="w-2.5 h-2.5 rounded-full flex-shrink-0" style="background:${safeColor(p.color, POI_COLORS[p.cat] || '#f59e0b')}"></span>
+        <span class="w-2.5 h-2.5 rounded-full flex-shrink-0" style="background:${safeColor(p.color, POI_DEFAULT_COLOR)}"></span>
         <div class="flex-1 min-w-0">
           <div class="font-bold text-xs truncate">${escapeHtml(p.name)}</div>
-          <div class="text-[10px] text-slate-500">${POI_LABELS[p.cat] || 'Pin'} · ${escapeHtml(settings.coords === 'dec' ? (+p.lat).toFixed(5) + ', ' + (+p.lng).toFixed(5) : fmtCoord(p.lat, p.lng))}${(typeof p.elev === 'number' && p.elevAt === elevKey(p)) ? ' · ' + fmtElev(p.elev) + ' s.n.m.' : ''}</div>
+          <div class="text-[10px] text-slate-500">${escapeHtml(settings.coords === 'dec' ? (+p.lat).toFixed(5) + ', ' + (+p.lng).toFixed(5) : fmtCoord(p.lat, p.lng))}${(typeof p.elev === 'number' && p.elevAt === elevKey(p)) ? ' · ' + fmtElev(p.elev) + ' s.n.m.' : ''}</div>
         </div>
         <button data-nav="${p.id}" class="text-[11px] font-semibold px-2 py-1 rounded-lg border ${navigating ? 'bg-rose-500/15 text-rose-300 border-rose-500/40' : 'bg-sky-500/15 text-sky-300 border-sky-500/40'}">${navigating ? 'Dejar de navegar' : 'Navegar'}</button>
         <button data-edit="${p.id}" class="text-[11px] font-semibold px-2 py-1 rounded-lg border bg-amber-500/15 text-amber-200 border-amber-500/30">Editar</button>
@@ -3155,7 +3123,7 @@ function exportGeoJSON() {
     if (!Number.isFinite(+p.lat) || !Number.isFinite(+p.lng)) return;
     features.push({
       type: 'Feature',
-      properties: { kind: 'poi', name: p.name, note: p.note || '', cat: p.cat || 'pin', color: p.color },
+      properties: { kind: 'poi', name: p.name, note: p.note || '', color: p.color },
       geometry: { type: 'Point', coordinates: [+p.lng, +p.lat] }
     });
   });
@@ -3225,8 +3193,7 @@ function importGeoJSON(e) {
             pois.push({
               id: Date.now().toString() + Math.random().toString(16).slice(2),
               name, note: String(props.note || ''),
-              cat: POI_LABELS[props.cat] ? props.cat : 'pin',
-              color: safeColor(props.color, POI_COLORS[props.cat] || '#f59e0b'),
+              color: safeColor(props.color, POI_DEFAULT_COLOR),
               lat, lng, visible: true
             });
             poiCount++;

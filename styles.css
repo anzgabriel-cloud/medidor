@@ -2,7 +2,7 @@
    Separado del HTML para mejor mantenimiento
 */
 
-:root { --app-version: "2026.11.09-32"; }
+:root { --app-version: "2026.11.09-34"; }
 
 .leaflet-control-attribution { font-size: 9px !important; background: rgba(15,23,42,0.7) !important; color: #94a3b8 !important; }
 .leaflet-control-attribution a { color: #94a3b8 !important; }
@@ -398,9 +398,8 @@ button:disabled, .btn-disabled {
   filter: grayscale(0.6);
 }
 #poiBtn:disabled, #savedBtn:disabled {
-  opacity: 0.75 !important;
-  filter: none;
-  color: #e2e8f0;
+  opacity: 0.4 !important;
+  filter: grayscale(1);
 }
 
 #toastContainer {

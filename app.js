@@ -1466,7 +1466,7 @@ function updateMetrics(areaM2, distM) {
   liveArea = areaM2; liveDist = distM;
   updateLiveBadge();
 }
-const APP_VERSION = '2026.11.09-32';
+const APP_VERSION = '2026.11.09-34';
 let liveSelfIntersect = false; // el polígono se cruza a sí mismo (los marcadores rojos ya lo señalan)
 function updateSelfIntersectWarning(show) {
   const v = !!show;
@@ -3243,6 +3243,8 @@ async function resetAllData() {
   editingId = null;
   persist(); persistPois();
   renderSaved(); renderPois();
+  document.getElementById('savedDrawer')?.classList.add('hidden');
+  document.getElementById('poiDrawer')?.classList.add('hidden');
   try { updateUndoRedoUI(); } catch (e) {}
   toast({ type: 'success', title: 'Todo borrado', message: 'Mediciones y POI eliminados.' });
 }

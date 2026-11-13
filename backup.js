@@ -2,7 +2,7 @@
 // Modelo común (lo que lee y devuelve este archivo):
 //   mediciones: { name, mode: 'polygon' | 'line', color: '#rrggbb', date, points: [{ lat, lng }] }
 //   POI:        { name, note, color: '#rrggbb', lat, lng, elev? }
-const BACKUP_VERSION = '2026.11.09-32';
+const BACKUP_VERSION = '2026.11.09-34';
 const BACKUP_FORMATS = {
   geojson: {
     label: 'GeoJSON', ext: 'geojson', mime: 'application/geo+json',

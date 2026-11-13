@@ -107,6 +107,31 @@ function safeColor(c, fallback = '#00ff66') {
   return /^#[0-9a-fA-F]{6}$/.test(String(c || '')) ? c : fallback;
 }
 
+// Normaliza datos leídos del almacenamiento: tipos, colores, ids y coordenadas válidas
+const safeId = (v) => { const t = String(v ?? '').replace(/[^\w.-]/g, ''); return t || (Date.now().toString() + Math.random().toString(16).slice(2)); };
+const validLL = (p) => p && Number.isFinite(+p.lat) && Number.isFinite(+p.lng) && Math.abs(+p.lat) <= 90 && Math.abs(+p.lng) <= 180;
+function sanitizeSaved(s) {
+  if (!s || !Array.isArray(s.points)) return null;
+  s.points = s.points.filter(validLL).map(p => ({ lat: +p.lat, lng: +p.lng }));
+  if (s.points.length < 2) return null;
+  s.id = safeId(s.id);
+  s.mode = s.mode === 'line' ? 'line' : 'polygon';
+  if (s.mode === 'polygon' && s.points.length < 3) s.mode = 'line';
+  s.color = safeColor(s.color);
+  s.name = String(s.name ?? 'Medición').slice(0, 200);
+  s.date = String(s.date ?? '').slice(0, 40);
+  return s;
+}
+function sanitizePoi(p) {
+  if (!p || !validLL(p)) return null;
+  p.lat = +p.lat; p.lng = +p.lng;
+  p.id = safeId(p.id);
+  p.color = safeColor(p.color, POI_DEFAULT_COLOR);
+  p.name = String(p.name ?? 'POI').slice(0, 200);
+  p.note = String(p.note ?? '').slice(0, 2000);
+  return p;
+}
+
 // ========== AJUSTES / UNIDADES / COORDENADAS ==========
 const SETTINGS_KEY = 'medidor_settings';
 const DEFAULT_SETTINGS = { units: 'metric', coords: 'dec', gpsMaxAcc: 20, gpsMinStep: 3 };
@@ -1466,7 +1491,7 @@ function updateMetrics(areaM2, distM) {
   liveArea = areaM2; liveDist = distM;
   updateLiveBadge();
 }
-const APP_VERSION = '2026.11.09-34';
+const APP_VERSION = '2026.11.09-36';
 let liveSelfIntersect = false; // el polígono se cruza a sí mismo (los marcadores rojos ya lo señalan)
 function updateSelfIntersectWarning(show) {
   const v = !!show;
@@ -2513,9 +2538,14 @@ async function doSearch(q) {
   const seq = ++searchSeq;
   info('Buscando…');
   try {
-    const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&accept-language=es&limit=6&q=${encodeURIComponent(q)}`);
-    if (!res.ok) throw new Error('HTTP ' + res.status);
-    const data = await res.json();
+    const ctl = new AbortController();
+    const tm = setTimeout(() => ctl.abort(), 10000);
+    let data;
+    try {
+      const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&accept-language=es&limit=6&q=${encodeURIComponent(q)}`, { signal: ctl.signal });
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      data = await res.json();
+    } finally { clearTimeout(tm); }
     if (seq !== searchSeq) return; // llegó una respuesta vieja
     if (!data.length) return info('Sin resultados. Probá con otro nombre o agregá la localidad.');
     box.innerHTML = '';
@@ -2535,7 +2565,7 @@ async function doSearch(q) {
     box.classList.remove('hidden');
   } catch (e) {
     if (seq !== searchSeq) return;
-    info('No se pudo conectar con el buscador. Revisá tu conexión.');
+    info('No se pudo conectar con el buscador (tardó demasiado o no hay señal). Probá de nuevo.');
   }
 }
 
@@ -2715,7 +2745,7 @@ function loadPois() {
       try {
         const parsed = JSON.parse(raw);
         if (!Array.isArray(parsed)) throw new Error('formato');
-        pois = parsed;
+        pois = parsed.map(sanitizePoi).filter(Boolean);
       } catch (err) {
         try { localStorage.setItem('medidor_pois_corrupto_' + Date.now(), raw); } catch (e2) {}
         pois = [];
@@ -2927,7 +2957,7 @@ function loadSaved() {
       try {
         const parsed = JSON.parse(raw);
         if (!Array.isArray(parsed)) throw new Error('formato');
-        saved = parsed.filter(s => s && Array.isArray(s.points));
+        saved = parsed.map(sanitizeSaved).filter(Boolean);
       } catch (err) {
         // No pisar datos ilegibles: se resguardan antes de seguir
         try { localStorage.setItem('medidor_v2_corrupto_' + Date.now(), raw); } catch (e2) {}
@@ -2965,9 +2995,9 @@ function renderSaved() {
           <div class="flex items-center gap-1.5">
             <span class="w-2.5 h-2.5 rounded-full flex-shrink-0" style="background:${safeColor(item.color)}"></span>
             <span class="font-bold text-xs truncate">${escapeHtml(item.name)}</span>
-            <span class="text-[10px] px-1.5 py-0.5 rounded bg-slate-800 text-slate-400 uppercase flex-shrink-0">${item.mode}</span>
+            <span class="text-[10px] px-1.5 py-0.5 rounded bg-slate-800 text-slate-400 uppercase flex-shrink-0">${escapeHtml(item.mode)}</span>
           </div>
-          <span class="text-[11px] text-slate-500 mt-0.5">${item.points.length} pts · ${item.date}</span>
+          <span class="text-[11px] text-slate-500 mt-0.5">${item.points.length} pts · ${escapeHtml(item.date)}</span>
         </div>
       </div>
       <div class="flex items-center gap-1.5 mt-2">
@@ -3161,7 +3191,12 @@ function exportBackup() {
 function applyBackupModel(model) {
   let count = 0, poiCount = 0, dupes = 0;
   const today = new Date().toLocaleDateString('es-AR');
+  const sigs = new Set(saved.map(itemSig));
+  let dupM = 0;
   model.measures.forEach(m => {
+    const sg = itemSig(m);
+    if (sigs.has(sg)) { dupM++; return; }
+    sigs.add(sg);
     saved.push({
       id: Date.now().toString() + Math.random().toString(16).slice(2),
       name: m.name, mode: m.mode, color: m.color, date: m.date || today,
@@ -3178,13 +3213,14 @@ function applyBackupModel(model) {
     });
     poiCount++;
   });
-  if (!count && !poiCount) throw new Error('Sin geometrías válidas');
+  if (!count && !poiCount && !dupM && !dupes) throw new Error('Sin geometrías válidas');
   if (count) { persist(); renderSaved(); refreshLockedLayers(); }
   if (poiCount) { persistPois(); renderPois(); }
   const omitted = [];
   if (model.holes) omitted.push(`${model.holes} polígono(s) con huecos`);
   if (model.invalid) omitted.push(`${model.invalid} geometría(s) inválida(s) o no soportada(s)`);
   if (dupes) omitted.push(`${dupes} POI ya existente(s)`);
+  if (dupM) omitted.push(`${dupM} medición(es) ya existente(s)`);
   toast({
     type: omitted.length ? 'warning' : 'success',
     title: 'Importado',
@@ -3196,6 +3232,7 @@ function importBackup(e) {
   const file = e.target.files[0];
   e.target.value = '';
   if (!file) return;
+  if (file.size > 25 * 1048576) { toast({ type: 'error', title: 'Archivo demasiado grande', message: 'El límite es 25 MB.' }); return; }
   const reader = new FileReader();
   reader.onload = (ev) => {
     try {

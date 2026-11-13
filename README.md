@@ -90,3 +90,4 @@ node --test tests/calculos.test.js tests/altitud.test.js
 ## Copias de seguridad y mosaicos
 - Ajustes → Copia de seguridad: elegir GeoJSON (copia completa), KML (Google Earth) o GPX (GPS). Al importar el formato se detecta solo. Los polígonos con huecos no se importan.
 - Ajustes → Mapas guardados: cuenta y borra la caché `medidor-v1-tiles` del service worker (no toca mediciones ni POI). No cambiar `VERSION` en sw.js: borraría también esa caché.
+- El service worker guarda los mosaicos pidiéndolos en modo CORS: las respuestas con error (404/500) no se guardan. Si el servidor no admite CORS, se usa el pedido normal.

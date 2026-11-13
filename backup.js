@@ -2,7 +2,7 @@
 // Modelo común (lo que lee y devuelve este archivo):
 //   mediciones: { name, mode: 'polygon' | 'line', color: '#rrggbb', date, points: [{ lat, lng }] }
 //   POI:        { name, note, color: '#rrggbb', lat, lng, elev? }
-const BACKUP_VERSION = '2026.11.09-34';
+const BACKUP_VERSION = '2026.11.09-36';
 const BACKUP_FORMATS = {
   geojson: {
     label: 'GeoJSON', ext: 'geojson', mime: 'application/geo+json',
@@ -145,7 +145,7 @@ function bkAddMeasure(model, { name, color, date, coords, poly, suffix }) {
     name: String(name || 'Importado') + (suffix || ''),
     mode: poly ? 'polygon' : 'line',
     color: bkColor(color, '#00ff66'),
-    date: date || bkToday(),
+    date: String(date || bkToday()).replace(/[<>&"']/g, '').slice(0, 40),
     points: c.map(x => ({ lat: x[1], lng: x[0] }))
   });
 }

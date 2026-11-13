@@ -69,11 +69,23 @@ async function networkFirst(req, cacheName) {
   }
 }
 
+// Mosaicos: se pide en modo CORS para poder ver el estado HTTP y NO guardar errores
+// (una respuesta opaca no deja ver si fue un 404/500 y quedaría rota para siempre).
+// Si el servidor no admite CORS, se usa el pedido normal como respaldo.
+async function fetchTile(req) {
+  try {
+    const res = await fetch(req.url, { mode: 'cors', credentials: 'omit' });
+    return res;
+  } catch (e) {
+    return fetch(req);
+  }
+}
+
 async function cacheFirst(req, cacheName, limit) {
   const cache = await caches.open(cacheName);
   const hit = await cache.match(req);
   if (hit) return hit;
-  const res = await fetch(req);
+  const res = limit ? await fetchTile(req) : await fetch(req);
   if (res && (res.ok || res.type === 'opaque')) {
     cache.put(req, res.clone());
     if (limit) trim(cache);

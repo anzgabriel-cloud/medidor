@@ -14,7 +14,7 @@
   <meta name="apple-mobile-web-app-title" content="Medidor">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <!-- Versión: debe coincidir con APP_VERSION (app.js) y --app-version (styles.css) -->
-  <meta name="app-version" content="2026.11.09-24">
+  <meta name="app-version" content="2026.11.09-25">
 
   <!-- Dependencias externas -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -64,7 +64,7 @@
         <button id="settingsBtn" class="flex items-center justify-center w-11 flex-shrink-0 border-l border-slate-700/80 min-h-[42px] active:bg-white/10" title="Ajustes" aria-label="Ajustes">
           <i data-lucide="settings" class="w-5 h-5 text-slate-300"></i>
         </button>
-        <button id="poiBtn" class="flex-1 min-w-0 flex items-center gap-1.5 px-2 text-left overflow-hidden border-l border-slate-600/80 min-h-[42px] active:bg-white/10" title="Lista de POI" aria-label="Lista de POI">
+        <button id="poiBtn" class="flex-1 min-w-0 flex items-center gap-1.5 px-2 text-left overflow-hidden border-l-2 border-slate-500 min-h-[42px] active:bg-white/10" title="Lista de POI" aria-label="Lista de POI">
           <i data-lucide="map-pin" class="w-4 h-4 text-amber-400 flex-shrink-0"></i>
           <span class="flex-1 min-w-0 text-[10px] sm:text-xs tracking-tight font-bold leading-tight text-slate-200">Lista<br>de POI</span>
           <span class="flex flex-col items-center gap-0.5 flex-shrink-0">
@@ -276,8 +276,8 @@
             </div>
             <p id="infoMeta" class="text-[10px] text-slate-400 mt-0.5"></p>
           </div>
-          <button id="infoCloseBtn" class="p-1.5 rounded-lg bg-slate-800 text-slate-300 border border-slate-600 flex-shrink-0" aria-label="Cerrar consulta">
-            <i data-lucide="x" class="w-4 h-4"></i>
+          <button id="infoCloseBtn" class="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-slate-800 border border-slate-600 text-slate-200 text-xs font-semibold flex-shrink-0" aria-label="Cerrar consulta">
+            <i data-lucide="x" class="w-4 h-4"></i> Cerrar
           </button>
         </div>
         <div id="infoMetrics" class="grid grid-cols-2 gap-1.5 mb-2"></div>

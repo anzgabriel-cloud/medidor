@@ -1465,7 +1465,7 @@ function updateMetrics(areaM2, distM) {
   liveArea = areaM2; liveDist = distM;
   updateLiveBadge();
 }
-const APP_VERSION = '2026.11.09-28';
+const APP_VERSION = '2026.11.09-29';
 let liveSelfIntersect = false; // el polígono se cruza a sí mismo (los marcadores rojos ya lo señalan)
 function updateSelfIntersectWarning(show) {
   const v = !!show;
@@ -1864,16 +1864,20 @@ function showPoiInfo(p) {
     const txt = fmtLenShort(dist);
     distHtml = `<div class="text-lg font-bold text-sky-400">${txt}</div>`;
   }
+  distHtml = distHtml.replace('text-lg', 'text-base');
+  // Una sola tarjeta compacta: distancia | altitud | coordenadas
   document.getElementById('infoMetrics').innerHTML = `
-    <div class="bg-slate-950/80 rounded-xl p-2.5 border border-slate-800">
-      <div class="text-[10px] text-slate-400 uppercase">Distancia desde vos</div>
-      ${distHtml}
-    </div>
-    <div class="bg-slate-950/80 rounded-xl p-2.5 border border-slate-800">
-      <div class="text-[10px] text-slate-400 uppercase">Coordenadas</div>
-      ${fmtCoordLines(p.lat, p.lng).map(t => `<div class="text-[12px] font-mono text-slate-200">${escapeHtml(t)}</div>`).join('')}
+    <div class="col-span-2 bg-slate-950/80 rounded-xl px-2.5 py-2 border border-slate-800 flex items-start gap-3">
+      <div class="flex-none">
+        <div class="text-[10px] text-slate-400 uppercase">Distancia</div>
+        ${distHtml}
+      </div>
+      <div id="infoElev" class="flex-none min-w-0 pl-3 border-l-2 border-slate-700"></div>
+      <div class="flex-1 min-w-0 pl-3 border-l-2 border-slate-700">
+        <div class="text-[10px] text-slate-400 uppercase">Coordenadas</div>
+        ${fmtCoordLines(p.lat, p.lng).map(t => `<div class="text-[11px] leading-snug font-mono text-slate-200 break-all">${escapeHtml(t)}</div>`).join('')}
+      </div>
     </div>`;
-  document.getElementById('infoMetrics').insertAdjacentHTML('beforeend', elevCard(''));
   loadInfoElevForPoi(p);
   document.getElementById('infoDeclination')?.classList.add('hidden');
   document.getElementById('infoToggles')?.classList.add('hidden');
@@ -3441,7 +3445,7 @@ function loadInfoElevForItem(item) {
 function loadInfoElevForPoi(p) {
   const key = elevKey(p);
   if (typeof p.elev === 'number' && p.elevAt === key) {
-    setInfoElev(`<div class="text-[10px] text-slate-400 uppercase">Altitud s.n.m.</div><div class="text-lg font-bold text-amber-300">${fmtElev(p.elev)}</div>`, p);
+    setInfoElev(`<div class="text-[10px] text-slate-400 uppercase">Altitud s.n.m.</div><div class="text-base font-bold text-amber-300">${fmtElev(p.elev)}</div>`, p);
     return;
   }
   setInfoElev(elevMsg('Calculando…'), p);

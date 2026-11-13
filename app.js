@@ -714,6 +714,7 @@ document.getElementById('closePoiBtn').onclick = (e) => { e.preventDefault(); e.
   document.getElementById('importInput').onchange = importBackup;
   document.querySelectorAll('.bk-fmt').forEach(b => b.onclick = () => setBackupFmt(b.dataset.fmt));
   document.getElementById('tileClearBtn').onclick = clearTileCache;
+  document.getElementById('dataResetBtn').onclick = resetAllData;
 
   document.querySelectorAll('.color-swatch').forEach(btn => {
     btn.onclick = () => {
@@ -1465,7 +1466,7 @@ function updateMetrics(areaM2, distM) {
   liveArea = areaM2; liveDist = distM;
   updateLiveBadge();
 }
-const APP_VERSION = '2026.11.09-30';
+const APP_VERSION = '2026.11.09-32';
 let liveSelfIntersect = false; // el polígono se cruza a sí mismo (los marcadores rojos ya lo señalan)
 function updateSelfIntersectWarning(show) {
   const v = !!show;
@@ -3207,6 +3208,43 @@ function importBackup(e) {
     }
   };
   reader.readAsText(file);
+}
+
+// ========== BORRAR TODO (mediciones y POI) ==========
+async function resetAllData() {
+  if (!saved.length && !pois.length) {
+    toast({ type: 'info', title: 'No hay datos', message: 'No hay mediciones ni POI guardados.' });
+    return;
+  }
+  // Exige una copia reciente (últimos 30 min) antes de borrar
+  const age = backupAgeDays();
+  if (age === null || age > 30 / 1440) {
+    const fmtName = BACKUP_FORMATS[getBackupFmt()].label;
+    const go = await confirmToast({
+      title: 'Primero una copia de seguridad',
+      message: `Antes de borrar todo hay que exportar una copia (${fmtName}). Se descarga ahora y después te pido confirmar el borrado.`,
+      confirmLabel: 'Exportar copia'
+    });
+    if (!go) return;
+    exportBackup();
+    if (backupAgeDays() === null || backupAgeDays() > 30 / 1440) return;   // no se pudo exportar
+  }
+  const ok = await confirmToast({
+    title: '¿Borrar todo?',
+    message: `Se van a eliminar ${saved.length} medición(es) y ${pois.length} POI. No se puede deshacer; la copia que exportaste es tu respaldo.`,
+    confirmLabel: 'Borrar todo', danger: true
+  });
+  if (!ok) return;
+  if (navPoi) stopNav();
+  if (inspectItem || inspectPoi) hideMeasurementInfo();
+  saved.slice().forEach(m => removeLockedLayer(m.id));
+  saved = []; pois = [];
+  poiSession = []; poiSessionRedo = [];
+  editingId = null;
+  persist(); persistPois();
+  renderSaved(); renderPois();
+  try { updateUndoRedoUI(); } catch (e) {}
+  toast({ type: 'success', title: 'Todo borrado', message: 'Mediciones y POI eliminados.' });
 }
 
 // ========== MOSAICOS GUARDADOS (caché del service worker) ==========

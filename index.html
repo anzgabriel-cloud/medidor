@@ -14,7 +14,7 @@
   <meta name="apple-mobile-web-app-title" content="Medidor">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <!-- Versión: debe coincidir con APP_VERSION (app.js) y --app-version (styles.css) -->
-  <meta name="app-version" content="2026.11.09-30">
+  <meta name="app-version" content="2026.11.09-32">
 
   <!-- Dependencias externas -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -446,6 +446,12 @@
       <div id="tileInfo" class="text-[11px] text-slate-400 mt-1 mb-2"></div>
       <button id="tileClearBtn" type="button" class="w-full py-2 rounded-xl text-xs font-semibold text-slate-200 border border-slate-600 bg-slate-800 disabled:opacity-40">Borrar mosaicos guardados</button>
       <div class="text-[11px] text-slate-500 mt-1 mb-4">La app guarda los mosaicos de mapa que ya viste para que carguen rápido y sirvan sin señal. Si ocupan mucho lugar, podés borrarlos.</div>
+
+      <label class="text-[10px] uppercase tracking-wide text-slate-500">Borrar datos</label>
+      <button id="dataResetBtn" type="button" class="w-full mt-1 py-2 rounded-xl text-xs font-semibold text-red-300 border border-red-500/30 bg-red-500/10 flex items-center justify-center gap-1.5">
+        <i data-lucide="trash-2" class="w-3.5 h-3.5"></i> Borrar todas las mediciones y POI
+      </button>
+      <div class="text-[11px] text-slate-500 mt-1 mb-4">Deja la app en cero. Exige exportar una copia antes (si no hiciste una en los últimos 30 minutos) y pide confirmación.</div>
 
       <button id="setReset" type="button" class="w-full py-2 rounded-xl text-xs font-semibold text-red-300 border border-red-500/30 bg-red-500/10">Restablecer ajustes</button>
 

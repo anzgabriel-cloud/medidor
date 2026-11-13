@@ -1491,7 +1491,7 @@ function updateMetrics(areaM2, distM) {
   liveArea = areaM2; liveDist = distM;
   updateLiveBadge();
 }
-const APP_VERSION = '2026.11.09-36';
+const APP_VERSION = '2026.11.09-37';
 let liveSelfIntersect = false; // el polígono se cruza a sí mismo (los marcadores rojos ya lo señalan)
 function updateSelfIntersectWarning(show) {
   const v = !!show;
@@ -2736,6 +2736,7 @@ function persistPois() {
   if (badge) badge.textContent = pois.length;
   const btn = document.getElementById('poiBtn');
   if (btn) btn.disabled = pois.length === 0;
+  try { refreshBackupUI(); } catch (e) {}
 }
 
 function loadPois() {
@@ -2945,6 +2946,7 @@ function persist() {
     document.getElementById('savedBadge').textContent = saved.length;
     const btn = document.getElementById('savedBtn');
     if (btn) btn.disabled = saved.length === 0;
+    try { refreshBackupUI(); } catch (e2) {}
   } catch (e) {
     toast({ type: 'error', title: 'No se pudo guardar', message: 'El almacenamiento del navegador está lleno o bloqueado.' });
   }
@@ -3166,6 +3168,8 @@ function refreshBackupUI() {
   });
   const h = document.getElementById('bkHelp');
   if (h) h.textContent = BACKUP_FORMATS[f].help;
+  const empty = !saved.length && !pois.length;
+  ['exportBtn', 'dataResetBtn'].forEach(id => { const b = document.getElementById(id); if (b) b.disabled = empty; });
   updateBackupInfo();
 }
 function exportBackup() {

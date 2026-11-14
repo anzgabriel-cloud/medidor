@@ -617,6 +617,9 @@ function init() {
   });
   map.on('move zoom', () => { if (selectedVertex >= 0) positionVertexBtn(); });
   document.getElementById('vertexDelBtn').onclick = deleteSelectedVertex;
+  window.addEventListener('resize', positionFixedCompass);
+  const topBar = document.querySelector('header');
+  if (topBar && window.ResizeObserver) new ResizeObserver(positionFixedCompass).observe(topBar);
 
   window.addEventListener('pointermove', onPointerMove, { passive: false, capture: true });
   window.addEventListener('touchmove', onTouchMove, { passive: false, capture: true });
@@ -1568,7 +1571,7 @@ function updateMetrics(areaM2, distM) {
   liveArea = areaM2; liveDist = distM;
   updateLiveBadge();
 }
-const APP_VERSION = '2026.11.09-42';
+const APP_VERSION = '2026.11.09-44';
 let liveSelfIntersect = false; // el polígono se cruza a sí mismo (los marcadores rojos ya lo señalan)
 function updateSelfIntersectWarning(show) {
   const v = !!show;
@@ -1621,6 +1624,7 @@ function computeItemStats(item) {
 function clearInspectLayers() {
   inspectLayers.forEach(l => map.removeLayer(l));
   inspectLayers = [];
+  hideFixedCompass();
 }
 
 /** Orientación del polígono: true = antihorario (en plano local, x=este, y=norte) */
@@ -1674,43 +1678,26 @@ function angleArcGeometry(vPx, pPx, nPx, deg) {
   return { a1, sweep, mid: a1 + sweep / 2 };
 }
 
-function addInspectCompass(latlngs, isPoly, color) {
-  if (!latlngs || latlngs.length < 1) return;
-  const bounds = L.latLngBounds(latlngs);
-  const center = bounds.getCenter();
-  const ne = bounds.getNorthEast(), sw = bounds.getSouthWest();
-  const cPx = map.latLngToContainerPoint(center);
-  const nePx = map.latLngToContainerPoint(ne);
-  const swPx = map.latLngToContainerPoint(sw);
-  const shapeW = Math.max(20, nePx.x - swPx.x);
-  const shapeH = Math.max(20, nePx.y - swPx.y);
-  const sizeGuess = 48;
-  const pad = sizeGuess * 0.85;
-  const compassPx = L.point(nePx.x + pad, cPx.y);
-  const compassLL = map.containerPointToLatLng(compassPx);
-  const z = map.getZoom();
-  const scale = Math.pow(1.15, z - 15);
-  const size = Math.max(36, Math.min(64, 48 * scale));
-  const half = size / 2;
-  const svg = `
-    <svg class="inspect-compass" width="${size}" height="${size}" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
-      <circle cx="32" cy="32" r="30" fill="rgba(15,23,42,0.82)" stroke="${color}" stroke-width="2"/>
-      <circle cx="32" cy="32" r="22" fill="none" stroke="rgba(255,255,255,0.15)" stroke-width="1"/>
-      <polygon points="32,8 36,32 32,28 28,32" fill="#ef4444"/>
-      <polygon points="32,56 28,32 32,36 36,32" fill="rgba(255,255,255,0.55)"/>
-      <polygon points="56,32 32,28 36,32 32,36" fill="rgba(255,255,255,0.35)"/>
-      <polygon points="8,32 32,36 28,32 32,28" fill="rgba(255,255,255,0.35)"/>
-      <circle cx="32" cy="32" r="3.5" fill="#fff"/>
-      <text x="32" y="14" text-anchor="middle" font-size="9" font-weight="800" fill="#ef4444" font-family="system-ui,sans-serif">N</text>
-      <text x="32" y="58" text-anchor="middle" font-size="7" font-weight="700" fill="rgba(255,255,255,0.7)" font-family="system-ui,sans-serif">S</text>
-      <text x="56" y="34" text-anchor="middle" font-size="7" font-weight="700" fill="rgba(255,255,255,0.55)" font-family="system-ui,sans-serif">E</text>
-      <text x="10" y="34" text-anchor="middle" font-size="7" font-weight="700" fill="rgba(255,255,255,0.55)" font-family="system-ui,sans-serif">O</text>
-    </svg>`;
-  const marker = L.marker(compassLL, {
-    icon: L.divIcon({ className: '', html: svg, iconSize: [size, size], iconAnchor: [half, half] }),
-    interactive: false, zIndexOffset: 1900
-  }).addTo(map);
-  inspectLayers.push(marker);
+// ---- Brújula fija (esquina superior derecha, bajo la barra de arriba) mientras hay una Consulta abierta ----
+const COMPASS_SIZE = 56;
+function positionFixedCompass() {
+  const el = document.getElementById('fixedCompass');
+  const header = document.querySelector('header');
+  if (!el || !header || el.classList.contains('hidden')) return;
+  const r = header.getBoundingClientRect();
+  el.style.top = Math.round(r.bottom + 8) + 'px';
+  el.style.left = Math.round(r.right - COMPASS_SIZE) + 'px';
+}
+function showFixedCompass(color) {
+  const el = document.getElementById('fixedCompass');
+  if (!el) return;
+  const ring = document.getElementById('fixedCompassRing');
+  if (ring) ring.setAttribute('stroke', safeColor(color));
+  el.classList.remove('hidden');
+  positionFixedCompass();
+}
+function hideFixedCompass() {
+  document.getElementById('fixedCompass')?.classList.add('hidden');
 }
 
 function refreshInspectOverlays() {
@@ -1723,7 +1710,7 @@ function refreshInspectOverlays() {
   applyLabelTint(color, true);
   const latlngs = stats.latlngs;
   const n = latlngs.length;
-  addInspectCompass(latlngs, stats.isPoly, color);
+  showFixedCompass(color);
 
   if (inspectShowSegs || inspectShowBearings) {
     const z = map.getZoom();
@@ -1960,6 +1947,7 @@ function showMeasurementInfo(item) {
 }
 
 function showPoiInfo(p) {
+  clearInspectLayers();   // quita etiquetas, arcos y brújula de una medición consultada antes
   inspectItem = null;
   inspectPoi = p;
   const color = safeColor(p.color, '#f59e0b');

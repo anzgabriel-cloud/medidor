@@ -2,7 +2,7 @@
    Separado del HTML para mejor mantenimiento
 */
 
-:root { --app-version: "2026.11.09-42"; }
+:root { --app-version: "2026.11.09-44"; }
 
 .leaflet-control-attribution { font-size: 9px !important; background: rgba(15,23,42,0.7) !important; color: #94a3b8 !important; }
 .leaflet-control-attribution a { color: #94a3b8 !important; }
@@ -264,7 +264,8 @@ body.is-dragging .midpoint-marker { opacity: 0 !important; pointer-events: none 
   text-shadow: 0 1px 2px rgba(0,0,0,0.85);
 }
 .inspect-seg-label span { display: block; text-align: center; width: 100%; }
-.inspect-compass { pointer-events: none; transform: translate(-50%, -50%); filter: drop-shadow(0 2px 6px rgba(0,0,0,0.7)); }
+#fixedCompass { position: fixed; }
+.fixed-compass-svg { display: block; filter: drop-shadow(0 2px 6px rgba(0,0,0,0.7)); }
 .inspect-angle-text {
   color: var(--inspect-label-text, var(--inspect-color, #00ff66));
   font-weight: 700; white-space: nowrap;

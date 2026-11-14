@@ -14,7 +14,7 @@
   <meta name="apple-mobile-web-app-title" content="Medidor">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <!-- Versión: debe coincidir con APP_VERSION (app.js) y --app-version (styles.css) -->
-  <meta name="app-version" content="2026.11.09-42">
+  <meta name="app-version" content="2026.11.09-44">
 
   <!-- Dependencias externas -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -157,6 +157,21 @@
   </div>
 
   <!-- BOTTOM PANEL -->
+  <div id="fixedCompass" class="hidden fixed z-20 pointer-events-none" style="width:56px;height:56px" aria-hidden="true">
+    <svg class="fixed-compass-svg" width="56" height="56" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
+      <circle id="fixedCompassRing" cx="32" cy="32" r="30" fill="rgba(15,23,42,0.82)" stroke="#00ff66" stroke-width="2"/>
+      <circle cx="32" cy="32" r="22" fill="none" stroke="rgba(255,255,255,0.15)" stroke-width="1"/>
+      <polygon points="32,8 36,32 32,28 28,32" fill="#ef4444"/>
+      <polygon points="32,56 28,32 32,36 36,32" fill="rgba(255,255,255,0.55)"/>
+      <polygon points="56,32 32,28 36,32 32,36" fill="rgba(255,255,255,0.35)"/>
+      <polygon points="8,32 32,36 28,32 32,28" fill="rgba(255,255,255,0.35)"/>
+      <circle cx="32" cy="32" r="3.5" fill="#fff"/>
+      <text x="32" y="14" text-anchor="middle" font-size="9" font-weight="800" fill="#ef4444" font-family="system-ui,sans-serif">N</text>
+      <text x="32" y="58" text-anchor="middle" font-size="7" font-weight="700" fill="rgba(255,255,255,0.7)" font-family="system-ui,sans-serif">S</text>
+      <text x="56" y="34" text-anchor="middle" font-size="7" font-weight="700" fill="rgba(255,255,255,0.55)" font-family="system-ui,sans-serif">E</text>
+      <text x="10" y="34" text-anchor="middle" font-size="7" font-weight="700" fill="rgba(255,255,255,0.55)" font-family="system-ui,sans-serif">O</text>
+    </svg>
+  </div>
   <div id="liveReadout" aria-live="off"></div>
 
   <div id="mainControls" data-mode="polygon" class="absolute bottom-0 left-0 right-0 z-20 p-3 safe-bottom pointer-events-none">

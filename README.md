@@ -95,3 +95,4 @@ node --test tests/calculos.test.js tests/altitud.test.js tests/cercania.test.js
 ## Listas y Consulta
 - Las listas de POI y Mediciones se ordenan por cercanía a la ubicación GPS (si hay fix); una superficie en la que estás parado figura "estás adentro". Sin GPS mantienen el orden de creación.
 - El menú ⋯ de Consulta ofrece Editar, Navegar (solo POI), Ir y Eliminar. Al editar una medición se puede cambiar el nombre.
+- Borrar un punto de una superficie o distancia: tocarlo (sin arrastrar) lo selecciona y aparece "Borrar punto"; se recupera con Deshacer. Mínimo 3 puntos en superficie y 2 en distancia. No aplica a recorridos.

@@ -2,7 +2,7 @@
    Separado del HTML para mejor mantenimiento
 */
 
-:root { --app-version: "2026.11.09-40"; }
+:root { --app-version: "2026.11.09-41"; }
 
 .leaflet-control-attribution { font-size: 9px !important; background: rgba(15,23,42,0.7) !important; color: #94a3b8 !important; }
 .leaflet-control-attribution a { color: #94a3b8 !important; }
@@ -183,6 +183,13 @@ html, body {
   width: 10px; height: 10px;
   border-width: 2px;
   box-shadow: 0 1px 4px rgba(0,0,0,0.6);
+}
+.vertex-marker.selected {
+  width: 30px !important; height: 30px !important;
+  margin-left: -15px !important; margin-top: -15px !important;
+  border-color: #fff;
+  background: #ef4444;
+  box-shadow: 0 0 0 3px #ef4444, 0 0 16px rgba(239,68,68,0.9);
 }
 .vertex-marker.dragging {
   width: 64px; height: 64px;

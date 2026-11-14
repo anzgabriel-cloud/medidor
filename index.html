@@ -14,7 +14,7 @@
   <meta name="apple-mobile-web-app-title" content="Medidor">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <!-- Versión: debe coincidir con APP_VERSION (app.js) y --app-version (styles.css) -->
-  <meta name="app-version" content="2026.11.09-40">
+  <meta name="app-version" content="2026.11.09-41">
 
   <!-- Dependencias externas -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -304,6 +304,9 @@
     </div>
   </div>
   <div id="infoBackdrop" class="hidden"></div>
+  <button id="vertexDelBtn" type="button" class="hidden fixed z-40 flex items-center gap-1.5 px-3 py-2 rounded-xl bg-red-600 text-white text-xs font-bold border border-red-300/60 shadow-2xl" style="transform:translateX(-50%)">
+    <i data-lucide="trash-2" class="w-4 h-4"></i> Borrar punto
+  </button>
 
   <!-- PERFIL DE ALTURA -->
   <div id="profileModal" class="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-sm hidden flex items-center justify-center p-4">

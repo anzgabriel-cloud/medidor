@@ -404,17 +404,68 @@ document.addEventListener('visibilitychange', () => { if (document.visibilitySta
 window.addEventListener('pagehide', () => { clearTimeout(draftTimer); saveDraft(); });
 
 // ========== ICONS ==========
-function vertexIcon(dr = false, locked = false) {
+function vertexIcon(dr = false, locked = false, selected = false) {
   let cls = 'vertex-marker';
   if (dr) cls += ' dragging';
   else if (locked) cls += ' locked';
   else if (gpsWatchId !== null) cls += ' recording';
   const recording = !dr && !locked && gpsWatchId !== null;
+  const sel = selected && !dr;
+  if (sel) cls += ' selected';
   return L.divIcon({
     className: cls,
-    iconSize: dr ? [64, 64] : (recording ? [10, 10] : [22, 22]),
-    iconAnchor: dr ? [32, 32] : (recording ? [5, 5] : [11, 11])
+    iconSize: dr ? [64, 64] : (sel ? [30, 30] : (recording ? [10, 10] : [22, 22])),
+    iconAnchor: dr ? [32, 32] : (sel ? [15, 15] : (recording ? [5, 5] : [11, 11]))
   });
+}
+
+// ========== BORRAR UN PUNTO (tocar para seleccionar → botón "Borrar punto") ==========
+let selectedVertex = -1;
+let dragOrig = null, dragT0 = 0, dragTravel = 0, dragClient0 = null;
+const TAP_MAX_PX = 6, TAP_MAX_MS = 450;
+const minPointsFor = () => mode === 'polygon' ? 3 : 2;
+function canSelectVertex() {
+  return drawingActive && !isLocked && !trackMode && !poiMode && appView !== 'ver';
+}
+function positionVertexBtn() {
+  const btn = document.getElementById('vertexDelBtn');
+  if (!btn) return;
+  if (selectedVertex < 0 || !points[selectedVertex]) { btn.classList.add('hidden'); return; }
+  const rect = map.getContainer().getBoundingClientRect();
+  const pt = map.latLngToContainerPoint(points[selectedVertex]);
+  const x = Math.min(window.innerWidth - 80, Math.max(80, rect.left + pt.x));
+  let y = rect.top + pt.y - 56;                  // arriba del punto
+  if (y < 200) y = rect.top + pt.y + 28;         // si queda bajo la barra superior, abajo del punto
+  btn.style.left = x + 'px';
+  btn.style.top = y + 'px';
+  btn.classList.remove('hidden');
+  const tooFew = points.length <= minPointsFor();
+  btn.classList.toggle('opacity-60', tooFew);
+}
+function selectVertex(idx) {
+  selectedVertex = idx;
+  markers.forEach((m, i) => m.setIcon(vertexIcon(false, isLocked, i === idx)));
+  positionVertexBtn();
+}
+function deselectVertex() {
+  if (selectedVertex < 0) return;
+  selectedVertex = -1;
+  markers.forEach(m => m.setIcon(vertexIcon(false, isLocked, false)));
+  positionVertexBtn();
+}
+function deleteSelectedVertex() {
+  const idx = selectedVertex;
+  if (idx < 0 || !points[idx] || !canSelectVertex()) return;
+  if (points.length <= minPointsFor()) {
+    toast({ type: 'warning', title: mode === 'polygon' ? 'Mínimo 3 puntos' : 'Mínimo 2 puntos', message: mode === 'polygon' ? 'Una superficie necesita al menos 3 puntos.' : 'Una distancia necesita al menos 2 puntos.', duration: 2200 });
+    return;
+  }
+  points.splice(idx, 1);
+  rebuildMarkers();          // también quita la selección
+  redraw();
+  pushHistory();
+  updateClearBtnState();
+  toast({ type: 'info', title: 'Punto borrado', message: 'Podés recuperarlo con Deshacer.', duration: 1600 });
 }
 const midIcon = L.divIcon({ className: 'midpoint-marker', iconSize: [18, 18], iconAnchor: [9, 9] });
 const touchIcon = L.divIcon({ className: 'touch-dot', iconSize: [16, 16], iconAnchor: [8, 8] });
@@ -529,6 +580,7 @@ function init() {
 
   map.on('click', (e) => {
     if (dragging || isLocked || closePromptOpen) return;
+    if (selectedVertex >= 0) { deselectVertex(); return; }   // tocar el mapa solo quita la selección
     if (inspectItem) return;
     if (navPoi) { stopNav(); return; }
     if (appView === 'ver') return; // modo Ver: el mapa no agrega puntos
@@ -562,6 +614,8 @@ function init() {
   map.on('moveend', () => {
     if (inspectItem) refreshInspectOverlays();
   });
+  map.on('move zoom', () => { if (selectedVertex >= 0) positionVertexBtn(); });
+  document.getElementById('vertexDelBtn').onclick = deleteSelectedVertex;
 
   window.addEventListener('pointermove', onPointerMove, { passive: false, capture: true });
   window.addEventListener('touchmove', onTouchMove, { passive: false, capture: true });
@@ -843,6 +897,7 @@ function updateSaveBtnLabel() {
 }
 
 function updateLockUI() {
+  if (typeof deselectVertex === 'function') deselectVertex();
   // Nueva siempre habilitada (sirve para arrancar o reiniciar)
   ['modePolyBtn', 'modeLineBtn'].forEach(id => {
     const el = document.getElementById(id);
@@ -899,6 +954,12 @@ function startDrag(index, e) {
   if (isLocked || appView === 'ver') { e.preventDefault(); e.stopPropagation(); return; }
   e.preventDefault(); e.stopPropagation();
   if (e.stopImmediatePropagation) e.stopImmediatePropagation();
+  if (!dragging) {   // el mismo toque dispara pointerdown, touchstart y mousedown: registrar solo el primero
+    dragOrig = points[index] ? L.latLng(points[index].lat, points[index].lng) : null;
+    dragT0 = performance.now(); dragTravel = 0;
+    const t0 = e.touches ? e.touches[0] : e;
+    dragClient0 = t0 && t0.clientX != null ? { x: t0.clientX, y: t0.clientY } : null;
+  }
   dragging = true;
   dragIndex = index;
   document.body.classList.add('is-dragging');
@@ -959,6 +1020,7 @@ function onPointerMove(e) { if (!dragging) return; e.preventDefault(); moveVerte
 function onTouchMove(e) { if (!dragging || !e.touches.length) return; e.preventDefault(); moveVertex(e.touches[0].clientX, e.touches[0].clientY); }
 function moveVertex(clientX, clientY) {
   if (dragIndex < 0 || dragIndex >= points.length) return;
+  if (dragClient0) dragTravel = Math.max(dragTravel, Math.hypot(clientX - dragClient0.x, clientY - dragClient0.y));
   const rect = map.getContainer().getBoundingClientRect();
   const x = clientX - rect.left, y = clientY - rect.top;
   dragStartFinger = { x, y };
@@ -975,8 +1037,14 @@ function moveVertex(clientX, clientY) {
     else hideCloseMagnet();
   } else hideCloseMagnet();
 }
-function endDrag() {
+function endDrag(ev) {
   if (!dragging) return;
+  const cancelled = ev && /cancel/.test(ev.type || '');
+  const wasTap = !cancelled && dragIndex >= 0 && dragTravel < TAP_MAX_PX && performance.now() - dragT0 < TAP_MAX_MS && canSelectVertex();
+  if (wasTap && dragOrig && points[dragIndex]) {   // un toque no debe mover el punto: se restituye la posición original
+    points[dragIndex] = dragOrig;
+    if (markers[dragIndex]) markers[dragIndex].setLatLng(dragOrig);
+  }
   dragging = false;
   document.body.classList.remove('is-dragging');
   if (dragAnim) { cancelAnimationFrame(dragAnim); dragAnim = null; }
@@ -994,6 +1062,11 @@ function endDrag() {
   dragIndex = -1;
   redraw();
   if (moved) pushHistory();
+  if (wasTap) {
+    if (selectedVertex === endedIndex) deselectVertex(); else selectVertex(endedIndex);
+    return;
+  }
+  if (selectedVertex >= 0) deselectVertex();
   // Imán de cierre: último o primer punto cerca del otro extremo en modo distancia
   if (mode === 'line' && points.length >= 3 && (endedIndex === points.length - 1 || endedIndex === 0)) {
     const a = points[0];
@@ -1291,6 +1364,7 @@ async function offerClosePolygon() {
   toast({ type: 'success', title: 'Polígono cerrado', message: 'Pasó a modo Superficie.', duration: 2200 });
 }
 function rebuildMarkers() {
+  selectedVertex = -1; positionVertexBtn();
   markers.forEach(m => map.removeLayer(m));
   markers = [];
   points.forEach((ll, idx) => {
@@ -1492,7 +1566,7 @@ function updateMetrics(areaM2, distM) {
   liveArea = areaM2; liveDist = distM;
   updateLiveBadge();
 }
-const APP_VERSION = '2026.11.09-40';
+const APP_VERSION = '2026.11.09-41';
 let liveSelfIntersect = false; // el polígono se cruza a sí mismo (los marcadores rojos ya lo señalan)
 function updateSelfIntersectWarning(show) {
   const v = !!show;
@@ -2018,6 +2092,7 @@ function refreshLockedLayers() {
 
 /** Limpia solo la medición activa (no borra las guardadas) y desbloquea el editor */
 function clearActiveMeasurement(opts = {}) {
+  if (typeof deselectVertex === 'function') deselectVertex();
   clearDraft();
   stopGpsTracking();
   gpsLive.recMs = 0; gpsLive.recStart = null;
@@ -2157,6 +2232,7 @@ function pulseButton(id) {
 
 // ========== MODE ==========
 function setMode(m) {
+  if (typeof deselectVertex === 'function') deselectVertex();
   if (isLocked) return;
   if (gpsWatchId !== null) stopGpsTracking();
   else if (trackMode) { trackMode = false; setGpsBtnState(false); refreshTrackBar(); }

@@ -42,7 +42,8 @@ const NOMBRES = [
   'dmsStr', 'fmtCoordLines', 'fmtCoord',
   'parseDecimalStr', 'parseMetersStr', 'isBlank', 'parseCoordForm',
   'ELEV_CACHE_KEY', 'elevKey', 'loadElevCache', 'saveElevCache', 'elevConv', 'elevUnit', 'fmtElev',
-  'requestElevations', 'fetchElevations', 'itemSig', 'lineSamples', 'profileStats', 'getItemProfile'
+  'requestElevations', 'fetchElevations', 'itemSig', 'lineSamples', 'profileStats', 'getItemProfile',
+  'distToPathM', 'pointInRing', 'savedDistance'
 ];
 vm.runInContext('var elevCache = null;', ctx);
 // Piezas del navegador que usan las funciones de altitud (se reemplazan en cada test)

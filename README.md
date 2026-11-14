@@ -76,7 +76,7 @@ Verifican los cálculos puros (ángulos, rumbos, declinación, UTM y Gauss-Krüg
 No hace falta subir la carpeta `tests/` a GitHub Pages.
 
 ```
-node --test tests/calculos.test.js tests/altitud.test.js
+node --test tests/calculos.test.js tests/altitud.test.js tests/cercania.test.js
 ```
 
 ## Altitud (s.n.m.) y perfil
@@ -91,3 +91,7 @@ node --test tests/calculos.test.js tests/altitud.test.js
 - Ajustes → Copia de seguridad: elegir GeoJSON (copia completa), KML (Google Earth) o GPX (GPS). Al importar el formato se detecta solo. Los polígonos con huecos no se importan.
 - Ajustes → Mapas guardados: cuenta y borra la caché `medidor-v1-tiles` del service worker (no toca mediciones ni POI). No cambiar `VERSION` en sw.js: borraría también esa caché.
 - El service worker guarda los mosaicos pidiéndolos en modo CORS: las respuestas con error (404/500) no se guardan. Si el servidor no admite CORS, se usa el pedido normal.
+
+## Listas y Consulta
+- Las listas de POI y Mediciones se ordenan por cercanía a la ubicación GPS (si hay fix); una superficie en la que estás parado figura "estás adentro". Sin GPS mantienen el orden de creación.
+- El menú ⋯ de Consulta ofrece Editar, Navegar (solo POI), Ir y Eliminar. Al editar una medición se puede cambiar el nombre.

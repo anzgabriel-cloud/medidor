@@ -718,6 +718,7 @@ document.getElementById('closePoiBtn').onclick = (e) => { e.preventDefault(); e.
     if (i) { i.value = ''; i.focus(); }
   };
   document.getElementById('infoCloseBtn').onclick = hideMeasurementInfo;
+  document.getElementById('infoMenuBtn').onclick = openInfoMenu;
   document.getElementById('infoBackdrop').onclick = hideMeasurementInfo;
   document.getElementById('infoToggleSegs').onclick = () => {
     inspectShowSegs = true; inspectShowBearings = false; inspectShowAngles = false; inspectShowCoords = false;
@@ -1491,7 +1492,7 @@ function updateMetrics(areaM2, distM) {
   liveArea = areaM2; liveDist = distM;
   updateLiveBadge();
 }
-const APP_VERSION = '2026.11.09-39';
+const APP_VERSION = '2026.11.09-40';
 let liveSelfIntersect = false; // el polígono se cruza a sí mismo (los marcadores rojos ya lo señalan)
 function updateSelfIntersectWarning(show) {
   const v = !!show;
@@ -1921,6 +1922,7 @@ function showPoiInfo(p) {
 }
 
 function hideMeasurementInfo() {
+  closeInfoMenu();
   document.getElementById('infoPanel').classList.add('hidden');
   inspectPoi = null;
   try { updateLiveBadge(); } catch (e) {}
@@ -2251,6 +2253,7 @@ function updateUserLocation(lat, lng, accuracy) {
     userAccCircle.setLatLng(ll);
     userAccCircle.setRadius(acc);
   }
+  try { refreshListsByDistance(); } catch (e) {}
 }
 
 function startUserLocationWatch(centerOnFirst) {
@@ -2797,7 +2800,10 @@ function renderPoiList() {
     list.innerHTML = '<div class="text-center py-10 text-slate-500 text-xs">Sin puntos de interés</div>';
     return;
   }
-  pois.forEach(p => {
+  const rows = sortByProximity(pois, (p, ll) => ({ d: ll.distanceTo(L.latLng(p.lat, p.lng)), inside: false }));
+  list.dataset.order = rows.map(r => r.it.id).join('|');
+  if (!userLL()) list.insertAdjacentHTML('beforeend', `<div class="text-[10px] text-slate-500 px-1 pb-1">${NO_GPS_HINT}</div>`);
+  rows.forEach(({ it: p, dist }) => {
     const div = document.createElement('div');
     div.className = 'bg-slate-950 border border-slate-800 rounded-xl p-3';
     const navigating = navPoi && navPoi.id === p.id;
@@ -2806,7 +2812,7 @@ function renderPoiList() {
         <span class="w-2.5 h-2.5 rounded-full flex-shrink-0" style="background:${safeColor(p.color, POI_DEFAULT_COLOR)}"></span>
         <div class="flex-1 min-w-0">
           <div class="font-bold text-xs truncate">${escapeHtml(p.name)}</div>
-          <div class="text-[10px] text-slate-500">${escapeHtml(settings.coords === 'dec' ? (+p.lat).toFixed(5) + ', ' + (+p.lng).toFixed(5) : fmtCoord(p.lat, p.lng))}${(typeof p.elev === 'number' && p.elevAt === elevKey(p)) ? ' · ' + fmtElev(p.elev) + ' s.n.m.' : ''}</div>
+          <div class="text-[10px] text-slate-500">${escapeHtml(settings.coords === 'dec' ? (+p.lat).toFixed(5) + ', ' + (+p.lng).toFixed(5) : fmtCoord(p.lat, p.lng))}${(typeof p.elev === 'number' && p.elevAt === elevKey(p)) ? ' · ' + fmtElev(p.elev) + ' s.n.m.' : ''}${dist ? ' · <span data-dist="' + p.id + '" class="text-sky-400">' + distLabel(dist) + '</span>' : ''}</div>
         </div>
         <button data-nav="${p.id}" class="text-[11px] font-semibold px-2 py-1 rounded-lg border ${navigating ? 'bg-rose-500/15 text-rose-300 border-rose-500/40' : 'bg-sky-500/15 text-sky-300 border-sky-500/40'}">${navigating ? 'Dejar de navegar' : 'Navegar'}</button>
         <button data-edit="${p.id}" class="text-[11px] font-semibold px-2 py-1 rounded-lg border bg-amber-500/15 text-amber-200 border-amber-500/30">Editar</button>
@@ -2815,15 +2821,9 @@ function renderPoiList() {
       </div>`;
     list.appendChild(div);
     div.querySelector(`[data-edit="${p.id}"]`).onclick = () => openPoiModal(L.latLng(p.lat, p.lng), p);
-    div.querySelector(`[data-nav="${p.id}"]`).onclick = () => {
-      if (navPoi && navPoi.id === p.id) { stopNav(); renderPoiList(); toast({ type: 'info', title: 'Navegación cancelada', duration: 1400 }); }
-      else startNavToPoi(p);
-    };
-    div.querySelector(`[data-go="${p.id}"]`).onclick = () => {
-      map.flyTo([p.lat, p.lng], Math.max(map.getZoom(), 17), { duration: 0.8 });
-      document.getElementById('poiDrawer').classList.add('hidden');
-    };
-    div.querySelector(`[data-del="${p.id}"]`).onclick = () => deletePoi(p.id);
+    div.querySelector(`[data-nav="${p.id}"]`).onclick = () => toggleNavPoi(p);
+    div.querySelector(`[data-go="${p.id}"]`).onclick = () => goToPoi(p);
+    div.querySelector(`[data-del="${p.id}"]`).onclick = () => confirmDeletePoi(p);
   });
   lucide.createIcons();
 }
@@ -2866,7 +2866,25 @@ function updateNavLine() {
   }
 }
 
+async function confirmDeletePoi(p) {
+  const ok = await confirmToast({
+    title: '¿Eliminar POI?',
+    message: `"${p.name}" se va a borrar. Esta acción no se puede deshacer.`,
+    confirmLabel: 'Eliminar',
+    danger: true
+  });
+  if (ok) deletePoi(p.id);
+}
+function toggleNavPoi(p) {
+  if (navPoi && navPoi.id === p.id) { stopNav(); renderPoiList(); toast({ type: 'info', title: 'Navegación cancelada', duration: 1400 }); }
+  else startNavToPoi(p);
+}
+function goToPoi(p) {
+  map.flyTo([p.lat, p.lng], Math.max(map.getZoom(), 17), { duration: 0.8 });
+  document.getElementById('poiDrawer').classList.add('hidden');
+}
 function deletePoi(id) {
+  if (inspectPoi && inspectPoi.id === id) hideMeasurementInfo();
   if (navPoi && navPoi.id === id) stopNav();
   pois = pois.filter(p => p.id !== id);
   persistPois();
@@ -2886,23 +2904,21 @@ function openSaveModal() {
   if (points.length < 2) return toast({ type: 'warning', title: 'Muy pocos puntos', message: 'Agregá al menos 2 puntos antes de guardar.' });
   if (trackMode && gpsWatchId !== null) return toast({ type: 'info', title: 'Grabación en curso', message: 'Detené la grabación antes de guardar.' });
   // Al editar: guardar cambios directo, sin modal
-  if (editingId) {
-    const existing = saved.find(s => s.id === editingId);
-    commitSave(existing ? existing.name : `Medición ${saved.length + 1}`);
-    return;
-  }
   const isTrack = trackMode;
-  document.getElementById('saveNameInput').value = isTrack ? `Recorrido ${saved.length + 1}` : `Medición ${saved.length + 1}`;
+  const existing = editingId ? saved.find(s => s.id === editingId) : null;
+  // Al editar, el nombre actual queda cargado y se puede cambiar
+  document.getElementById('saveNameInput').value = existing ? existing.name : (isTrack ? `Recorrido ${saved.length + 1}` : `Medición ${saved.length + 1}`);
   const title = document.querySelector('#saveModal h3');
-  if (title) title.textContent = isTrack ? 'Guardar recorrido' : 'Guardar Medición';
+  if (title) title.textContent = existing ? 'Guardar cambios' : (isTrack ? 'Guardar recorrido' : 'Guardar Medición');
   const confirmBtn = document.getElementById('confirmSaveBtn');
-  if (confirmBtn) confirmBtn.textContent = 'Guardar';
+  if (confirmBtn) confirmBtn.textContent = existing ? 'Guardar cambios' : 'Guardar';
   document.getElementById('saveModal').classList.remove('hidden');
 }
 
 function confirmSave() {
   if (points.length < 2) return toast({ type: 'warning', title: 'Muy pocos puntos', message: 'Agregá al menos 2 puntos.' });
-  const name = document.getElementById('saveNameInput').value.trim() || `Medición ${saved.length + 1}`;
+  const prev = editingId ? saved.find(s => s.id === editingId) : null;
+  const name = document.getElementById('saveNameInput').value.trim() || (prev ? prev.name : `Medición ${saved.length + 1}`);
   document.getElementById('saveModal').classList.add('hidden');
   commitSave(name);
 }
@@ -2981,6 +2997,189 @@ function openSaved() {
   document.getElementById('savedDrawer').classList.remove('hidden');
 }
 
+// ========== ORDEN POR CERCANÍA AL GPS ==========
+// Distancia en metros de un punto a una poligonal (plano local; sobra precisión para distancias de campo)
+function distToPathM(ll, pts, closed) {
+  if (!pts.length) return Infinity;
+  const k = Math.PI / 180, R = 6371008.8, c = Math.cos(ll.lat * k);
+  const P = pts.map(p => [(p.lng - ll.lng) * k * R * c, (p.lat - ll.lat) * k * R]);   // el punto de consulta queda en (0,0)
+  if (P.length === 1) return Math.hypot(P[0][0], P[0][1]);
+  let best = Infinity;
+  const n = closed ? P.length : P.length - 1;
+  for (let i = 0; i < n; i++) {
+    const [x1, y1] = P[i], [x2, y2] = P[(i + 1) % P.length];
+    const dx = x2 - x1, dy = y2 - y1, L2 = dx * dx + dy * dy;
+    const t = L2 ? Math.max(0, Math.min(1, -(x1 * dx + y1 * dy) / L2)) : 0;
+    best = Math.min(best, Math.hypot(x1 + t * dx, y1 + t * dy));
+  }
+  return best;
+}
+function pointInRing(ll, pts) {
+  let inside = false;
+  for (let i = 0, j = pts.length - 1; i < pts.length; j = i++) {
+    const a = pts[i], b = pts[j];
+    if ((a.lat > ll.lat) !== (b.lat > ll.lat) && ll.lng < (b.lng - a.lng) * (ll.lat - a.lat) / (b.lat - a.lat) + a.lng) inside = !inside;
+  }
+  return inside;
+}
+/** { d: metros, inside: bool } de una medición guardada respecto de ll */
+function savedDistance(item, ll) {
+  const poly = item.mode === 'polygon' && item.points.length >= 3;
+  if (poly && pointInRing(ll, item.points)) return { d: 0, inside: true };
+  return { d: distToPathM(ll, item.points, poly), inside: false };
+}
+function userLL() { return userLocMarker ? userLocMarker.getLatLng() : null; }
+/** Copia ordenada por cercanía (si no hay GPS, el orden original) con la distancia calculada */
+function sortByProximity(arr, distFn) {
+  const ll = userLL();
+  const rows = arr.map((it, i) => ({ it, i, dist: ll ? distFn(it, ll) : null }));
+  if (ll) rows.sort((a, b) => (a.dist.d - b.dist.d) || (a.i - b.i));
+  return rows;
+}
+const distLabel = (dist) => !dist ? '' : (dist.inside ? 'estás adentro' : 'a ' + fmtLenShort(dist.d));
+const NO_GPS_HINT = 'Sin ubicación GPS: se muestran en orden de creación. Con ubicación se ordenan por cercanía.';
+
+/** Refresca el orden y las distancias de las listas abiertas al llegar una nueva posición (como mucho cada 4 s) */
+let listRefreshAt = 0;
+function refreshListsByDistance(force) {
+  const now = Date.now();
+  if (!force && now - listRefreshAt < 4000) return;
+  listRefreshAt = now;
+  const open = (id) => { const el = document.getElementById(id); return el && !el.classList.contains('hidden'); };
+  if (open('savedDrawer')) refreshOneList('savedList', sortByProximity(saved, savedDistance), renderSaved);
+  if (open('poiDrawer')) refreshOneList('poiList', sortByProximity(pois, (p, ll) => ({ d: ll.distanceTo(L.latLng(p.lat, p.lng)), inside: false })), renderPoiList);
+}
+function refreshOneList(listId, rows, rerender) {
+  const list = document.getElementById(listId);
+  if (!list) return;
+  const ids = rows.map(r => r.it.id).join('|');
+  if (list.dataset.order !== ids) {
+    const sc = list.scrollTop, sp = list.parentElement ? list.parentElement.scrollTop : 0;
+    rerender();
+    list.scrollTop = sc; if (list.parentElement) list.parentElement.scrollTop = sp;
+    return;
+  }
+  rows.forEach(r => { const sp = list.querySelector(`[data-dist="${r.it.id}"]`); if (sp) sp.textContent = distLabel(r.dist); });
+}
+
+// ========== MENÚ ⋯ DE LA CONSULTA ==========
+function closeInfoMenu() {
+  const m = document.getElementById('infoMenu');
+  if (m) m.remove();
+  document.removeEventListener('pointerdown', onInfoMenuOutside, true);
+}
+function onInfoMenuOutside(e) {
+  const m = document.getElementById('infoMenu');
+  const b = document.getElementById('infoMenuBtn');
+  if (m && !m.contains(e.target) && !(b && b.contains(e.target))) closeInfoMenu();
+}
+function openInfoMenu() {
+  if (document.getElementById('infoMenu')) return closeInfoMenu();
+  const item = inspectItem, poi = inspectPoi;
+  if (!item && !poi) return;
+  const rows = [];
+  rows.push({ icon: 'pencil', label: 'Editar', cls: 'text-sky-300', run: () => { if (poi) { hideMeasurementInfo(); openPoiModal(L.latLng(poi.lat, poi.lng), poi); } else startEditSaved(item); } });
+  if (poi) {
+    const navigating = navPoi && navPoi.id === poi.id;
+    rows.push({ icon: 'navigation', label: navigating ? 'Dejar de navegar' : 'Navegar', cls: navigating ? 'text-rose-300' : 'text-sky-300', run: () => { hideMeasurementInfo(); toggleNavPoi(poi); } });
+  }
+  rows.push({ icon: 'crosshair', label: 'Ir', cls: 'text-slate-200', run: () => { if (poi) goToPoi(poi); else focusSaved(item); } });
+  rows.push({ icon: 'trash-2', label: 'Eliminar', cls: 'text-red-400', run: () => { if (poi) confirmDeletePoi(poi); else deleteSavedItem(item); } });
+  const menu = document.createElement('div');
+  menu.id = 'infoMenu';
+  menu.className = 'fixed z-[60] min-w-[11rem] rounded-xl border border-slate-600 bg-slate-900 shadow-2xl py-1';
+  menu.innerHTML = rows.map((r, i) => `<button data-i="${i}" class="w-full flex items-center gap-2 px-3 py-2.5 text-xs font-semibold ${r.cls} text-left"><i data-lucide="${r.icon}" class="w-4 h-4"></i> ${r.label}</button>`).join('');
+  document.body.appendChild(menu);
+  const br = document.getElementById('infoMenuBtn').getBoundingClientRect();
+  const mh = menu.offsetHeight;
+  // Abre hacia abajo; si no entra (el panel está pegado al borde inferior), hacia arriba
+  const top = br.bottom + 6 + mh > window.innerHeight - 8 ? Math.max(8, br.top - 6 - mh) : br.bottom + 6;
+  menu.style.top = top + 'px';
+  menu.style.right = Math.max(8, window.innerWidth - br.right) + 'px';
+  menu.querySelectorAll('button').forEach(b => b.onclick = () => { const r = rows[+b.dataset.i]; closeInfoMenu(); r.run(); });
+  lucide.createIcons();
+  setTimeout(() => document.addEventListener('pointerdown', onInfoMenuOutside, true), 0);
+}
+
+// ---- Acciones sobre una medición guardada (las usan la lista y el menú ⋯ de Consulta) ----
+function startEditSaved(item) {
+  document.getElementById('savedDrawer').classList.add('hidden');
+  hideMeasurementInfo();
+  stopGpsTracking();
+
+  // Si se estaba editando otra medición, restaurarla en el mapa
+  if (editingId && editingId !== item.id) {
+    const prev = saved.find(s => s.id === editingId);
+    if (prev && prev.visible !== false) {
+      removeLockedLayer(prev.id);
+      addLockedLayer(prev);
+    }
+  }
+
+  // Limpiar medición activa sin tocar las guardadas
+  markers.forEach(m => map.removeLayer(m));
+  midMarkers.forEach(m => map.removeLayer(m));
+  labels.forEach(l => map.removeLayer(l));
+  clearKinkMarkers();
+  if (polyLayer) map.removeLayer(polyLayer);
+  if (lineLayer) map.removeLayer(lineLayer);
+  if (guideLine) { map.removeLayer(guideLine); guideLine = null; }
+  if (touchDot) { map.removeLayer(touchDot); touchDot = null; }
+  markers = []; midMarkers = []; labels = [];
+  polyLayer = lineLayer = null;
+  points = [];
+
+  // Quitar esta medición de las locked layers mientras se edita
+  removeLockedLayer(item.id);
+
+  editingId = item.id;
+  isLocked = false;
+  setDrawingActive(true);
+  updateLockUI();
+
+  setMode(item.mode || 'polygon');
+  themeColor = item.color || '#00ff66';
+  document.documentElement.style.setProperty('--theme-color', themeColor);
+  applyLabelTint(themeColor);
+  document.querySelectorAll('.color-swatch').forEach(b => {
+    b.classList.toggle('active', b.dataset.color === themeColor);
+  });
+  points = item.points.map(p => L.latLng(p.lat, p.lng));
+  rebuildMarkers();
+  redraw();
+  resetHistory();
+  if (points.length) pushHistory();
+  if (points.length) {
+    map.fitBounds(L.latLngBounds(points.map(p => [p.lat, p.lng])), { padding: [60, 60], maxZoom: 18 });
+  }
+
+  toast({ type: 'info', title: 'Edición activa', message: `"${item.name}" está lista para editar. Usá Nueva para cancelar sin guardar.` });
+}
+
+function focusSaved(item) {
+  if (item.points && item.points.length) {
+    map.fitBounds(L.latLngBounds(item.points.map(p => [p.lat, p.lng])), { padding: [60, 60], maxZoom: 18 });
+  }
+  document.getElementById('savedDrawer').classList.add('hidden');
+}
+
+async function deleteSavedItem(item) {
+  const ok = await confirmToast({
+    title: '¿Eliminar medición?',
+    message: `"${item.name}" se va a borrar. Esta acción no se puede deshacer.`,
+    confirmLabel: 'Eliminar',
+    danger: true
+  });
+  if (!ok) return;
+  removeLockedLayer(item.id);
+  if (inspectItem && inspectItem.id === item.id) hideMeasurementInfo();
+  saved = saved.filter(s => s.id !== item.id);
+  if (editingId === item.id) editingId = null;
+  persist();
+  renderSaved();
+  toast({ type: 'success', title: 'Eliminada', message: `"${item.name}" fue eliminada.` });
+}
+
 function renderSaved() {
   const list = document.getElementById('savedList');
   list.innerHTML = '';
@@ -2988,7 +3187,10 @@ function renderSaved() {
     list.innerHTML = '<div class="text-center py-10 text-slate-500 text-xs">Sin mediciones guardadas</div>';
     return;
   }
-  saved.forEach(item => {
+  const rows = sortByProximity(saved, savedDistance);
+  list.dataset.order = rows.map(r => r.it.id).join('|');
+  if (!userLL()) list.insertAdjacentHTML('beforeend', `<div class="text-[10px] text-slate-500 px-1 pb-1">${NO_GPS_HINT}</div>`);
+  rows.forEach(({ it: item, dist }) => {
     const isVisible = item.visible !== false;
     const div = document.createElement('div');
     div.className = 'bg-slate-950 border border-slate-800 rounded-xl p-3';
@@ -3000,7 +3202,7 @@ function renderSaved() {
             <span class="font-bold text-xs truncate">${escapeHtml(item.name)}</span>
             <span class="text-[10px] px-1.5 py-0.5 rounded bg-slate-800 text-slate-400 uppercase flex-shrink-0">${escapeHtml(item.mode)}</span>
           </div>
-          <span class="text-[11px] text-slate-500 mt-0.5">${item.points.length} pts · ${escapeHtml(item.date)}</span>
+          <span class="text-[11px] text-slate-500 mt-0.5">${item.points.length} pts · ${escapeHtml(item.date)}${dist ? ' · <span data-dist="' + item.id + '" class="text-sky-400">' + distLabel(dist) + '</span>' : ''}</span>
         </div>
       </div>
       <div class="flex items-center gap-1.5 mt-2">
@@ -3028,89 +3230,9 @@ function renderSaved() {
       renderSaved();
     };
 
-    // Editar: carga la medición en el editor y la desbloquea
-    div.querySelector(`[data-edit="${item.id}"]`).onclick = (e) => {
-      e.stopPropagation();
-      document.getElementById('savedDrawer').classList.add('hidden');
-      hideMeasurementInfo();
-      stopGpsTracking();
-
-      // Si se estaba editando otra medición, restaurarla en el mapa
-      if (editingId && editingId !== item.id) {
-        const prev = saved.find(s => s.id === editingId);
-        if (prev && prev.visible !== false) {
-          removeLockedLayer(prev.id);
-          addLockedLayer(prev);
-        }
-      }
-
-      // Limpiar medición activa sin tocar las guardadas
-      markers.forEach(m => map.removeLayer(m));
-      midMarkers.forEach(m => map.removeLayer(m));
-      labels.forEach(l => map.removeLayer(l));
-      clearKinkMarkers();
-      if (polyLayer) map.removeLayer(polyLayer);
-      if (lineLayer) map.removeLayer(lineLayer);
-      if (guideLine) { map.removeLayer(guideLine); guideLine = null; }
-      if (touchDot) { map.removeLayer(touchDot); touchDot = null; }
-      markers = []; midMarkers = []; labels = [];
-      polyLayer = lineLayer = null;
-      points = [];
-
-      // Quitar esta medición de las locked layers mientras se edita
-      removeLockedLayer(item.id);
-
-      editingId = item.id;
-      isLocked = false;
-      setDrawingActive(true);
-      updateLockUI();
-
-      setMode(item.mode || 'polygon');
-      themeColor = item.color || '#00ff66';
-      document.documentElement.style.setProperty('--theme-color', themeColor);
-      applyLabelTint(themeColor);
-      document.querySelectorAll('.color-swatch').forEach(b => {
-        b.classList.toggle('active', b.dataset.color === themeColor);
-      });
-      points = item.points.map(p => L.latLng(p.lat, p.lng));
-      rebuildMarkers();
-      redraw();
-      resetHistory();
-      if (points.length) pushHistory();
-      if (points.length) {
-        map.fitBounds(L.latLngBounds(points.map(p => [p.lat, p.lng])), { padding: [60, 60], maxZoom: 18 });
-      }
-
-      toast({ type: 'info', title: 'Edición activa', message: `"${item.name}" está lista para editar. Usá Nueva para cancelar sin guardar.` });
-    };
-
-    // Ir: hacer fitBounds a la medición
-    div.querySelector(`[data-focus="${item.id}"]`).onclick = (e) => {
-      e.stopPropagation();
-      if (item.points && item.points.length) {
-        map.fitBounds(L.latLngBounds(item.points.map(p => [p.lat, p.lng])), { padding: [60, 60], maxZoom: 18 });
-      }
-      document.getElementById('savedDrawer').classList.add('hidden');
-    };
-
-    // Eliminar con confirmación
-    div.querySelector(`[data-del="${item.id}"]`).onclick = async (e) => {
-      e.stopPropagation();
-      const ok = await confirmToast({
-        title: '¿Eliminar medición?',
-        message: `"${item.name}" se va a borrar. Esta acción no se puede deshacer.`,
-        confirmLabel: 'Eliminar',
-        danger: true
-      });
-      if (!ok) return;
-      removeLockedLayer(item.id);
-      if (inspectItem && inspectItem.id === item.id) hideMeasurementInfo();
-      saved = saved.filter(s => s.id !== item.id);
-      if (editingId === item.id) editingId = null;
-      persist();
-      renderSaved();
-      toast({ type: 'success', title: 'Eliminada', message: `"${item.name}" fue eliminada.` });
-    };
+    div.querySelector(`[data-edit="${item.id}"]`).onclick = (e) => { e.stopPropagation(); startEditSaved(item); };
+    div.querySelector(`[data-focus="${item.id}"]`).onclick = (e) => { e.stopPropagation(); focusSaved(item); };
+    div.querySelector(`[data-del="${item.id}"]`).onclick = (e) => { e.stopPropagation(); deleteSavedItem(item); };
   });
   lucide.createIcons();
 }

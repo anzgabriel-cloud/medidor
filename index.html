@@ -14,7 +14,7 @@
   <meta name="apple-mobile-web-app-title" content="Medidor">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <!-- Versión: debe coincidir con APP_VERSION (app.js) y --app-version (styles.css) -->
-  <meta name="app-version" content="2026.11.09-39">
+  <meta name="app-version" content="2026.11.09-40">
 
   <!-- Dependencias externas -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -266,9 +266,14 @@
             </div>
             <p id="infoMeta" class="text-[10px] text-slate-400 mt-0.5"></p>
           </div>
-          <button id="infoCloseBtn" class="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-slate-800 border border-slate-600 text-slate-200 text-xs font-semibold flex-shrink-0" aria-label="Cerrar consulta">
-            <i data-lucide="x" class="w-4 h-4"></i> Cerrar
-          </button>
+          <div class="flex items-center gap-1.5 flex-shrink-0">
+            <button id="infoMenuBtn" class="flex items-center justify-center px-2.5 py-1.5 rounded-lg bg-slate-800 border border-slate-600 text-slate-200 flex-shrink-0" aria-label="Más opciones" aria-haspopup="true">
+              <svg viewBox="0 0 24 24" class="w-4 h-4" fill="currentColor" aria-hidden="true"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg>
+            </button>
+            <button id="infoCloseBtn" class="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-slate-800 border border-slate-600 text-slate-200 text-xs font-semibold flex-shrink-0" aria-label="Cerrar consulta">
+              <i data-lucide="x" class="w-4 h-4"></i> Cerrar
+            </button>
+          </div>
         </div>
         <div id="infoMetrics" class="grid grid-cols-2 gap-1.5 mb-1.5"></div>
         <div id="infoDeclination" class="hidden mb-2 px-2.5 py-2 rounded-xl bg-slate-950/80 border border-slate-800 text-[11px] text-slate-300 flex items-center justify-between gap-2">

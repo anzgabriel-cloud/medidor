@@ -450,7 +450,8 @@ function selectVertex(idx) {
 function deselectVertex() {
   if (selectedVertex < 0) return;
   selectedVertex = -1;
-  markers.forEach(m => m.setIcon(vertexIcon(false, isLocked, false)));
+  // si hay un arrastre en curso, el punto arrastrado conserva su ícono de arrastre
+  markers.forEach((m, i) => m.setIcon(vertexIcon(dragging && i === dragIndex, isLocked, false)));
   positionVertexBtn();
 }
 function deleteSelectedVertex() {
@@ -1021,6 +1022,7 @@ function onTouchMove(e) { if (!dragging || !e.touches.length) return; e.preventD
 function moveVertex(clientX, clientY) {
   if (dragIndex < 0 || dragIndex >= points.length) return;
   if (dragClient0) dragTravel = Math.max(dragTravel, Math.hypot(clientX - dragClient0.x, clientY - dragClient0.y));
+  if (selectedVertex >= 0 && dragTravel >= TAP_MAX_PX) deselectVertex();   // ya es un arrastre: fuera la etiqueta roja
   const rect = map.getContainer().getBoundingClientRect();
   const x = clientX - rect.left, y = clientY - rect.top;
   dragStartFinger = { x, y };
@@ -1566,7 +1568,7 @@ function updateMetrics(areaM2, distM) {
   liveArea = areaM2; liveDist = distM;
   updateLiveBadge();
 }
-const APP_VERSION = '2026.11.09-41';
+const APP_VERSION = '2026.11.09-42';
 let liveSelfIntersect = false; // el polígono se cruza a sí mismo (los marcadores rojos ya lo señalan)
 function updateSelfIntersectWarning(show) {
   const v = !!show;

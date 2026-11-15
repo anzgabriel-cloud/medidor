@@ -627,6 +627,12 @@ function init() {
   map.on('move zoom', () => { if (selectedVertex >= 0) positionVertexBtn(); });
   document.getElementById('vertexDelBtn').onclick = deleteSelectedVertex;
   document.getElementById('compassBtn').onclick = toggleCompassMode;
+  document.getElementById('compassSizeBtn').onclick = cycleCompassScale;
+  // Con la app en segundo plano se suelta el sensor de movimiento
+  document.addEventListener('visibilitychange', () => {
+    const el = document.getElementById('fixedCompass');
+    compassActive(!document.hidden && compassMode === 'rumbo' && !!el && !el.classList.contains('hidden'));
+  });
   window.addEventListener('resize', positionFixedCompass);
   const topBar = document.querySelector('header');
   if (topBar && window.ResizeObserver) new ResizeObserver(positionFixedCompass).observe(topBar);
@@ -1581,7 +1587,7 @@ function updateMetrics(areaM2, distM) {
   liveArea = areaM2; liveDist = distM;
   updateLiveBadge();
 }
-const APP_VERSION = '2026.11.09-47';
+const APP_VERSION = '2026.11.09-48';
 let liveSelfIntersect = false; // el polígono se cruza a sí mismo (los marcadores rojos ya lo señalan)
 function updateSelfIntersectWarning(show) {
   const v = !!show;
@@ -1690,6 +1696,21 @@ function angleArcGeometry(vPx, pPx, nPx, deg) {
 
 // ---- Brújula fija (esquina superior derecha, bajo la barra de arriba) mientras hay una Consulta abierta ----
 const COMPASS_SIZE = 56;
+const COMPASS_SCALE_KEY = 'medidor_compass_scale';
+let compassScale = 1;
+try { const v = parseInt(localStorage.getItem(COMPASS_SCALE_KEY), 10); if (v >= 1 && v <= 3) compassScale = v; } catch (e) {}
+function applyCompassScale() {
+  const px = Math.min(COMPASS_SIZE * compassScale, Math.floor(window.innerWidth * 0.5));
+  const svg = document.getElementById('compassSvg');
+  if (svg) { svg.setAttribute('width', px); svg.setAttribute('height', px); }
+  const b = document.getElementById('compassSizeBtn');
+  if (b) b.textContent = compassScale + '×';
+}
+function cycleCompassScale() {
+  compassScale = compassScale % 3 + 1;
+  try { localStorage.setItem(COMPASS_SCALE_KEY, String(compassScale)); } catch (e) {}
+  applyCompassScale(); positionFixedCompass();
+}
 function positionFixedCompass() {
   const el = document.getElementById('fixedCompass');
   const header = document.querySelector('header');
@@ -1707,7 +1728,7 @@ function syncFixedCompass() {
   el.classList.toggle('hidden', !show);
   const ring = document.getElementById('fixedCompassRing');
   if (ring) ring.setAttribute('stroke', inspectItem ? safeColor(inspectItem.color) : '#94a3b8');
-  if (show) positionFixedCompass();
+  if (show) { applyCompassScale(); positionFixedCompass(); }
   compassActive(show && compassMode === 'rumbo');
 }
 

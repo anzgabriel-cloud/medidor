@@ -1520,21 +1520,6 @@ function removeLiveBadge() { document.getElementById('liveReadout')?.classList.r
 const lrItem = (cap, val, sub) =>
   `<div class="lr-item"><div class="lr-cap">${cap}</div><div class="lr-val">${val}</div>${sub ? `<div class="lr-sub">${sub}</div>` : ''}</div>`;
 function clearReadoutTint(el) { el.style.removeProperty('--label-center'); el.style.removeProperty('--label-mid'); }
-/** Navegación hacia un POI: rumbo (verdadero y magnético) y distancia en vivo, con el halo del color del POI */
-function renderNavReadout(el) {
-  const from = userLocMarker.getLatLng();
-  const to = L.latLng(navPoi.lat, navPoi.lng);
-  const brg = trueBearing(from, to);
-  const mag = magneticBearing(brg, magneticDeclination(from.lat, from.lng));
-  const color = safeColor(navPoi.color, '#38bdf8');
-  const { r, g, b, lum } = labelLuminance(color);
-  const dark = lum < 0.22;
-  el.style.setProperty('--label-center', dark ? 'rgba(0,0,0,0.7)' : `rgba(${r},${g},${b},0.55)`);
-  el.style.setProperty('--label-mid', dark ? 'rgba(0,0,0,0.35)' : `rgba(${r},${g},${b},0.2)`);
-  el.innerHTML = lrItem('Rumbo', `${brg0(brg)}° V`, `${brg0(mag)}° M · ${bearingCardinal(brg)}`)
-    + lrItem('Distancia', fmtLenShort(from.distanceTo(to)), `a ${escapeHtml(navPoi.name || 'POI')}`);
-  el.classList.add('on');
-}
 function updateLiveBadge() {
   const el = document.getElementById('liveReadout');
   if (!el) return;
@@ -1544,8 +1529,6 @@ function updateLiveBadge() {
   const recording = gpsWatchId !== null;
   const active = (drawingActive || trackMode || !!editingId) && !infoOpen && !poiMode && (appView === 'medir' || recording);
   if (!active || (points.length < 2 && !(trackMode && recording))) {
-    // Sin medición en curso: si se navega hacia un POI, se muestran rumbo y distancia a ese punto
-    if (navPoi && userLocMarker && !infoOpen && !poiMode) { renderNavReadout(el); return; }
     clearReadoutTint(el); removeLiveBadge(); return;
   }
   clearReadoutTint(el);
@@ -1589,7 +1572,7 @@ function updateMetrics(areaM2, distM) {
   liveArea = areaM2; liveDist = distM;
   updateLiveBadge();
 }
-const APP_VERSION = '2026.11.09-49';
+const APP_VERSION = '2026.11.09-51';
 let liveSelfIntersect = false; // el polígono se cruza a sí mismo (los marcadores rojos ya lo señalan)
 function updateSelfIntersectWarning(show) {
   const v = !!show;
@@ -3064,7 +3047,8 @@ function updateNavLabel() {
   const rect = { left: 56, right: size.x - 56, top, bottom: Math.max(top + 10, size.y - 150) };
   const p = visibleMidpoint(map.latLngToContainerPoint(from), map.latLngToContainerPoint(to), rect);
   const at = map.containerPointToLatLng([p.x, p.y]);
-  const html = `<div class="nav-label" style="border-color:${color}"><b>${brg0(brg)}° ${bearingCardinal(brg)}</b><span>${escapeHtml(fmtLenShort(from.distanceTo(to)))}</span></div>`;
+  const mag = magneticBearing(brg, magneticDeclination(from.lat, from.lng));
+  const html = `<div class="nav-label" style="border-color:${color}"><b>${brg0(brg)}° V<i>${brg0(mag)}° M</i><u>${bearingCardinal(brg)}</u></b><span>${escapeHtml(fmtLenShort(from.distanceTo(to)))}</span></div>`;
   const icon = L.divIcon({ className: 'nav-label-wrap', html, iconSize: [0, 0] });
   if (!navLabel) navLabel = L.marker(at, { icon, interactive: false, keyboard: false, zIndexOffset: 900 }).addTo(map);
   else { navLabel.setLatLng(at); navLabel.setIcon(icon); }

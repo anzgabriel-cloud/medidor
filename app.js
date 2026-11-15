@@ -626,6 +626,7 @@ function init() {
   });
   map.on('move zoom', () => { if (selectedVertex >= 0) positionVertexBtn(); });
   document.getElementById('vertexDelBtn').onclick = deleteSelectedVertex;
+  document.getElementById('compassBtn').onclick = toggleCompassMode;
   window.addEventListener('resize', positionFixedCompass);
   const topBar = document.querySelector('header');
   if (topBar && window.ResizeObserver) new ResizeObserver(positionFixedCompass).observe(topBar);
@@ -1580,7 +1581,7 @@ function updateMetrics(areaM2, distM) {
   liveArea = areaM2; liveDist = distM;
   updateLiveBadge();
 }
-const APP_VERSION = '2026.11.09-45';
+const APP_VERSION = '2026.11.09-47';
 let liveSelfIntersect = false; // el polígono se cruza a sí mismo (los marcadores rojos ya lo señalan)
 function updateSelfIntersectWarning(show) {
   const v = !!show;
@@ -1695,19 +1696,116 @@ function positionFixedCompass() {
   if (!el || !header || el.classList.contains('hidden')) return;
   const r = header.getBoundingClientRect();
   el.style.top = Math.round(r.bottom + 8) + 'px';
-  el.style.left = Math.round(r.right - COMPASS_SIZE) + 'px';
+  el.style.right = Math.max(0, Math.round(window.innerWidth - r.right)) + 'px';
 }
-function showFixedCompass(color) {
+// La brújula se ve siempre en Modo vista, y en cualquier modo mientras hay una Consulta abierta.
+// El aro toma el color de la medición consultada (gris si no hay ninguna).
+function syncFixedCompass() {
   const el = document.getElementById('fixedCompass');
   if (!el) return;
+  const show = appView === 'ver' || !!inspectItem;
+  el.classList.toggle('hidden', !show);
   const ring = document.getElementById('fixedCompassRing');
-  if (ring) ring.setAttribute('stroke', safeColor(color));
-  el.classList.remove('hidden');
-  positionFixedCompass();
+  if (ring) ring.setAttribute('stroke', inspectItem ? safeColor(inspectItem.color) : '#94a3b8');
+  if (show) positionFixedCompass();
+  compassActive(show && compassMode === 'rumbo');
 }
-function hideFixedCompass() {
-  document.getElementById('fixedCompass')?.classList.add('hidden');
+
+// ========== BRÚJULA: NORTE FIJO / RUMBO ==========
+// Tocar la brújula alterna: "N fijo" (mapa y aguja al norte) o "rumbo": la rosa gira para mostrar el norte
+// respecto de hacia dónde mirás. El mapa no rota. Fuente: sensor del teléfono (corregido por declinación)
+// y, si te movés rápido, el rumbo del GPS.
+let compassMode = 'norte';                 // 'norte' | 'rumbo'
+let compassSensor = { h: null, t: 0 };     // rumbo verdadero según el sensor
+let compassGps = { h: null, speed: 0, t: 0 };
+let compassShown = 0, compassTimer = null, compassOn = false, compassLastTxt = '';
+const wrap360 = (d) => ((d % 360) + 360) % 360;
+const shortDiff = (from, to) => { let d = wrap360(to - from); if (d > 180) d -= 360; return d; };
+
+function noteGpsHeading(c) {
+  const sp = (typeof c.speed === 'number' && isFinite(c.speed)) ? c.speed : 0;
+  const h = (typeof c.heading === 'number' && isFinite(c.heading)) ? c.heading : null;
+  compassGps = { h, speed: sp, t: Date.now() };
 }
+function onDeviceOrientation(e) {
+  let h = null;
+  if (typeof e.webkitCompassHeading === 'number' && isFinite(e.webkitCompassHeading)) h = e.webkitCompassHeading;   // iOS (norte magnético)
+  else if (e.absolute === true && typeof e.alpha === 'number') h = wrap360(360 - e.alpha);                          // Android (norte magnético)
+  if (h === null) return;
+  const ll = userLL() || (map && map.getCenter ? map.getCenter() : { lat: -34.6, lng: -58.4 });
+  compassSensor = { h: wrap360(h + magneticDeclination(ll.lat, ll.lng)), t: Date.now() };   // verdadero = magnético + declinación (Este +)
+}
+/** Rumbo a mostrar: GPS si vas rápido (vehículo), si no el sensor; el GPS lento sirve de respaldo */
+function pickHeading() {
+  const now = Date.now();
+  const gpsOk = compassGps.h !== null && now - compassGps.t < 5000;
+  const senOk = compassSensor.h !== null && now - compassSensor.t < 3000;
+  if (gpsOk && compassGps.speed >= 2.5) return { h: compassGps.h, src: 'GPS' };
+  if (senOk) return { h: compassSensor.h, src: 'sensor' };
+  if (gpsOk && compassGps.speed >= 1) return { h: compassGps.h, src: 'GPS' };
+  return null;
+}
+function renderCompass() {
+  const rose = document.getElementById('compassRose');
+  const lub = document.getElementById('compassLubber');
+  const cap = document.getElementById('compassCaption');
+  const btn = document.getElementById('compassBtn');
+  if (!rose || !cap) return;
+  btn?.setAttribute('aria-pressed', compassMode === 'rumbo' ? 'true' : 'false');
+  lub?.classList.toggle('hidden', compassMode !== 'rumbo');
+  let txt;
+  if (compassMode !== 'rumbo') {
+    rose.setAttribute('transform', 'rotate(0 32 32)');
+    txt = 'Norte fijo';
+  } else {
+    const p = pickHeading();
+    if (p) {
+      compassShown = wrap360(compassShown + shortDiff(compassShown, p.h) * 0.3);   // suaviza el temblor
+      rose.setAttribute('transform', `rotate(${(-compassShown).toFixed(1)} 32 32)`);
+      txt = `${brg0(p.h)}° ${bearingCardinal(p.h)}${p.src === 'GPS' ? ' · GPS' : ''}`;
+    } else txt = 'Sin rumbo…';
+  }
+  if (txt !== compassLastTxt) { cap.textContent = txt; compassLastTxt = txt; }
+}
+/** Enciende o apaga el sensor y el refresco (solo mientras la brújula está en modo rumbo y a la vista) */
+function compassActive(on) {
+  if (on === compassOn) return;
+  compassOn = on;
+  if (on) {
+    window.addEventListener('deviceorientation', onDeviceOrientation);
+    window.addEventListener('deviceorientationabsolute', onDeviceOrientation);
+    compassTimer = setInterval(renderCompass, 100);
+  } else {
+    window.removeEventListener('deviceorientation', onDeviceOrientation);
+    window.removeEventListener('deviceorientationabsolute', onDeviceOrientation);
+    clearInterval(compassTimer); compassTimer = null;
+  }
+}
+async function toggleCompassMode() {
+  if (compassMode === 'rumbo') {
+    compassMode = 'norte';
+    compassActive(false);
+    renderCompass();
+    return;
+  }
+  // iOS pide un permiso explícito para el sensor de movimiento y solo se puede pedir desde un toque
+  const D = window.DeviceOrientationEvent;
+  if (D && typeof D.requestPermission === 'function') {
+    try {
+      const r = await D.requestPermission();
+      if (r !== 'granted') toast({ type: 'warning', title: 'Sin permiso del sensor', message: 'El rumbo se tomará del GPS cuando te muevas. Para usar el sensor: Ajustes del iPhone → Safari → Movimiento y orientación.', duration: 7000 });
+    } catch (e) {
+      toast({ type: 'warning', title: 'Sensor no disponible', message: 'El rumbo se tomará del GPS cuando te muevas.', duration: 5000 });
+    }
+  }
+  compassMode = 'rumbo';
+  compassSensor = { h: null, t: 0 };
+  compassActive(true);
+  const p = pickHeading(); if (p) compassShown = p.h;
+  renderCompass();
+}
+function showFixedCompass() { syncFixedCompass(); }
+function hideFixedCompass() { syncFixedCompass(); }
 
 function refreshInspectOverlays() {
   clearInspectLayers();
@@ -1719,7 +1817,7 @@ function refreshInspectOverlays() {
   applyLabelTint(color, true);
   const latlngs = stats.latlngs;
   const n = latlngs.length;
-  showFixedCompass(color);
+  showFixedCompass();
 
   if (inspectShowSegs || inspectShowBearings) {
     const z = map.getZoom();
@@ -1956,9 +2054,10 @@ function showMeasurementInfo(item) {
 }
 
 function showPoiInfo(p) {
-  clearInspectLayers();   // quita etiquetas, arcos y brújula de una medición consultada antes
+  clearInspectLayers();   // quita etiquetas y arcos de una medición consultada antes
   inspectItem = null;
   inspectPoi = p;
+  syncFixedCompass();
   const color = safeColor(p.color, '#f59e0b');
   document.getElementById('infoColorDot').style.background = color;
   document.getElementById('infoName').textContent = p.name || 'POI';
@@ -2005,6 +2104,7 @@ function hideMeasurementInfo() {
   updateModeTheme();
   clearInspectLayers();
   inspectItem = null;
+  syncFixedCompass();
 }
 
 function addLockedLayer(item) {
@@ -2189,6 +2289,7 @@ function applyAppView() {
   document.getElementById('mainControls')?.classList.toggle('view-only', appView === 'ver');
   updateViewSwitchUI();
   updateLiveBadge();
+  syncFixedCompass();
   if (points.length) { try { rebuildMarkers(); redraw(); } catch (e) {} }
   updateModeTheme();
 }
@@ -2338,6 +2439,7 @@ function startUserLocationWatch(centerOnFirst) {
     const lat = pos.coords.latitude;
     const lng = pos.coords.longitude;
     const acc = pos.coords.accuracy || 40;
+    noteGpsHeading(pos.coords);
     updateUserLocation(lat, lng, acc);
     if (navPoi) updateNavLine();
     if (!didCenter) {

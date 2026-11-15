@@ -14,7 +14,7 @@
   <meta name="apple-mobile-web-app-title" content="Medidor">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <!-- Versión: debe coincidir con APP_VERSION (app.js) y --app-version (styles.css) -->
-  <meta name="app-version" content="2026.11.09-44">
+  <meta name="app-version" content="2026.11.09-45">
 
   <!-- Dependencias externas -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -410,20 +410,22 @@
       </div>
 
       <label class="text-[10px] uppercase tracking-wide text-slate-500">Sistema de unidades</label>
-      <div class="grid grid-cols-2 gap-2 mt-1 mb-4">
+      <div class="grid grid-cols-2 gap-2 mt-1 mb-0">
         <button type="button" data-units="metric" class="set-units py-2 rounded-xl text-xs font-bold border">Métrico (m, km, ha)</button>
         <button type="button" data-units="imperial" class="set-units py-2 rounded-xl text-xs font-bold border">Imperial (ft, mi, ac)</button>
       </div>
 
+      <div class="set-rule"></div>
       <label class="text-[10px] uppercase tracking-wide text-slate-500">Formato de coordenadas</label>
-      <select id="setCoords" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2.5 text-sm mt-1 mb-1">
+      <select id="setCoords" class="cg-input mt-1 mb-1">
         <option value="dec">Grados decimales (-38.950000)</option>
         <option value="dms">Grados, minutos, segundos</option>
         <option value="utm">UTM (WGS84)</option>
         <option value="gk">Gauss-Krüger Argentina (POSGAR)</option>
       </select>
-      <div id="setCoordsExample" class="text-[11px] font-mono text-slate-400 mb-4"></div>
+      <div id="setCoordsExample" class="text-[11px] font-mono text-slate-400 mb-0"></div>
 
+      <div class="set-rule"></div>
       <label class="text-[10px] uppercase tracking-wide text-slate-500">Declinación magnética (°)</label>
       <div class="flex gap-2 mt-1 mb-1">
         <input id="setDecl" type="text" inputmode="decimal" placeholder="Automática"
@@ -434,21 +436,23 @@
         </div>
         <button id="setDeclAuto" type="button" class="px-3 py-2 rounded-xl bg-slate-800 border border-slate-600 text-xs font-semibold text-slate-200">Auto</button>
       </div>
-      <div id="setDeclHint" class="text-[11px] text-slate-500 mb-4"></div>
+      <div id="setDeclHint" class="text-[11px] text-slate-500 mb-0"></div>
 
+      <div class="set-rule"></div>
       <label class="text-[10px] uppercase tracking-wide text-slate-500">GPS al grabar recorridos</label>
       <div class="grid grid-cols-2 gap-2 mt-1 mb-1">
         <div>
           <div class="text-[11px] text-slate-400 mb-1">Precisión máxima</div>
-          <select id="setGpsAcc" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2.5 text-sm"></select>
+          <select id="setGpsAcc" class="cg-input"></select>
         </div>
         <div>
           <div class="text-[11px] text-slate-400 mb-1">Distancia entre puntos</div>
-          <select id="setGpsStep" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2.5 text-sm"></select>
+          <select id="setGpsStep" class="cg-input"></select>
         </div>
       </div>
-      <div class="text-[11px] text-slate-500 mb-4">Menos error máximo = recorrido más fiel, pero necesita mejor señal. Distancias largas (20, 50 o 100 m) sirven para recorridos extensos en ruta.</div>
+      <div class="text-[11px] text-slate-500 mb-0">Menos error máximo = recorrido más fiel, pero necesita mejor señal. Distancias largas (20 m a 1.000 m) sirven para recorridos extensos en ruta o desde un vehículo: ahorran batería y dejan el trazado más limpio.</div>
 
+      <div class="set-rule"></div>
       <label class="text-[10px] uppercase tracking-wide text-slate-500">Copia de seguridad (mediciones y POI)</label>
       <div class="grid grid-cols-3 gap-2 mt-1 mb-1">
         <button type="button" data-fmt="geojson" class="bk-fmt py-2 rounded-xl text-xs font-bold border">GeoJSON</button>
@@ -466,24 +470,28 @@
         </label>
       </div>
       <div id="backupInfo" class="text-[11px] text-slate-500 mb-1"></div>
-      <div class="text-[11px] text-slate-500 mb-4">Al importar, el formato se detecta solo. Tus datos viven solo en este navegador: exportá una copia de vez en cuando.</div>
+      <div class="text-[11px] text-slate-500 mb-0">Al importar, el formato se detecta solo. Tus datos viven solo en este navegador: exportá una copia de vez en cuando.</div>
 
+      <div class="set-rule"></div>
       <label class="text-[10px] uppercase tracking-wide text-slate-500">Mapas guardados (sin conexión)</label>
       <div id="tileInfo" class="text-[11px] text-slate-400 mt-1 mb-2"></div>
       <button id="tileClearBtn" type="button" class="w-full py-2 rounded-xl text-xs font-semibold text-red-300 border border-red-500/30 bg-red-500/10 flex items-center justify-center gap-1.5 disabled:opacity-40">
         <i data-lucide="trash-2" class="w-3.5 h-3.5"></i> Borrar mosaicos guardados
       </button>
-      <div class="text-[11px] text-slate-500 mt-1 mb-4">La app guarda los mosaicos de mapa que ya viste para que carguen rápido y sirvan sin señal. Si ocupan mucho lugar, podés borrarlos.</div>
+      <div class="text-[11px] text-slate-500 mt-1 mb-0">La app guarda los mosaicos de mapa que ya viste para que carguen rápido y sirvan sin señal. Si ocupan mucho lugar, podés borrarlos.</div>
 
+      <div class="set-rule"></div>
       <label class="text-[10px] uppercase tracking-wide text-slate-500">Borrar datos</label>
       <button id="dataResetBtn" type="button" class="w-full mt-1 py-2 rounded-xl text-xs font-semibold text-red-300 border border-red-500/30 bg-red-500/10 flex items-center justify-center gap-1.5">
         <i data-lucide="trash-2" class="w-3.5 h-3.5"></i> Borrar todas las mediciones y POI
       </button>
-      <div class="text-[11px] text-slate-500 mt-1 mb-4">Deja la app en cero. Exige exportar una copia antes (si no hiciste una en los últimos 30 minutos) y pide confirmación.</div>
+      <div class="text-[11px] text-slate-500 mt-1 mb-0">Deja la app en cero. Exige exportar una copia antes (si no hiciste una en los últimos 30 minutos) y pide confirmación.</div>
 
+            <div class="set-rule"></div>
       <button id="setReset" type="button" class="w-full py-2 rounded-xl text-xs font-semibold text-red-300 border border-red-500/30 bg-red-500/10">Restablecer ajustes</button>
 
-      <div class="mt-4 pt-3 border-t border-slate-800 text-center text-[11px] text-slate-400 leading-relaxed">
+      <div class="set-rule"></div>
+      <div class="text-center text-[11px] text-slate-400 leading-relaxed">
         <div class="text-[10px] uppercase tracking-wide text-slate-500">Desarrollador</div>
         <div class="font-semibold text-slate-200 text-xs">Gabriel A. Anz</div>
         <div>App de uso libre y gratuito</div>

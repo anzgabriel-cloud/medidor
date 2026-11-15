@@ -96,3 +96,9 @@ node --test tests/calculos.test.js tests/altitud.test.js tests/cercania.test.js
 - Las listas de POI y Mediciones se ordenan por cercanía a la ubicación GPS (si hay fix); una superficie en la que estás parado figura "estás adentro". Sin GPS mantienen el orden de creación.
 - El menú ⋯ de Consulta ofrece Editar, Navegar (solo POI), Ir y Eliminar. Al editar una medición se puede cambiar el nombre.
 - Borrar un punto de una superficie o distancia: tocarlo (sin arrastrar) lo selecciona y aparece "Borrar punto"; se recupera con Deshacer. Mínimo 3 puntos en superficie y 2 en distancia. No aplica a recorridos.
+
+## Brújula (Modo vista)
+Siempre visible arriba a la derecha. Tocarla alterna **Norte fijo** (mapa y rosa al norte) y **Rumbo**: la rosa gira y una marca ámbar indica hacia dónde mirás; el mapa no rota. El rumbo sale del sensor del teléfono (corregido por declinación) y del GPS cuando te movés rápido. En iPhone pide un permiso la primera vez.
+
+## Navegación a un POI
+La cuerda punteada lleva una etiqueta con rumbo y distancia que se mantiene siempre dentro de la pantalla (zoom o desplazamiento) y se actualiza con el GPS. En el POI donde estás parado (a menos de 15 m) "Navegar" queda desactivado ("Estás aquí"); al llegar, la navegación termina sola.

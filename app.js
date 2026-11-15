@@ -87,6 +87,8 @@ let poiSession = [];
 let poiSessionRedo = [];
 let navPoi = null;
 let navLine = null;
+let navLabel = null;
+const NAV_ARRIVE_M = 15;     // a menos de esto se considera que ya estás en el POI
 
 const OFFSET = 70;
 let dragGrabOffsetX = 0;
@@ -624,7 +626,7 @@ function init() {
   map.on('moveend', () => {
     if (inspectItem) refreshInspectOverlays();
   });
-  map.on('move zoom', () => { if (selectedVertex >= 0) positionVertexBtn(); });
+  map.on('move zoom', () => { if (selectedVertex >= 0) positionVertexBtn(); if (navLabel) updateNavLabel(); });
   document.getElementById('vertexDelBtn').onclick = deleteSelectedVertex;
   document.getElementById('compassBtn').onclick = toggleCompassMode;
   document.getElementById('compassSizeBtn').onclick = cycleCompassScale;
@@ -1587,7 +1589,7 @@ function updateMetrics(areaM2, distM) {
   liveArea = areaM2; liveDist = distM;
   updateLiveBadge();
 }
-const APP_VERSION = '2026.11.09-48';
+const APP_VERSION = '2026.11.09-49';
 let liveSelfIntersect = false; // el polígono se cruza a sí mismo (los marcadores rojos ya lo señalan)
 function updateSelfIntersectWarning(show) {
   const v = !!show;
@@ -3024,16 +3026,72 @@ function renderPoiList() {
     div.querySelector(`[data-del="${p.id}"]`).onclick = () => confirmDeletePoi(p);
   });
   lucide.createIcons();
+  syncNavButtons();
+}
+
+/** Parte visible de un segmento (px) dentro de un rectángulo: devuelve su punto medio, o el punto del rectángulo más cercano si queda fuera */
+function visibleMidpoint(a, b, rect) {
+  const dx = b.x - a.x, dy = b.y - a.y;
+  let t0 = 0, t1 = 1, ok = true;
+  const clip = (p, q) => {
+    if (p === 0) { if (q < 0) ok = false; return; }
+    const r = q / p;
+    if (p < 0) { if (r > t1) ok = false; else if (r > t0) t0 = r; }
+    else { if (r < t0) ok = false; else if (r < t1) t1 = r; }
+  };
+  clip(-dx, a.x - rect.left); clip(dx, rect.right - a.x);
+  clip(-dy, a.y - rect.top); clip(dy, rect.bottom - a.y);
+  if (ok && t0 <= t1) { const t = (t0 + t1) / 2; return { x: a.x + dx * t, y: a.y + dy * t }; }
+  const mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2;
+  return { x: Math.min(Math.max(mx, rect.left), rect.right), y: Math.min(Math.max(my, rect.top), rect.bottom) };
+}
+/** ¿Estás parado en este POI? (dentro del radio de llegada) */
+function standingOnPoi(p) {
+  const ll = userLL();
+  return !!ll && ll.distanceTo(L.latLng(p.lat, p.lng)) < NAV_ARRIVE_M;
+}
+/** Etiqueta de rumbo y distancia pegada a la cuerda, siempre dentro de la pantalla */
+function updateNavLabel() {
+  if (!navPoi || !userLocMarker || !navLine) { removeNavLabel(); return; }
+  const from = userLocMarker.getLatLng();
+  const to = L.latLng(navPoi.lat, navPoi.lng);
+  const brg = trueBearing(from, to);
+  const color = safeColor(navPoi.color, '#38bdf8');
+  const size = map.getSize();
+  // zona libre: debajo de la barra superior y por encima de los botones de abajo
+  const header = document.querySelector('header');
+  const top = (header ? header.getBoundingClientRect().bottom : 0) + 34;
+  const rect = { left: 56, right: size.x - 56, top, bottom: Math.max(top + 10, size.y - 150) };
+  const p = visibleMidpoint(map.latLngToContainerPoint(from), map.latLngToContainerPoint(to), rect);
+  const at = map.containerPointToLatLng([p.x, p.y]);
+  const html = `<div class="nav-label" style="border-color:${color}"><b>${brg0(brg)}° ${bearingCardinal(brg)}</b><span>${escapeHtml(fmtLenShort(from.distanceTo(to)))}</span></div>`;
+  const icon = L.divIcon({ className: 'nav-label-wrap', html, iconSize: [0, 0] });
+  if (!navLabel) navLabel = L.marker(at, { icon, interactive: false, keyboard: false, zIndexOffset: 900 }).addTo(map);
+  else { navLabel.setLatLng(at); navLabel.setIcon(icon); }
+}
+function removeNavLabel() { if (navLabel) { map.removeLayer(navLabel); navLabel = null; } }
+/** Estado del botón "Navegar" de cada POI de la lista: se desactiva en el POI donde estás parado */
+function syncNavButtons() {
+  document.querySelectorAll('#poiList [data-nav]').forEach(btn => {
+    const p = pois.find(x => x.id === btn.dataset.nav);
+    if (!p) return;
+    const here = standingOnPoi(p) && !(navPoi && navPoi.id === p.id);
+    btn.disabled = here;
+    if (here) { btn.textContent = 'Estás aquí'; btn.className = 'text-[11px] font-semibold px-2 py-1 rounded-lg border bg-slate-800 text-slate-500 border-slate-700 opacity-70'; }
+    else if (btn.textContent === 'Estás aquí') { btn.textContent = 'Navegar'; btn.className = 'text-[11px] font-semibold px-2 py-1 rounded-lg border bg-sky-500/15 text-sky-300 border-sky-500/40'; }
+  });
 }
 
 function stopNav() {
   navPoi = null;
   setTimeout(updateLiveBadge, 0);
   if (navLine) { map.removeLayer(navLine); navLine = null; }
+  removeNavLabel();
 }
 
 function startNavToPoi(p) {
   if (!p) return;
+  if (standingOnPoi(p)) { toast({ type: 'info', title: 'Ya estás aquí', message: `Estás en «${p.name}».`, duration: 2200 }); return; }
   navPoi = p;
   document.getElementById('poiDrawer').classList.add('hidden');
   if (!userLocMarker) {
@@ -3058,7 +3116,8 @@ function updateNavLine() {
     navLine.setStyle({ color });
   }
   updateLiveBadge();   // rumbo y distancia en vivo en los números flotantes
-  if (dist < 15) {
+  updateNavLabel();
+  if (dist < NAV_ARRIVE_M) {
     toast({ type: 'success', title: 'Llegaste', message: `Estás en «${navPoi.name}».`, duration: 2500 });
     stopNav();
   }
@@ -3245,7 +3304,7 @@ function refreshListsByDistance(force) {
   listRefreshAt = now;
   const open = (id) => { const el = document.getElementById(id); return el && !el.classList.contains('hidden'); };
   if (open('savedDrawer')) refreshOneList('savedList', sortByProximity(saved, savedDistance), renderSaved);
-  if (open('poiDrawer')) refreshOneList('poiList', sortByProximity(pois, (p, ll) => ({ d: ll.distanceTo(L.latLng(p.lat, p.lng)), inside: false })), renderPoiList);
+  if (open('poiDrawer')) { refreshOneList('poiList', sortByProximity(pois, (p, ll) => ({ d: ll.distanceTo(L.latLng(p.lat, p.lng)), inside: false })), renderPoiList); syncNavButtons(); }
 }
 function refreshOneList(listId, rows, rerender) {
   const list = document.getElementById(listId);
@@ -3279,7 +3338,10 @@ function openInfoMenu() {
   rows.push({ icon: 'pencil', label: 'Editar', cls: 'text-sky-300', run: () => { if (poi) { hideMeasurementInfo(); openPoiModal(L.latLng(poi.lat, poi.lng), poi); } else startEditSaved(item); } });
   if (poi) {
     const navigating = navPoi && navPoi.id === poi.id;
-    rows.push({ icon: 'navigation', label: navigating ? 'Dejar de navegar' : 'Navegar', cls: navigating ? 'text-rose-300' : 'text-sky-300', run: () => { hideMeasurementInfo(); toggleNavPoi(poi); } });
+    const here = !navigating && standingOnPoi(poi);
+    rows.push(here
+      ? { icon: 'navigation', label: 'Estás aquí', cls: 'text-slate-500', run: () => {} }
+      : { icon: 'navigation', label: navigating ? 'Dejar de navegar' : 'Navegar', cls: navigating ? 'text-rose-300' : 'text-sky-300', run: () => { hideMeasurementInfo(); toggleNavPoi(poi); } });
   }
   rows.push({ icon: 'crosshair', label: 'Ir', cls: 'text-slate-200', run: () => { if (poi) goToPoi(poi); else focusSaved(item); } });
   rows.push({ icon: 'trash-2', label: 'Eliminar', cls: 'text-red-400', run: () => { if (poi) confirmDeletePoi(poi); else deleteSavedItem(item); } });

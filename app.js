@@ -594,7 +594,6 @@ function init() {
     if (dragging || isLocked || closePromptOpen) return;
     if (selectedVertex >= 0) { deselectVertex(); return; }   // tocar el mapa solo quita la selección
     if (inspectItem) return;
-    if (navPoi) { stopNav(); return; }
     if (appView === 'ver') return; // modo Ver: el mapa no agrega puntos
     if (poiMode) {
       openPoiModal(e.latlng);
@@ -1572,7 +1571,7 @@ function updateMetrics(areaM2, distM) {
   liveArea = areaM2; liveDist = distM;
   updateLiveBadge();
 }
-const APP_VERSION = '2026.11.09-51';
+const APP_VERSION = '2026.11.09-53';
 let liveSelfIntersect = false; // el polígono se cruza a sí mismo (los marcadores rojos ya lo señalan)
 function updateSelfIntersectWarning(show) {
   const v = !!show;
@@ -3048,10 +3047,26 @@ function updateNavLabel() {
   const p = visibleMidpoint(map.latLngToContainerPoint(from), map.latLngToContainerPoint(to), rect);
   const at = map.containerPointToLatLng([p.x, p.y]);
   const mag = magneticBearing(brg, magneticDeclination(from.lat, from.lng));
-  const html = `<div class="nav-label" style="border-color:${color}"><b>${brg0(brg)}° V<i>${brg0(mag)}° M</i><u>${bearingCardinal(brg)}</u></b><span>${escapeHtml(fmtLenShort(from.distanceTo(to)))}</span></div>`;
-  const icon = L.divIcon({ className: 'nav-label-wrap', html, iconSize: [0, 0] });
-  if (!navLabel) navLabel = L.marker(at, { icon, interactive: false, keyboard: false, zIndexOffset: 900 }).addTo(map);
-  else { navLabel.setLatLng(at); navLabel.setIcon(icon); }
+  const rumbo = `${brg0(brg)}° V<i>${brg0(mag)}° M</i><u>${bearingCardinal(brg)}</u>`;
+  const dist = escapeHtml(fmtLenShort(from.distanceTo(to)));
+  if (!navLabel) {
+    const html = `<div class="nav-label"><div class="nav-txt"><b></b><span></span></div><button type="button" class="nav-stop" aria-label="Dejar de navegar"><i></i></button></div>`;
+    const icon = L.divIcon({ className: 'nav-label-wrap', html, iconSize: [0, 0] });
+    navLabel = L.marker(at, { icon, interactive: false, keyboard: false, zIndexOffset: 900 }).addTo(map);
+    const stop = navLabel.getElement().querySelector('.nav-stop');
+    const halt = (e) => { e.stopPropagation(); e.preventDefault(); stopNav(); renderPoiList(); toast({ type: 'info', title: 'Navegación cancelada', duration: 1400 }); };
+    stop.addEventListener('click', halt);
+    stop.addEventListener('touchstart', (e) => e.stopPropagation(), { passive: true });
+    stop.addEventListener('pointerdown', (e) => e.stopPropagation());
+    stop.addEventListener('dblclick', (e) => e.stopPropagation());
+  } else navLabel.setLatLng(at);
+  const el = navLabel.getElement();
+  if (!el) return;
+  // se actualiza el texto en el lugar (sin recrear el botón) para que un toque nunca se pierda
+  el.querySelector('.nav-label').style.borderColor = color;
+  const bEl = el.querySelector('.nav-txt b'), sEl = el.querySelector('.nav-txt span');
+  if (bEl.dataset.v !== rumbo) { bEl.innerHTML = rumbo; bEl.dataset.v = rumbo; }
+  if (sEl.textContent !== dist) sEl.textContent = dist;
 }
 function removeNavLabel() { if (navLabel) { map.removeLayer(navLabel); navLabel = null; } }
 /** Estado del botón "Navegar" de cada POI de la lista: se desactiva en el POI donde estás parado */
@@ -3084,7 +3099,7 @@ function startNavToPoi(p) {
   } else {
     updateNavLine();
   }
-  toast({ type: 'success', title: 'Navegando', message: `Hacia «${p.name}». Tocá el mapa o Dejar de navegar para cancelar.`, duration: 2600 });
+  toast({ type: 'success', title: 'Navegando', message: `Hacia «${p.name}». Para cancelar tocá el botón rojo de la etiqueta.`, duration: 2600 });
 }
 
 function updateNavLine() {

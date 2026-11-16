@@ -1660,7 +1660,7 @@ function updateMetrics(areaM2, distM) {
   liveArea = areaM2; liveDist = distM;
   updateLiveBadge();
 }
-const APP_VERSION = '2026.11.09-68';
+const APP_VERSION = '2026.11.09-69';
 let liveSelfIntersect = false; // el polígono se cruza a sí mismo (los marcadores rojos ya lo señalan)
 function updateSelfIntersectWarning(show) {
   const v = !!show;
@@ -1856,7 +1856,9 @@ function renderCompass() {
     if (p) {
       compassShown = wrap360(compassShown + shortDiff(compassShown, p.h) * 0.3);   // suaviza el temblor
       rose.setAttribute('transform', `rotate(${(-compassShown).toFixed(1)} 32 32)`);
-      txt = `${brg0(p.h)}° ${bearingCardinal(p.h)}${p.src === 'GPS' ? ' · GPS' : ''}`;
+      const ll = userLL() || (map && map.getCenter ? map.getCenter() : { lat: -34.6, lng: -58.4 });
+      const mag = magneticBearing(p.h, magneticDeclination(ll.lat, ll.lng));
+      txt = `${brg0(p.h)}° V · ${brg0(mag)}° M · ${bearingCardinal(p.h)}${p.src === 'GPS' ? ' · GPS' : ''}`;
     } else txt = 'Sin rumbo…';
   }
   if (txt !== compassLastTxt) { cap.textContent = txt; compassLastTxt = txt; }

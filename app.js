@@ -143,7 +143,8 @@ function sanitizePoi(p) {
 const SETTINGS_KEY = 'medidor_settings';
 const GPS_STEPS = [1, 2, 3, 5, 10, 20, 50, 100, 1000];   // distancia mínima entre puntos al grabar (m)
 const SAT_ZOOMS = ['auto', '16', '17', '18'];
-const DEFAULT_SETTINGS = { units: 'metric', coords: 'dec', gpsMaxAcc: 20, gpsMinStep: 3, satZoom: 'auto' };
+const POI_SIZES = { s: 0.72, m: 1, l: 1.4 };   // chico / actual / grande
+const DEFAULT_SETTINGS = { units: 'metric', coords: 'dec', gpsMaxAcc: 20, gpsMinStep: 3, satZoom: 'auto', poiSize: 'm' };
 let settings = { ...DEFAULT_SETTINGS };
 function loadSettings() {
   try {
@@ -154,6 +155,7 @@ function loadSettings() {
       if ([5, 10, 20, 30, 50].includes(+r.gpsMaxAcc)) settings.gpsMaxAcc = +r.gpsMaxAcc;
       if (GPS_STEPS.includes(+r.gpsMinStep)) settings.gpsMinStep = +r.gpsMinStep;
       if (SAT_ZOOMS.includes(String(r.satZoom))) settings.satZoom = String(r.satZoom);
+      if (POI_SIZES[r.poiSize]) settings.poiSize = r.poiSize;
     }
   } catch (e) {}
 }
@@ -641,6 +643,12 @@ function init() {
   map.on('move zoom', () => { if (selectedVertex >= 0) positionVertexBtn(); if (navLabel) updateNavLabel(); });
   document.getElementById('vertexDelBtn').onclick = deleteSelectedVertex;
   document.getElementById('compassBtn').onclick = toggleCompassMode;
+  document.querySelectorAll('#poiSizeRow [data-poi-size]').forEach(b => b.onclick = () => {
+    settings.poiSize = b.dataset.poiSize; saveSettings(); refreshPoiSizeUI(); renderPois();
+  });
+  refreshPoiSizeUI();
+  document.getElementById('poiSearch').oninput = (e) => { poiFilter = e.target.value; renderPoiList(); };
+  document.getElementById('savedSearch').oninput = (e) => { savedFilter = e.target.value; renderSaved(); };
   document.getElementById('compassSizeBtn').onclick = cycleCompassScale;
   // Con la app en segundo plano se suelta el sensor de movimiento
   document.addEventListener('visibilitychange', () => {
@@ -1651,7 +1659,7 @@ function updateMetrics(areaM2, distM) {
   liveArea = areaM2; liveDist = distM;
   updateLiveBadge();
 }
-const APP_VERSION = '2026.11.09-65';
+const APP_VERSION = '2026.11.09-66';
 let liveSelfIntersect = false; // el polígono se cruza a sí mismo (los marcadores rojos ya lo señalan)
 function updateSelfIntersectWarning(show) {
   const v = !!show;
@@ -2778,7 +2786,7 @@ function clearGotoMarker() { if (gotoMarker) { map.removeLayer(gotoMarker); goto
 function showGotoMarker(lat, lng, label) {
   clearGotoMarker();
   gotoMarker = L.marker([lat, lng], { icon: poiIcon('#fbbf24'), zIndexOffset: 1200 }).addTo(map);
-  gotoMarker.bindTooltip(`${escapeHtml(label)} ✕`, { permanent: true, direction: 'top', className: 'poi-label', offset: [0, -36] });
+  gotoMarker.bindTooltip(`${escapeHtml(label)} ✕`, { permanent: true, direction: 'top', className: 'poi-label', offset: poiTipOffset() });
   gotoMarker.on('click', (e) => { L.DomEvent.stopPropagation(e); clearGotoMarker(); });
 }
 
@@ -3114,17 +3122,31 @@ function loadPois() {
   renderPois();
 }
 
+const poiK = () => POI_SIZES[settings.poiSize] || 1;
 function poiIcon(color) {
   const fill = safeColor(color, POI_DEFAULT_COLOR);
-  const svg = `<svg class="poi-pin" viewBox="0 0 22 34" xmlns="http://www.w3.org/2000/svg">
-    <path d="M11 33.2 C11 33.2 1.4 20.2 1.4 12.4 C1.4 6.4 5.6 1.6 11 1.6 C16.4 1.6 20.6 6.4 20.6 12.4 C20.6 20.2 11 33.2 11 33.2 Z" fill="${fill}" stroke="#fff" stroke-width="1.6" stroke-linejoin="round"/>
-    <circle cx="11" cy="12.2" r="3.2" fill="#fff"/>
+  const k = poiK(), w = Math.round(22 * k), h = Math.round(34 * k);
+  // colores muy claros (blanco, amarillo…): contorno y centro gris oscuro, si no el pin se pierde
+  const light = labelLuminance(fill).lum >= 0.72;
+  const edge = light ? '#374151' : '#fff';
+  const svg = `<svg class="poi-pin" style="width:${w}px;height:${h}px" viewBox="0 0 22 34" xmlns="http://www.w3.org/2000/svg">
+    <path d="M11 33.2 C11 33.2 1.4 20.2 1.4 12.4 C1.4 6.4 5.6 1.6 11 1.6 C16.4 1.6 20.6 6.4 20.6 12.4 C20.6 20.2 11 33.2 11 33.2 Z" fill="${fill}" stroke="${edge}" stroke-width="1.6" stroke-linejoin="round"/>
+    <circle cx="11" cy="12.2" r="3.2" fill="${edge}"/>
   </svg>`;
   return L.divIcon({
     className: '',
     html: svg,
-    iconSize: [22, 34],
-    iconAnchor: [11, 34]
+    iconSize: [w, h],
+    iconAnchor: [Math.round(w / 2), h]
+  });
+}
+const poiTipOffset = () => [0, -Math.round(36 * poiK())];
+/** Botones Chico / Medio / Grande bajo el botón POI */
+function refreshPoiSizeUI() {
+  document.querySelectorAll('#poiSizeRow [data-poi-size]').forEach(b => {
+    const on = b.dataset.poiSize === settings.poiSize;
+    b.className = 'py-1.5 rounded-lg text-[11px] font-bold border min-h-[30px] ' + (on ? 'bg-amber-500 text-slate-950 border-amber-400' : 'bg-slate-800/70 text-slate-300 border-slate-600/50');
+    b.setAttribute('aria-pressed', on ? 'true' : 'false');
   });
 }
 
@@ -3134,7 +3156,7 @@ function renderPois() {
   pois.forEach(p => {
     if (p.visible === false) return;
     const marker = L.marker([p.lat, p.lng], { icon: poiIcon(p.color), zIndexOffset: 1200 }).addTo(map);
-    marker.bindTooltip(escapeHtml(p.name), { permanent: true, direction: 'top', className: 'poi-label', offset: [0, -36] });
+    marker.bindTooltip(escapeHtml(p.name), { permanent: true, direction: 'top', className: 'poi-label', offset: poiTipOffset() });
     marker.on('click', (e) => {
       L.DomEvent.stopPropagation(e);
       if (poiMode) return;
@@ -3145,6 +3167,10 @@ function renderPois() {
   renderPoiList();
 }
 
+const normTxt = (t) => String(t ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+let poiFilter = '', savedFilter = '';
+/** Filtra filas ya ordenadas por nombre (sin distinguir mayúsculas ni tildes) */
+const applyFilter = (rows, q) => { const n = normTxt(q); return n ? rows.filter(r => normTxt(r.it.name).includes(n)) : rows; };
 function renderPoiList() {
   const list = document.getElementById('poiList');
   if (!list) return;
@@ -3153,13 +3179,15 @@ function renderPoiList() {
     list.innerHTML = '<div class="text-center py-10 text-slate-500 text-xs">Sin puntos de interés</div>';
     return;
   }
-  const rows = sortByProximity(pois, (p, ll) => ({ d: ll.distanceTo(L.latLng(p.lat, p.lng)), inside: false }));
+  const rows = applyFilter(sortByProximity(pois, (p, ll) => ({ d: ll.distanceTo(L.latLng(p.lat, p.lng)), inside: false })), poiFilter);
   list.dataset.order = rows.map(r => r.it.id).join('|');
+  if (!rows.length) { list.innerHTML = `<div class="text-center py-10 text-slate-500 text-xs">Sin resultados para «${escapeHtml(poiFilter)}»</div>`; return; }
   if (!userLL()) list.insertAdjacentHTML('beforeend', `<div class="text-[10px] text-slate-500 px-1 pb-1">${NO_GPS_HINT}</div>`);
   rows.forEach(({ it: p, dist }) => {
     const div = document.createElement('div');
     div.className = 'bg-slate-950 border border-slate-800 rounded-xl p-3';
     const navigating = navPoi && navPoi.id === p.id;
+    const isVis = p.visible !== false;
     div.innerHTML = `
       <div class="flex items-center gap-2">
         <span class="w-2.5 h-2.5 rounded-full flex-shrink-0" style="background:${safeColor(p.color, POI_DEFAULT_COLOR)}"></span>
@@ -3167,12 +3195,22 @@ function renderPoiList() {
           <div class="font-bold text-xs truncate">${escapeHtml(p.name)}</div>
           <div class="text-[10px] text-slate-500">${escapeHtml(settings.coords === 'dec' ? (+p.lat).toFixed(5) + ', ' + (+p.lng).toFixed(5) : fmtCoord(p.lat, p.lng))}${(typeof p.elev === 'number' && p.elevAt === elevKey(p)) ? ' · ' + fmtElev(p.elev) + ' s.n.m.' : ''}${dist ? ' · <span data-dist="' + p.id + '" class="text-sky-400">' + distLabel(dist) + '</span>' : ''}</div>
         </div>
-        <button data-nav="${p.id}" class="text-[11px] font-semibold px-2 py-1 rounded-lg border ${navigating ? 'bg-rose-500/15 text-rose-300 border-rose-500/40' : 'bg-sky-500/15 text-sky-300 border-sky-500/40'}">${navigating ? 'Dejar de navegar' : 'Navegar'}</button>
-        <button data-edit="${p.id}" class="text-[11px] font-semibold px-2 py-1 rounded-lg border bg-amber-500/15 text-amber-200 border-amber-500/30">Editar</button>
-        <button data-go="${p.id}" class="text-[11px] font-semibold px-2 py-1 rounded-lg border bg-slate-800 text-slate-300 border-slate-700">Ir</button>
-        <button data-del="${p.id}" class="p-1.5 text-red-500" title="Eliminar"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+      </div>
+      <div class="flex items-center gap-1.5 mt-2">
+        <button data-vis="${p.id}" class="flex-1 text-[11px] font-semibold py-1.5 rounded-lg border ${isVis ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30' : 'bg-slate-800 text-slate-400 border-slate-700'}">${isVis ? 'Visible' : 'Oculto'}</button>
+        <button data-nav="${p.id}" class="${navigating ? NAV_ON_CLS : NAV_BTN_CLS}">${navigating ? 'Dejar de navegar' : 'Navegar'}</button>
+        <button data-edit="${p.id}" class="flex-1 text-[11px] font-semibold py-1.5 rounded-lg border bg-amber-500/15 text-amber-200 border-amber-500/30">Editar</button>
+        <button data-go="${p.id}" class="${GO_BTN_CLS}">Ir</button>
+        <button data-del="${p.id}" class="p-1.5 text-red-500 flex-shrink-0" title="Eliminar"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
       </div>`;
     list.appendChild(div);
+    div.querySelector(`[data-vis="${p.id}"]`).onclick = () => {
+      p.visible = !(p.visible !== false);
+      persistPois();
+      const sc = list.scrollTop;
+      renderPois();                // redibuja el mapa y la lista
+      list.scrollTop = sc;
+    };
     div.querySelector(`[data-edit="${p.id}"]`).onclick = () => openPoiModal(L.latLng(p.lat, p.lng), p);
     div.querySelector(`[data-nav="${p.id}"]`).onclick = () => toggleNavPoi(p);
     div.querySelector(`[data-go="${p.id}"]`).onclick = () => goToPoi(p);
@@ -3241,24 +3279,30 @@ function updateNavLabel() {
 }
 function removeNavLabel() { if (navLabel) { map.removeLayer(navLabel); navLabel = null; } }
 /** En el POI donde estás parado: "Navegar" queda desactivado (gris) e "Ir" dice "Ud está aquí" */
-const GO_BTN_CLS = 'text-[11px] font-semibold px-2 py-1 rounded-lg border bg-slate-800 text-slate-300 border-slate-700';
-const NAV_BTN_CLS = 'text-[11px] font-semibold px-2 py-1 rounded-lg border bg-sky-500/15 text-sky-300 border-sky-500/40';
-const HERE_BTN_CLS = 'text-[11px] font-semibold px-2 py-1 rounded-lg border bg-slate-800 text-slate-500 border-slate-700 opacity-70';
+const BTN_BASE = 'text-[11px] font-semibold py-1.5 leading-tight rounded-lg border ';
+const GO_BTN_CLS = 'flex-1 ' + BTN_BASE + 'bg-slate-800 text-slate-300 border-slate-700';
+const NAV_BTN_CLS = 'flex-[1.3] ' + BTN_BASE + 'bg-sky-500/15 text-sky-300 border-sky-500/40';
+const NAV_ON_CLS = 'flex-[1.3] ' + BTN_BASE + 'bg-rose-500/15 text-rose-300 border-rose-500/40';
+const HERE_BTN_CLS = 'flex-1 ' + BTN_BASE + 'bg-slate-800 text-slate-500 border-slate-700 opacity-70';
 function syncNavButtons() {
   document.querySelectorAll('#poiList [data-nav]').forEach(btn => {
     const p = pois.find(x => x.id === btn.dataset.nav);
     if (!p) return;
     const here = standingOnPoi(p);
     const navigating = !!(navPoi && navPoi.id === p.id);
-    const nav = here && !navigating;
-    btn.disabled = nav;
-    if (nav) { btn.textContent = 'Navegar'; btn.className = HERE_BTN_CLS; }
-    else if (btn.disabled === false && btn.className === HERE_BTN_CLS) { btn.textContent = navigating ? 'Dejar de navegar' : 'Navegar'; btn.className = navigating ? 'text-[11px] font-semibold px-2 py-1 rounded-lg border bg-rose-500/15 text-rose-300 border-rose-500/40' : NAV_BTN_CLS; }
+    const navOff = here && !navigating;
+    if ((btn.dataset.off === '1') !== navOff) {      // solo se toca el botón cuando cambia su estado
+      btn.dataset.off = navOff ? '1' : '0';
+      btn.disabled = navOff;
+      btn.textContent = navigating ? 'Dejar de navegar' : 'Navegar';
+      btn.className = navOff ? 'flex-[1.3] ' + BTN_BASE + 'bg-slate-800 text-slate-500 border-slate-700 opacity-70' : (navigating ? NAV_ON_CLS : NAV_BTN_CLS);
+    }
     const go = btn.parentElement.querySelector('[data-go]');
-    if (go) {
+    if (go && (go.dataset.off === '1') !== here) {
+      go.dataset.off = here ? '1' : '0';
       go.disabled = here;
-      if (here) { go.textContent = 'Ud está aquí'; go.className = HERE_BTN_CLS; }
-      else if (go.className === HERE_BTN_CLS) { go.textContent = 'Ir'; go.className = GO_BTN_CLS; }
+      go.textContent = here ? 'Ud está aquí' : 'Ir';
+      go.className = here ? HERE_BTN_CLS : GO_BTN_CLS;
     }
   });
 }
@@ -3489,8 +3533,8 @@ function refreshListsByDistance(force) {
   if (!force && now - listRefreshAt < 4000) return;
   listRefreshAt = now;
   const open = (id) => { const el = document.getElementById(id); return el && !el.classList.contains('hidden'); };
-  if (open('savedDrawer')) refreshOneList('savedList', sortByProximity(saved, savedDistance), renderSaved);
-  if (open('poiDrawer')) { refreshOneList('poiList', sortByProximity(pois, (p, ll) => ({ d: ll.distanceTo(L.latLng(p.lat, p.lng)), inside: false })), renderPoiList); syncNavButtons(); }
+  if (open('savedDrawer')) refreshOneList('savedList', applyFilter(sortByProximity(saved, savedDistance), savedFilter), renderSaved);
+  if (open('poiDrawer')) { refreshOneList('poiList', applyFilter(sortByProximity(pois, (p, ll) => ({ d: ll.distanceTo(L.latLng(p.lat, p.lng)), inside: false })), poiFilter), renderPoiList); syncNavButtons(); }
 }
 function refreshOneList(listId, rows, rerender) {
   const list = document.getElementById(listId);
@@ -3636,8 +3680,9 @@ function renderSaved() {
     list.innerHTML = '<div class="text-center py-10 text-slate-500 text-xs">Sin mediciones guardadas</div>';
     return;
   }
-  const rows = sortByProximity(saved, savedDistance);
+  const rows = applyFilter(sortByProximity(saved, savedDistance), savedFilter);
   list.dataset.order = rows.map(r => r.it.id).join('|');
+  if (!rows.length) { list.innerHTML = `<div class="text-center py-10 text-slate-500 text-xs">Sin resultados para «${escapeHtml(savedFilter)}»</div>`; return; }
   if (!userLL()) list.insertAdjacentHTML('beforeend', `<div class="text-[10px] text-slate-500 px-1 pb-1">${NO_GPS_HINT}</div>`);
   rows.forEach(({ it: item, dist }) => {
     const isVisible = item.visible !== false;

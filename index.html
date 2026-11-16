@@ -14,7 +14,7 @@
   <meta name="apple-mobile-web-app-title" content="Medidor">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <!-- Versión: debe coincidir con APP_VERSION (app.js) y --app-version (styles.css) -->
-  <meta name="app-version" content="2026.11.09-65">
+  <meta name="app-version" content="2026.11.09-66">
 
   <!-- Dependencias externas -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -222,6 +222,11 @@
             <button id="modePoiBtn" class="w-full flex items-center gap-2 py-2 px-2 rounded-lg text-xs font-bold text-slate-300 bg-slate-800/70 border border-slate-600/50 min-h-[36px]" aria-label="Modo POI">
               <i data-lucide="map-pin" class="w-4 h-4 flex-shrink-0"></i> <span class="truncate">POI (Puntos de interés)</span>
             </button>
+            <div id="poiSizeRow" class="grid grid-cols-3 gap-1" role="group" aria-label="Tamaño de los POI">
+              <button type="button" data-poi-size="s">Chico</button>
+              <button type="button" data-poi-size="m">Medio</button>
+              <button type="button" data-poi-size="l">Grande</button>
+            </div>
           </div>
           <div id="actionCol" class="w-[148px] flex flex-col gap-1.5">
             <button id="newBtn" class="text-xs font-semibold rounded-md inline-flex items-center justify-center gap-1 h-8 px-2 act-btn act-measure bg-sky-500/20 text-sky-300 border border-sky-500/40" aria-label="Nueva medición">
@@ -276,6 +281,8 @@
           <i data-lucide="x" class="w-4 h-4"></i> Cerrar
         </button>
       </div>
+      <input id="savedSearch" type="search" placeholder="Buscar medición por nombre" autocomplete="off" autocapitalize="off" spellcheck="false"
+        class="w-full mt-3 mb-3 bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-amber-500">
       <div id="savedList" class="flex-1 overflow-y-auto space-y-2"></div>
     </div>
   </div>
@@ -411,6 +418,8 @@
         </button>
       </div>
       <p class="text-[11px] text-slate-500 mt-3">Tocá POI y después el mapa para agregar. Tocá un pin o Editar para cambiar nombre, ver coordenadas o eliminar. Los POI complementan las mediciones.</p>
+      <input id="poiSearch" type="search" placeholder="Buscar POI por nombre" autocomplete="off" autocapitalize="off" spellcheck="false"
+        class="w-full mt-3 bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-amber-500">
       <div id="poiList" class="flex-1 overflow-y-auto mt-3 space-y-2"></div>
     </div>
   </div>

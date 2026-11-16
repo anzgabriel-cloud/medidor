@@ -102,3 +102,6 @@ Siempre visible arriba a la derecha. Tocarla alterna **Norte fijo** (mapa y rosa
 
 ## Navegación a un POI
 La cuerda punteada lleva una etiqueta con rumbo y distancia que se mantiene siempre dentro de la pantalla (zoom o desplazamiento) y se actualiza con el GPS. En el POI donde estás parado (a menos de 15 m) "Navegar" queda desactivado ("Estás aquí"); al llegar, la navegación termina sola.
+
+## Zoom alto en satélite
+Donde Esri no tiene imagen a cierto zoom devuelve un mosaico gris "Map data not yet available". La app lo detecta (en zoom ≥ 13) y lo reemplaza por el mosaico del nivel anterior ampliado, hasta 8 niveles arriba. Requiere que el servidor permita leer los píxeles (CORS); si no, se muestra el mosaico tal cual.

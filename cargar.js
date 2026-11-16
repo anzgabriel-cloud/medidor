@@ -36,7 +36,7 @@ vm.runInContext("var settings = { units: 'metric', coords: 'dec', gpsMaxAcc: 20,
 // FT define también MI, ACRE y FT2 (misma sentencia const)
 const NOMBRES = [
   'FT', 'nf0', 'isImp', 'lenMain', 'lenSub', 'areaMain', 'areaSub', 'fmtLenShort',
-  'trueBearing', 'DECL_KEY', 'getDeclOverride', 'setDeclOverride', 'magneticDeclination', 'magneticBearing', 'brg0', 'bearingCardinal',
+  'trueBearing', 'visibleMidpoint', 'isPlaceholderSample', 'parentCrop', 'DECL_KEY', 'getDeclOverride', 'setDeclOverride', 'magneticDeclination', 'magneticBearing', 'brg0', 'bearingCardinal',
   'polygonIsCCW', 'vertexAngleInfo', 'angleArcGeometry',
   'tmForward', 'toUTM', 'toGaussKruger', 'tmInverse', 'fromUTM', 'fromGaussKruger',
   'dmsStr', 'fmtCoordLines', 'fmtCoord',

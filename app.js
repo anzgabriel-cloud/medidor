@@ -96,7 +96,7 @@ let dragStartFinger = null;
 let dragAnim = null;
 
 const tiles = {
-  esri:   { url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', maxZoom: 22, nativeZoom: 18, name: 'Satélite', attr: 'Imagery &copy; Esri, Maxar, Earthstar Geographics' },
+  esri:   { url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', maxZoom: 22, nativeZoom: 18, name: 'Satélite', smart: true, attr: 'Imagery &copy; Esri, Maxar, Earthstar Geographics' },
   osm:    { url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', maxZoom: 22, nativeZoom: 19, name: 'Calles', attr: '&copy; OpenStreetMap contributors' }
 };
 
@@ -575,7 +575,7 @@ function init() {
   map = L.map('map', { zoomControl: false, attributionControl: true, tapTolerance: 25, maxZoom: 22 })
     .setView([startLat, startLng], startZoom);
   map.attributionControl.setPrefix('');
-  tileLayer = L.tileLayer(tiles.esri.url, { maxZoom: 22, maxNativeZoom: tiles.esri.nativeZoom, attribution: tiles.esri.attr }).addTo(map);
+  tileLayer = makeTileLayer(tiles.esri).addTo(map);
 
   // Ubicación del dispositivo: punto azul + centrar al iniciar
   startUserLocationWatch(true);
@@ -1572,7 +1572,7 @@ function updateMetrics(areaM2, distM) {
   liveArea = areaM2; liveDist = distM;
   updateLiveBadge();
 }
-const APP_VERSION = '2026.11.09-57';
+const APP_VERSION = '2026.11.09-58';
 let liveSelfIntersect = false; // el polígono se cruza a sí mismo (los marcadores rojos ya lo señalan)
 function updateSelfIntersectWarning(show) {
   const v = !!show;
@@ -2398,12 +2398,83 @@ function exitPoiMode(openList) {
   if (openList !== false) { /* stay on map */ }
 }
 
+
+// ========== MOSAICOS SATELITALES: "Map data not yet available" ==========
+// En algunas zonas Esri no tiene imagen a los zoom más altos y devuelve (con estado 200) un mosaico gris con ese texto.
+// Se detecta ese mosaico y se reemplaza por el del nivel anterior, ampliado (así se puede seguir acercando).
+/** ¿El mosaico (muestra de 32×32 px RGBA) es el gris liso del aviso? Casi todo gris neutro y claro, sin color de imagen */
+function isPlaceholderSample(d) {
+  let neutral = 0, n = 0;
+  for (let i = 0; i < d.length; i += 4) {
+    const r = d[i], g = d[i + 1], b = d[i + 2];
+    const mx = Math.max(r, g, b), mn = Math.min(r, g, b), lum = (r + g + b) / 3;
+    n++;
+    if (mx - mn <= 6 && lum >= 185 && lum <= 235) neutral++;
+  }
+  return n > 0 && neutral / n >= 0.85;
+}
+/** Parte del mosaico `k` niveles más arriba que corresponde al mosaico (x,y) de abajo: origen y lado en px de un mosaico de 256 */
+function parentCrop(x, y, k, size) {
+  const f = Math.pow(2, k), side = size / f;
+  return { px: Math.floor(x / f), py: Math.floor(y / f), sx: (((x % f) + f) % f) * side, sy: (((y % f) + f) % f) * side, side };
+}
+const SMART_MIN_Z = 13, SMART_MAX_UP = 8;
+let SmartTileLayer = null;
+function makeTileLayer(t) {
+  const opts = { maxZoom: t.maxZoom, maxNativeZoom: t.nativeZoom, attribution: t.attr };
+  if (!t.smart) return L.tileLayer(t.url, opts);
+  if (!SmartTileLayer) {
+    SmartTileLayer = L.TileLayer.extend({
+      createTile(coords, done) {
+        const self = this;
+        let finished = false;
+        const end = (err, tile) => { if (finished) return; finished = true; done(err, tile); };
+        const tile = L.TileLayer.prototype.createTile.call(this, coords, function (err, tl) {
+          if (finished) return;
+          if (err) {
+            // el servidor no admite CORS: se reintenta sin él (sin detección de mosaico vacío)
+            if (tile.crossOrigin && !tile._retry) { tile._retry = true; tile.removeAttribute('crossorigin'); tile.src = self.getTileUrl(coords); return; }
+            return end(err, tl);
+          }
+          if (tile._retry || coords.z < SMART_MIN_Z) return end(null, tl);
+          self._replaceIfEmpty(tile, coords).then(() => end(null, tile), () => end(null, tile));
+        });
+        return tile;
+      },
+      _loadImg(z, x, y) {
+        return new Promise((res, rej) => {
+          const im = new Image(); im.crossOrigin = 'anonymous';
+          im.onload = () => res(im); im.onerror = rej;
+          im.src = this.getTileUrl({ x, y, z });
+        });
+      },
+      async _replaceIfEmpty(tile, coords) {
+        try {
+          const probe = (im) => { const c = document.createElement('canvas'); c.width = c.height = 32; const g = c.getContext('2d'); g.drawImage(im, 0, 0, 32, 32); return isPlaceholderSample(g.getImageData(0, 0, 32, 32).data); };
+          if (!probe(tile)) return;
+          const size = this.getTileSize().x;
+          for (let k = 1; k <= SMART_MAX_UP && coords.z - k >= 1; k++) {
+            const cr = parentCrop(coords.x, coords.y, k, size);
+            const im = await this._loadImg(coords.z - k, cr.px, cr.py);
+            if (probe(im)) continue;
+            const c = document.createElement('canvas'); c.width = c.height = size;
+            c.getContext('2d').drawImage(im, cr.sx, cr.sy, cr.side, cr.side, 0, 0, size, size);
+            tile.src = c.toDataURL('image/jpeg', 0.9);
+            return;
+          }
+        } catch (e) { /* sin acceso a los píxeles: se deja el mosaico tal cual */ }
+      }
+    });
+  }
+  return new SmartTileLayer(t.url, Object.assign(opts, { crossOrigin: 'anonymous' }));
+}
+
 // ========== LAYERS / LOCATION / SEARCH ==========
 function cycleLayer() {
   currentTiles = currentTiles === 'esri' ? 'osm' : 'esri';
   map.removeLayer(tileLayer);
   const t = tiles[currentTiles];
-  tileLayer = L.tileLayer(t.url, { maxZoom: t.maxZoom, maxNativeZoom: t.nativeZoom, attribution: t.attr }).addTo(map);
+  tileLayer = makeTileLayer(t).addTo(map);
   document.getElementById('layerText').textContent = t.name;
 }
 

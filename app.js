@@ -22,11 +22,10 @@ function labelTextColor(color) {
 }
 function applyLabelTint(color, inspect = false) {
   const { r, g, b, lum } = labelLuminance(color);
-  const dark = lum < 0.22;
-  // Colores muy oscuros: texto blanco sobre un halo oscuro para que se lea
-  const center = dark ? 'rgba(0,0,0,0.7)' : `rgba(${r},${g},${b},0.55)`;
-  const mid = dark ? 'rgba(0,0,0,0.35)' : `rgba(${r},${g},${b},0.2)`;
-  const text = dark ? '#ffffff' : (color || '#00ff66');
+  // Texto siempre blanco sobre un halo negro neutro (se lee con cualquier color de elemento o de mapa)
+  const center = 'rgba(0,0,0,0.7)';
+  const mid = 'rgba(0,0,0,0.35)';
+  const text = '#ffffff';
   const root = document.documentElement.style;
   if (inspect) {
     root.setProperty('--inspect-label-center', center);
@@ -1514,6 +1513,7 @@ function calcLine() {
   clearKinkMarkers();
 }
 // Medidas en vivo: números flotantes en un costado de la pantalla (solo al crear/editar)
+const SHOW_LIVE_READOUT = false;   // true = vuelve a mostrar los números flotantes del costado derecho
 let liveArea = 0, liveDist = 0;
 function removeLiveBadge() { document.getElementById('liveReadout')?.classList.remove('on'); }
 const lrItem = (cap, val, sub) =>
@@ -1523,6 +1523,7 @@ function updateLiveBadge() {
   const el = document.getElementById('liveReadout');
   if (!el) return;
   updateViewSwitchUI();
+  if (!SHOW_LIVE_READOUT) { removeLiveBadge(); return; }   // números flotantes de la derecha desactivados
   const info = document.getElementById('infoPanel');
   const infoOpen = !!(info && !info.classList.contains('hidden'));
   const recording = gpsWatchId !== null;
@@ -1571,7 +1572,7 @@ function updateMetrics(areaM2, distM) {
   liveArea = areaM2; liveDist = distM;
   updateLiveBadge();
 }
-const APP_VERSION = '2026.11.09-53';
+const APP_VERSION = '2026.11.09-55';
 let liveSelfIntersect = false; // el polígono se cruza a sí mismo (los marcadores rojos ya lo señalan)
 function updateSelfIntersectWarning(show) {
   const v = !!show;

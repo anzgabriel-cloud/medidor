@@ -1,8 +1,8 @@
 // Copias de seguridad: exporta e importa mediciones y POI en GeoJSON, KML y GPX.
 // Modelo común (lo que lee y devuelve este archivo):
 //   mediciones: { name, mode: 'polygon' | 'line', color: '#rrggbb', date, points: [{ lat, lng }] }
-//   POI:        { name, note, color: '#rrggbb', lat, lng, elev? }
-const BACKUP_VERSION = '2026.11.09-67';
+//   POI:        { name, note, color: '#rrggbb', size: 's'|'m'|'l', lat, lng, elev? }
+const BACKUP_VERSION = '2026.11.09-68';
 const BACKUP_FORMATS = {
   geojson: {
     label: 'GeoJSON', ext: 'geojson', mime: 'application/geo+json',
@@ -23,6 +23,7 @@ const bkEsc = (s) => String(s === null || s === undefined ? '' : s)
   .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, '')   // caracteres no permitidos en XML 1.0
   .replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&apos;' }[c]));
 const bkHex = (c) => /^#[0-9a-f]{6}$/i.test(c || '');
+const bkSize = (v) => (v === 's' || v === 'l') ? v : 'm';   // tamaño del POI: chico / medio / grande
 const bkColor = (c, fallback) => bkHex(c) ? c.toLowerCase() : fallback;
 const bkValidLL = (lat, lng) => Number.isFinite(lat) && Number.isFinite(lng) && Math.abs(lat) <= 90 && Math.abs(lng) <= 180;
 const bkToday = () => new Date().toLocaleDateString('es-AR');
@@ -45,7 +46,7 @@ function buildGeoJSON(saved, pois) {
     if (!bkValidLL(+p.lat, +p.lng)) return;
     features.push({
       type: 'Feature',
-      properties: { kind: 'poi', name: p.name, note: p.note || '', color: p.color },
+      properties: { kind: 'poi', name: p.name, note: p.note || '', color: p.color, size: bkSize(p.size) },
       geometry: { type: 'Point', coordinates: [+p.lng, +p.lat] }
     });
   });
@@ -87,7 +88,7 @@ function buildKML(saved, pois) {
       `<name>${bkEsc(p.name)}</name>`,
       `<description>${bkEsc(p.note || '')}</description>`,
       `<Style><IconStyle><color>${bkKmlColor(p.color, 'ff')}</color><Icon><href>http://maps.google.com/mapfiles/kml/paddle/wht-blank.png</href></Icon></IconStyle></Style>`,
-      `<ExtendedData>${data('kind', 'poi')}${data('color', bkColor(p.color, '#f59e0b'))}</ExtendedData>`,
+      `<ExtendedData>${data('kind', 'poi')}${data('color', bkColor(p.color, '#f59e0b'))}${data('size', bkSize(p.size))}</ExtendedData>`,
       `<Point><coordinates>${bkFix(p.lng)},${bkFix(p.lat)},${z}</coordinates></Point>`,
       '</Placemark>');
   });
@@ -105,7 +106,7 @@ function buildGPX(saved, pois) {
       (Number.isFinite(+p.elev) && p.elev !== null ? `<ele>${Math.round(p.elev * 10) / 10}</ele>` : '') +
       `<name>${bkEsc(p.name)}</name>` +
       (p.note ? `<desc>${bkEsc(p.note)}</desc>` : '') +
-      `<extensions><md:color>${bkColor(p.color, '#f59e0b')}</md:color></extensions></wpt>`);
+      `<extensions><md:color>${bkColor(p.color, '#f59e0b')}</md:color><md:size>${bkSize(p.size)}</md:size></extensions></wpt>`);
   });
   saved.forEach(m => {
     const poly = bkIsPoly(m);
@@ -149,9 +150,9 @@ function bkAddMeasure(model, { name, color, date, coords, poly, suffix }) {
     points: c.map(x => ({ lat: x[1], lng: x[0] }))
   });
 }
-function bkAddPoi(model, { name, note, color, lat, lng, suffix }) {
+function bkAddPoi(model, { name, note, color, lat, lng, suffix, size }) {
   if (!bkValidLL(+lat, +lng)) { model.invalid++; return; }
-  model.pois.push({ name: String(name || 'POI importado') + (suffix || ''), note: String(note || ''), color: bkColor(color, '#f59e0b'), lat: +lat, lng: +lng });
+  model.pois.push({ name: String(name || 'POI importado') + (suffix || ''), note: String(note || ''), color: bkColor(color, '#f59e0b'), size: bkSize(size), lat: +lat, lng: +lng });
 }
 
 function parseGeoJSON(text) {
@@ -164,8 +165,8 @@ function parseGeoJSON(text) {
     const t = f.geometry.type, g = f.geometry.coordinates, p = f.properties || {};
     const base = { name: p.name, color: p.color, date: typeof p.date === 'string' ? p.date : null };
     const multi = (arr, fn) => (Array.isArray(arr) ? arr : []).forEach((x, i) => fn(x, ` (${i + 1})`));
-    if (t === 'Point') bkAddPoi(model, { name: p.name, note: p.note, color: p.color, lat: g[1], lng: g[0] });
-    else if (t === 'MultiPoint') multi(g, (c, s) => bkAddPoi(model, { name: p.name, note: p.note, color: p.color, lat: c && c[1], lng: c && c[0], suffix: s }));
+    if (t === 'Point') bkAddPoi(model, { name: p.name, note: p.note, color: p.color, size: p.size, lat: g[1], lng: g[0] });
+    else if (t === 'MultiPoint') multi(g, (c, s) => bkAddPoi(model, { name: p.name, note: p.note, color: p.color, size: p.size, lat: c && c[1], lng: c && c[0], suffix: s }));
     else if (t === 'LineString') bkAddMeasure(model, { ...base, coords: g, poly: false });
     else if (t === 'MultiLineString') multi(g, (l, s) => bkAddMeasure(model, { ...base, coords: l, poly: false, suffix: s }));
     else if (t === 'Polygon') { if (g.length === 1) bkAddMeasure(model, { ...base, coords: g[0], poly: true }); else model.holes++; }
@@ -222,7 +223,7 @@ function parseKML(text) {
     points.forEach(pt => {
       const c = bkCoords(bkChildText(pt, 'coordinates'))[0];
       n++; found++;
-      bkAddPoi(model, { name, note: desc, color, lat: c && c[1], lng: c && c[0], suffix: sfx(n) });
+      bkAddPoi(model, { name, note: desc, color, size: ext.size, lat: c && c[1], lng: c && c[0], suffix: sfx(n) });
     });
     lines.forEach(ln => { n++; found++; bkAddMeasure(model, { name, color, date, coords: bkCoords(bkChildText(ln, 'coordinates')), poly: false, suffix: sfx(n) }); });
     polys.forEach(pg => {
@@ -244,7 +245,7 @@ function parseGPX(text) {
   const colorOf = (el) => { const c = bkKids(el, 'color')[0]; return c ? c.textContent.trim() : null; };
   const pts = (seg, tag) => bkKids(seg, tag).map(p => [+p.getAttribute('lon'), +p.getAttribute('lat')]);
   bkKids(doc, 'wpt').forEach(w => bkAddPoi(model, {
-    name: bkChildText(w, 'name'), note: bkPlain(bkChildText(w, 'desc')), color: colorOf(w),
+    name: bkChildText(w, 'name'), note: bkPlain(bkChildText(w, 'desc')), color: colorOf(w), size: (bkKids(w, 'size')[0] || {}).textContent,
     lat: +w.getAttribute('lat'), lng: +w.getAttribute('lon')
   }));
   bkKids(doc, 'rte').forEach(r => bkAddMeasure(model, { name: bkChildText(r, 'name'), color: colorOf(r), coords: pts(r, 'rtept'), poly: false }));

@@ -2,7 +2,7 @@
    Separado del HTML para mejor mantenimiento
 */
 
-:root { --app-version: "2026.11.09-67"; }
+:root { --app-version: "2026.11.09-68"; }
 
 .leaflet-control-attribution { font-size: 9px !important; background: rgba(15,23,42,0.7) !important; color: #94a3b8 !important; }
 .leaflet-control-attribution a { color: #94a3b8 !important; }
@@ -493,3 +493,7 @@ button:disabled, .btn-disabled {
 #measureCard .mc-val { font-size: 15px; font-weight: 800; color: #fff; white-space: nowrap; }
 #measureCard .mc-alt { color: #fcd34d; }
 #measureCard .mc-warn { color: #f87171; }
+
+/* Tamaños de POI: solo en Modo POI */
+#poiSizeRow { display: none; }
+#mainControls[data-mode="poi"] #poiSizeRow { display: grid; }

@@ -136,6 +136,7 @@ function sanitizePoi(p) {
   p.color = safeColor(p.color, POI_DEFAULT_COLOR);
   p.name = String(p.name ?? 'POI').slice(0, 200);
   p.note = String(p.note ?? '').slice(0, 2000);
+  p.size = POI_SIZES[p.size] ? p.size : 'm';   // cada POI conserva su propio tamaño
   return p;
 }
 
@@ -644,7 +645,7 @@ function init() {
   document.getElementById('vertexDelBtn').onclick = deleteSelectedVertex;
   document.getElementById('compassBtn').onclick = toggleCompassMode;
   document.querySelectorAll('#poiSizeRow [data-poi-size]').forEach(b => b.onclick = () => {
-    settings.poiSize = b.dataset.poiSize; saveSettings(); refreshPoiSizeUI(); renderPois();
+    settings.poiSize = b.dataset.poiSize; saveSettings(); refreshPoiSizeUI();   // solo afecta a los POI que crees después
   });
   refreshPoiSizeUI();
   document.getElementById('poiSearch').oninput = (e) => { poiFilter = e.target.value; renderPoiList(); };
@@ -1659,7 +1660,7 @@ function updateMetrics(areaM2, distM) {
   liveArea = areaM2; liveDist = distM;
   updateLiveBadge();
 }
-const APP_VERSION = '2026.11.09-67';
+const APP_VERSION = '2026.11.09-68';
 let liveSelfIntersect = false; // el polígono se cruza a sí mismo (los marcadores rojos ya lo señalan)
 function updateSelfIntersectWarning(show) {
   const v = !!show;
@@ -3037,6 +3038,7 @@ function confirmPoi() {
       color: safeColor(poiColor || themeColor, '#00ff66'),
       lat: pendingPoi.lat,
       lng: pendingPoi.lng,
+      size: settings.poiSize,      // el tamaño elegido vale solo para los POI nuevos
       visible: true
     };
     pois.push(created);
@@ -3122,10 +3124,10 @@ function loadPois() {
   renderPois();
 }
 
-const poiK = () => POI_SIZES[settings.poiSize] || 1;
-function poiIcon(color) {
+const poiK = (size) => POI_SIZES[size] || 1;
+function poiIcon(color, size) {
   const fill = safeColor(color, POI_DEFAULT_COLOR);
-  const k = poiK(), w = Math.round(22 * k), h = Math.round(34 * k);
+  const k = poiK(size), w = Math.round(22 * k), h = Math.round(34 * k);
   // colores muy claros (blanco, amarillo…): contorno y centro gris oscuro, si no el pin se pierde
   const light = labelLuminance(fill).lum >= 0.72;
   const edge = light ? '#374151' : '#fff';
@@ -3140,8 +3142,8 @@ function poiIcon(color) {
     iconAnchor: [Math.round(w / 2), h]
   });
 }
-const poiTipOffset = () => [0, -Math.round(36 * poiK())];
-/** Botones Chico / Medio / Grande bajo el botón POI */
+const poiTipOffset = (size) => [0, -Math.round(36 * poiK(size))];
+/** Tamaño con el que se crean los POI nuevos (los ya colocados no cambian) */
 function refreshPoiSizeUI() {
   document.querySelectorAll('#poiSizeRow [data-poi-size]').forEach(b => {
     const on = b.dataset.poiSize === settings.poiSize;
@@ -3155,8 +3157,8 @@ function renderPois() {
   poiLayers = [];
   pois.forEach(p => {
     if (p.visible === false) return;
-    const marker = L.marker([p.lat, p.lng], { icon: poiIcon(p.color), zIndexOffset: 1200 }).addTo(map);
-    marker.bindTooltip(escapeHtml(p.name), { permanent: true, direction: 'top', className: 'poi-label', offset: poiTipOffset() });
+    const marker = L.marker([p.lat, p.lng], { icon: poiIcon(p.color, p.size), zIndexOffset: 1200 }).addTo(map);
+    marker.bindTooltip(escapeHtml(p.name), { permanent: true, direction: 'top', className: 'poi-label', offset: poiTipOffset(p.size) });
     marker.on('click', (e) => {
       L.DomEvent.stopPropagation(e);
       if (poiMode) return;
@@ -3830,7 +3832,7 @@ function applyBackupModel(model) {
     pois.push({
       id: Date.now().toString() + Math.random().toString(16).slice(2),
       name: p.name, note: p.note, color: safeColor(p.color, POI_DEFAULT_COLOR),
-      lat: p.lat, lng: p.lng, visible: true
+      lat: p.lat, lng: p.lng, size: POI_SIZES[p.size] ? p.size : 'm', visible: true
     });
     poiCount++;
   });

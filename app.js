@@ -1572,7 +1572,7 @@ function updateMetrics(areaM2, distM) {
   liveArea = areaM2; liveDist = distM;
   updateLiveBadge();
 }
-const APP_VERSION = '2026.11.09-56';
+const APP_VERSION = '2026.11.09-57';
 let liveSelfIntersect = false; // el polígono se cruza a sí mismo (los marcadores rojos ya lo señalan)
 function updateSelfIntersectWarning(show) {
   const v = !!show;
@@ -3296,6 +3296,11 @@ function savedDistance(item, ll) {
   if (poly && pointInRing(ll, item.points)) return { d: 0, inside: true };
   return { d: distToPathM(ll, item.points, poly), inside: false };
 }
+/** ¿La medición está visible y entera en la pantalla actual? (entonces "Ir" no hace falta) */
+function savedInView(item) {
+  if (!item || item.visible === false || !item.points || !item.points.length || !map) return false;
+  try { return map.getBounds().contains(L.latLngBounds(item.points.map(p => [p.lat, p.lng]))); } catch (e) { return false; }
+}
 function userLL() { return userLocMarker ? userLocMarker.getLatLng() : null; }
 /** Copia ordenada por cercanía (si no hay GPS, el orden original) con la distancia calculada */
 function sortByProximity(arr, distFn) {
@@ -3354,7 +3359,7 @@ function openInfoMenu() {
       ? { icon: 'navigation', label: 'Navegar', cls: 'text-slate-500', run: () => {} }
       : { icon: 'navigation', label: navigating ? 'Dejar de navegar' : 'Navegar', cls: navigating ? 'text-rose-300' : 'text-sky-300', run: () => { hideMeasurementInfo(); toggleNavPoi(poi); } });
   }
-  const hereGo = !!poi && standingOnPoi(poi);
+  const hereGo = poi ? standingOnPoi(poi) : savedInView(item);
   rows.push(hereGo
     ? { icon: 'crosshair', label: 'Ud está aquí', cls: 'text-slate-500', run: () => {} }
     : { icon: 'crosshair', label: 'Ir', cls: 'text-slate-200', run: () => { if (poi) goToPoi(poi); else focusSaved(item); } });
@@ -3486,8 +3491,8 @@ function renderSaved() {
         <button data-edit="${item.id}" class="flex-1 text-[11px] font-semibold py-1.5 rounded-lg border bg-sky-500/15 text-sky-300 border-sky-500/30">
           Editar
         </button>
-        <button data-focus="${item.id}" class="flex-1 text-[11px] font-semibold py-1.5 rounded-lg border bg-slate-800 text-slate-300 border-slate-700">
-          Ir
+        <button data-focus="${item.id}" ${savedInView(item) ? 'disabled' : ''} class="flex-1 text-[11px] font-semibold py-1.5 rounded-lg border ${savedInView(item) ? 'bg-slate-800 text-slate-500 border-slate-700 opacity-70' : 'bg-slate-800 text-slate-300 border-slate-700'}">
+          ${savedInView(item) ? 'Ud está aquí' : 'Ir'}
         </button>
         <button class="p-1.5 text-red-500 hover:text-red-400 flex-shrink-0" data-del="${item.id}" title="Eliminar">
           <i data-lucide="trash-2" class="w-4 h-4"></i>

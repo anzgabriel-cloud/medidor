@@ -105,3 +105,4 @@ La cuerda punteada lleva una etiqueta con rumbo y distancia que se mantiene siem
 
 ## Zoom alto en satélite
 Donde Esri no tiene imagen a cierto zoom devuelve un mosaico gris "Map data not yet available". La app lo detecta (en zoom ≥ 13) y lo reemplaza por el mosaico del nivel anterior ampliado, hasta 8 niveles arriba. Requiere que el servidor permita leer los píxeles (CORS); si no, se muestra el mosaico tal cual.
+Ajustes → "Zoom máximo de la imagen satelital": Automático (detecta el cartel) o un nivel fijo (16/17/18) como respaldo si la detección no funciona.

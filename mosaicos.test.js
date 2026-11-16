@@ -6,6 +6,12 @@ const fill = (fn) => { const d = new Uint8ClampedArray(32 * 32 * 4); for (let i 
 test('gris liso con algo de texto blanco = aviso de Esri', () => {
   assert.ok(isPh(fill(i => (i % 20 === 0 ? [255, 255, 255] : [204, 204, 204]))));
 });
+test('gris con mucho texto blanco suave (borde difuso) sigue siendo aviso', () => {
+  assert.ok(isPh(fill(i => { const v = i % 7 === 0 ? 255 : (i % 7 === 1 ? 230 : 204); return [v, v, v]; })));
+});
+test('nieve o nubes (casi blanco) no es aviso', () => {
+  assert.ok(!isPh(fill(() => [248, 248, 250])));
+});
 test('imagen satelital (verde y tierra) no es aviso', () => {
   assert.ok(!isPh(fill(i => (i % 2 ? [40, 70, 35] : [120, 90, 60]))));
 });

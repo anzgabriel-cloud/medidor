@@ -136,7 +136,8 @@ function sanitizePoi(p) {
 // ========== AJUSTES / UNIDADES / COORDENADAS ==========
 const SETTINGS_KEY = 'medidor_settings';
 const GPS_STEPS = [1, 2, 3, 5, 10, 20, 50, 100, 1000];   // distancia mínima entre puntos al grabar (m)
-const DEFAULT_SETTINGS = { units: 'metric', coords: 'dec', gpsMaxAcc: 20, gpsMinStep: 3 };
+const SAT_ZOOMS = ['auto', '16', '17', '18'];
+const DEFAULT_SETTINGS = { units: 'metric', coords: 'dec', gpsMaxAcc: 20, gpsMinStep: 3, satZoom: 'auto' };
 let settings = { ...DEFAULT_SETTINGS };
 function loadSettings() {
   try {
@@ -146,6 +147,7 @@ function loadSettings() {
       if (['dec', 'dms', 'utm', 'gk'].includes(r.coords)) settings.coords = r.coords;
       if ([5, 10, 20, 30, 50].includes(+r.gpsMaxAcc)) settings.gpsMaxAcc = +r.gpsMaxAcc;
       if (GPS_STEPS.includes(+r.gpsMinStep)) settings.gpsMinStep = +r.gpsMinStep;
+      if (SAT_ZOOMS.includes(String(r.satZoom))) settings.satZoom = String(r.satZoom);
     }
   } catch (e) {}
 }
@@ -263,6 +265,7 @@ function refreshSettingsUI() {
   stepSel.innerHTML = GPS_STEPS.map(v => `<option value="${v}">${u(v)}</option>`).join('');
   accSel.value = String(settings.gpsMaxAcc);
   stepSel.value = String(settings.gpsMinStep);
+  const sz = document.getElementById('setSatZoom'); if (sz) sz.value = settings.satZoom;
 }
 let declSign = -1;
 const fmtDecl = (v) => `${v < 0 ? '−' : '+'}${Math.abs(v).toFixed(1)}° (${v < 0 ? 'Oeste' : 'Este'})`;
@@ -317,6 +320,10 @@ function initSettingsUI() {
   document.getElementById('setDeclAuto').onclick = () => { setDeclOverride(null); refreshSettingsUI(); applySettings(); };
   document.getElementById('setGpsAcc').onchange = (e) => { settings.gpsMaxAcc = +e.target.value; saveSettings(); };
   document.getElementById('setGpsStep').onchange = (e) => { settings.gpsMinStep = +e.target.value; saveSettings(); };
+  document.getElementById('setSatZoom').onchange = (e) => {
+    settings.satZoom = e.target.value; saveSettings();
+    if (currentTiles === 'esri' && map && tileLayer) { map.removeLayer(tileLayer); tileLayer = makeTileLayer(tiles.esri).addTo(map); }
+  };
   document.getElementById('setReset').onclick = () => {
     settings = { ...DEFAULT_SETTINGS }; saveSettings(); setDeclOverride(null);
     refreshSettingsUI(); applySettings();
@@ -1572,7 +1579,7 @@ function updateMetrics(areaM2, distM) {
   liveArea = areaM2; liveDist = distM;
   updateLiveBadge();
 }
-const APP_VERSION = '2026.11.09-58';
+const APP_VERSION = '2026.11.09-59';
 let liveSelfIntersect = false; // el polígono se cruza a sí mismo (los marcadores rojos ya lo señalan)
 function updateSelfIntersectWarning(show) {
   const v = !!show;
@@ -2404,14 +2411,19 @@ function exitPoiMode(openList) {
 // Se detecta ese mosaico y se reemplaza por el del nivel anterior, ampliado (así se puede seguir acercando).
 /** ¿El mosaico (muestra de 32×32 px RGBA) es el gris liso del aviso? Casi todo gris neutro y claro, sin color de imagen */
 function isPlaceholderSample(d) {
+  const bins = new Array(32).fill(0);
   let neutral = 0, n = 0;
   for (let i = 0; i < d.length; i += 4) {
     const r = d[i], g = d[i + 1], b = d[i + 2];
     const mx = Math.max(r, g, b), mn = Math.min(r, g, b), lum = (r + g + b) / 3;
     n++;
-    if (mx - mn <= 6 && lum >= 185 && lum <= 235) neutral++;
+    if (mx - mn <= 8 && lum >= 150) { neutral++; bins[Math.min(31, lum >> 3)]++; }   // el texto blanco también cuenta como gris neutro
   }
-  return n > 0 && neutral / n >= 0.85;
+  if (!n || neutral / n < 0.92) return false;
+  let top = 0, topBin = 0;
+  bins.forEach((c, i) => { if (c > top) { top = c; topBin = i; } });
+  const lumTop = topBin * 8 + 4;
+  return top / n >= 0.5 && lumTop >= 170 && lumTop <= 235;   // fondo liso (la mayor parte del mosaico) y de gris medio-claro
 }
 /** Parte del mosaico `k` niveles más arriba que corresponde al mosaico (x,y) de abajo: origen y lado en px de un mosaico de 256 */
 function parentCrop(x, y, k, size) {
@@ -2421,7 +2433,8 @@ function parentCrop(x, y, k, size) {
 const SMART_MIN_Z = 13, SMART_MAX_UP = 8;
 let SmartTileLayer = null;
 function makeTileLayer(t) {
-  const opts = { maxZoom: t.maxZoom, maxNativeZoom: t.nativeZoom, attribution: t.attr };
+  const native = (t.smart && settings.satZoom !== 'auto') ? +settings.satZoom : t.nativeZoom;   // hasta qué zoom pedir imagen real (más allá se amplía)
+  const opts = { maxZoom: t.maxZoom, maxNativeZoom: native, attribution: t.attr };
   if (!t.smart) return L.tileLayer(t.url, opts);
   if (!SmartTileLayer) {
     SmartTileLayer = L.TileLayer.extend({

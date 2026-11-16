@@ -2,7 +2,7 @@
    Separado del HTML para mejor mantenimiento
 */
 
-:root { --app-version: "2026.11.09-55"; }
+:root { --app-version: "2026.11.09-56"; }
 
 .leaflet-control-attribution { font-size: 9px !important; background: rgba(15,23,42,0.7) !important; color: #94a3b8 !important; }
 .leaflet-control-attribution a { color: #94a3b8 !important; }
@@ -225,9 +225,12 @@ html, body {
   cursor: pointer; touch-action: none;
   z-index: 400 !important;
 }
-.midpoint-marker::before {
-  content: '+'; color: #0f172a; font-size: 13px; font-weight: 900; line-height: 1;
+.midpoint-marker::before, .midpoint-marker::after {
+  content: ''; position: absolute; left: 50%; top: 50%; background: #0f172a; border-radius: 1px;
+  transform: translate(-50%, -50%);
 }
+.midpoint-marker::before { width: 8px; height: 2px; }   /* el + se dibuja con dos barras: queda exactamente centrado */
+.midpoint-marker::after { width: 2px; height: 8px; }
 
 .dist-label {
   color: var(--label-text, var(--theme-color, #00ff66));
@@ -313,7 +316,7 @@ body.is-dragging .midpoint-marker { opacity: 0 !important; pointer-events: none 
 #liveReadout .lr-val { font-size: 16px; font-weight: 800; }
 #liveReadout .lr-sub { font-size: 10px; font-weight: 600; opacity: .9; }
 .dist-label-live {
-  color: #fff;
+  color: #fff; font-size: 11px;
   font-weight: 800; white-space: nowrap;
   pointer-events: none; transform: translate(-50%, -50%);
   padding: 3px 6px; border-radius: 4px;

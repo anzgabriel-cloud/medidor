@@ -1123,7 +1123,7 @@ function updateLiveSegmentLabels() {
       const brg = trueBearing(a, b);
       const decl = magneticDeclination((a.lat + b.lat) / 2, (a.lng + b.lng) / 2);
       const mag = magneticBearing(brg, decl);
-      html = `<span style="line-height:1.2">${distTxt}<br><span style="font-size:11px">${brg0(brg)}° V · ${brg0(mag)}° M</span></span>`;
+      html = `<span style="line-height:1.2">${distTxt}<br><span style="font-size:9.5px">${brg0(brg)}° V · ${brg0(mag)}° M</span></span>`;
       iconW = 90; iconH = 36;
     }
     const aPx = map.latLngToContainerPoint(a), bPx = map.latLngToContainerPoint(b);
@@ -1170,7 +1170,7 @@ function updateLiveSegmentLabels() {
     const offset = isMain ? 36 : 28;
     const labelPx = L.point(vPx.x + Math.cos(g.mid) * offset, vPx.y + Math.sin(g.mid) * offset);
     const labelLL = map.containerPointToLatLng(labelPx);
-    const txt = `<span style="font-size:${isMain ? 13 : 11}px">${ang.toFixed(1)}°</span>`;
+    const txt = `<span style="font-size:${isMain ? 11 : 10}px">${ang.toFixed(1)}°</span>`;
     const marker = L.marker(labelLL, {
       icon: L.divIcon({
         className: 'angle-label-live',
@@ -1450,7 +1450,7 @@ function redraw() {
     const distTxt = fmtLenShort(dist);
     const zDraw = map.getZoom();
     const scaleDraw = Math.pow(1.18, zDraw - 15);
-    const fontDraw = Math.max(9, Math.min(18, 10.5 * scaleDraw));
+    const fontDraw = Math.max(8, Math.min(15, 9 * scaleDraw));
     let html, iconW, iconH;
     if (mode === 'line') {
       const brg = trueBearing(a, b);
@@ -1572,7 +1572,7 @@ function updateMetrics(areaM2, distM) {
   liveArea = areaM2; liveDist = distM;
   updateLiveBadge();
 }
-const APP_VERSION = '2026.11.09-55';
+const APP_VERSION = '2026.11.09-56';
 let liveSelfIntersect = false; // el polígono se cruza a sí mismo (los marcadores rojos ya lo señalan)
 function updateSelfIntersectWarning(show) {
   const v = !!show;
@@ -1828,7 +1828,7 @@ function refreshInspectOverlays() {
   if (inspectShowSegs || inspectShowBearings) {
     const z = map.getZoom();
     const scale = Math.pow(1.18, z - 15);
-    const fontPx = Math.max(9, Math.min(18, 11 * scale));
+    const fontPx = Math.max(8, Math.min(15, 9.5 * scale));
     const segCount = stats.isPoly ? n : n - 1;
     for (let i = 0; i < segCount; i++) {
       const a = latlngs[i], b = latlngs[(i + 1) % n];
@@ -1871,7 +1871,7 @@ function refreshInspectOverlays() {
     const z = map.getZoom();
     const scale = Math.pow(1.18, z - 15);
     const ARC_R = Math.max(16, Math.min(56, 28 * scale));
-    const fontPx = Math.max(9, Math.min(18, 11 * scale));
+    const fontPx = Math.max(8, Math.min(15, 9.5 * scale));
     const ccw = closed ? polygonIsCCW(latlngs) : true;
     for (let i = 0; i < n; i++) {
       const info = vertexAngleInfo(latlngs, i, closed, ccw);
@@ -1912,7 +1912,7 @@ function refreshInspectOverlays() {
   if (inspectShowCoords) {
     const z = map.getZoom();
     const scale = Math.pow(1.18, z - 15);
-    const fontPx = Math.max(8, Math.min(15, 10 * scale));
+    const fontPx = Math.max(7, Math.min(13, 8.5 * scale));
     let centroidPx = null;
     if (stats.isPoly && n >= 3) {
       try {
@@ -3070,15 +3070,26 @@ function updateNavLabel() {
   if (sEl.textContent !== dist) sEl.textContent = dist;
 }
 function removeNavLabel() { if (navLabel) { map.removeLayer(navLabel); navLabel = null; } }
-/** Estado del botón "Navegar" de cada POI de la lista: se desactiva en el POI donde estás parado */
+/** En el POI donde estás parado: "Navegar" queda desactivado (gris) e "Ir" dice "Ud está aquí" */
+const GO_BTN_CLS = 'text-[11px] font-semibold px-2 py-1 rounded-lg border bg-slate-800 text-slate-300 border-slate-700';
+const NAV_BTN_CLS = 'text-[11px] font-semibold px-2 py-1 rounded-lg border bg-sky-500/15 text-sky-300 border-sky-500/40';
+const HERE_BTN_CLS = 'text-[11px] font-semibold px-2 py-1 rounded-lg border bg-slate-800 text-slate-500 border-slate-700 opacity-70';
 function syncNavButtons() {
   document.querySelectorAll('#poiList [data-nav]').forEach(btn => {
     const p = pois.find(x => x.id === btn.dataset.nav);
     if (!p) return;
-    const here = standingOnPoi(p) && !(navPoi && navPoi.id === p.id);
-    btn.disabled = here;
-    if (here) { btn.textContent = 'Estás aquí'; btn.className = 'text-[11px] font-semibold px-2 py-1 rounded-lg border bg-slate-800 text-slate-500 border-slate-700 opacity-70'; }
-    else if (btn.textContent === 'Estás aquí') { btn.textContent = 'Navegar'; btn.className = 'text-[11px] font-semibold px-2 py-1 rounded-lg border bg-sky-500/15 text-sky-300 border-sky-500/40'; }
+    const here = standingOnPoi(p);
+    const navigating = !!(navPoi && navPoi.id === p.id);
+    const nav = here && !navigating;
+    btn.disabled = nav;
+    if (nav) { btn.textContent = 'Navegar'; btn.className = HERE_BTN_CLS; }
+    else if (btn.disabled === false && btn.className === HERE_BTN_CLS) { btn.textContent = navigating ? 'Dejar de navegar' : 'Navegar'; btn.className = navigating ? 'text-[11px] font-semibold px-2 py-1 rounded-lg border bg-rose-500/15 text-rose-300 border-rose-500/40' : NAV_BTN_CLS; }
+    const go = btn.parentElement.querySelector('[data-go]');
+    if (go) {
+      go.disabled = here;
+      if (here) { go.textContent = 'Ud está aquí'; go.className = HERE_BTN_CLS; }
+      else if (go.className === HERE_BTN_CLS) { go.textContent = 'Ir'; go.className = GO_BTN_CLS; }
+    }
   });
 }
 
@@ -3340,10 +3351,13 @@ function openInfoMenu() {
     const navigating = navPoi && navPoi.id === poi.id;
     const here = !navigating && standingOnPoi(poi);
     rows.push(here
-      ? { icon: 'navigation', label: 'Estás aquí', cls: 'text-slate-500', run: () => {} }
+      ? { icon: 'navigation', label: 'Navegar', cls: 'text-slate-500', run: () => {} }
       : { icon: 'navigation', label: navigating ? 'Dejar de navegar' : 'Navegar', cls: navigating ? 'text-rose-300' : 'text-sky-300', run: () => { hideMeasurementInfo(); toggleNavPoi(poi); } });
   }
-  rows.push({ icon: 'crosshair', label: 'Ir', cls: 'text-slate-200', run: () => { if (poi) goToPoi(poi); else focusSaved(item); } });
+  const hereGo = !!poi && standingOnPoi(poi);
+  rows.push(hereGo
+    ? { icon: 'crosshair', label: 'Ud está aquí', cls: 'text-slate-500', run: () => {} }
+    : { icon: 'crosshair', label: 'Ir', cls: 'text-slate-200', run: () => { if (poi) goToPoi(poi); else focusSaved(item); } });
   rows.push({ icon: 'trash-2', label: 'Eliminar', cls: 'text-red-400', run: () => { if (poi) confirmDeletePoi(poi); else deleteSavedItem(item); } });
   const menu = document.createElement('div');
   menu.id = 'infoMenu';

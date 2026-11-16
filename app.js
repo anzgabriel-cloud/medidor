@@ -266,6 +266,7 @@ function refreshSettingsUI() {
   accSel.value = String(settings.gpsMaxAcc);
   stepSel.value = String(settings.gpsMinStep);
   const sz = document.getElementById('setSatZoom'); if (sz) sz.value = settings.satZoom;
+  const st = document.getElementById('setSatStatus'); if (st) st.textContent = satStatusText();
 }
 let declSign = -1;
 const fmtDecl = (v) => `${v < 0 ? '−' : '+'}${Math.abs(v).toFixed(1)}° (${v < 0 ? 'Oeste' : 'Este'})`;
@@ -1579,7 +1580,7 @@ function updateMetrics(areaM2, distM) {
   liveArea = areaM2; liveDist = distM;
   updateLiveBadge();
 }
-const APP_VERSION = '2026.11.09-59';
+const APP_VERSION = '2026.11.09-61';
 let liveSelfIntersect = false; // el polígono se cruza a sí mismo (los marcadores rojos ya lo señalan)
 function updateSelfIntersectWarning(show) {
   const v = !!show;
@@ -1898,7 +1899,11 @@ function refreshInspectOverlays() {
         const px = L.point(vPx.x + Math.cos(ang) * ARC_R, vPx.y + Math.sin(ang) * ARC_R);
         arcLatLngs.push(map.containerPointToLatLng(px));
       }
-      const arc = L.polyline(arcLatLngs, { color, weight: 1.25, opacity: 0.85, dashArray: '3, 4', interactive: false, lineCap: 'round' }).addTo(map);
+      // Arco punteado: grosor y rayas crecen con el zoom; contorno oscuro debajo para que se vea sobre cualquier imagen
+      const aw = Math.max(2, Math.min(5, 2 * Math.pow(scale, 0.8)));
+      const casing = L.polyline(arcLatLngs, { color: '#000', weight: aw + 2.5, opacity: 0.55, interactive: false, lineCap: 'round' }).addTo(map);
+      const arc = L.polyline(arcLatLngs, { color: '#fff', weight: aw, opacity: 0.95, dashArray: `${(aw * 2).toFixed(1)}, ${(aw * 1.8).toFixed(1)}`, interactive: false, lineCap: 'butt' }).addTo(map);
+      inspectLayers.push(casing);
       inspectLayers.push(arc);
       const midAng = a1 + sweep / 2;
       const labelPx = L.point(vPx.x + Math.cos(midAng) * (ARC_R + fontPx), vPx.y + Math.sin(midAng) * (ARC_R + fontPx));
@@ -2431,6 +2436,13 @@ function parentCrop(x, y, k, size) {
   return { px: Math.floor(x / f), py: Math.floor(y / f), sx: (((x % f) + f) % f) * side, sy: (((y % f) + f) % f) * side, side };
 }
 const SMART_MIN_Z = 13, SMART_MAX_UP = 8;
+const satStats = { read: 0, blocked: 0, replaced: 0, failed: 0 };   // para mostrar en Ajustes si la detección funciona
+function satStatusText() {
+  if (settings.satZoom !== 'auto') return `Nivel fijo ${settings.satZoom}: no se pide imagen más allá de ese zoom.`;
+  if (!satStats.read && !satStats.blocked) return 'Detección: sin datos todavía (acercate en el mapa satelital y volvé).';
+  if (!satStats.read && satStats.blocked) return 'Detección: NO disponible (el servidor no deja leer los mosaicos). Elegí un nivel fijo.';
+  return `Detección activa: ${satStats.read} mosaicos revisados, ${satStats.replaced} vacíos reemplazados${satStats.failed ? ', ' + satStats.failed + ' sin respaldo' : ''}.`;
+}
 let SmartTileLayer = null;
 function makeTileLayer(t) {
   const native = (t.smart && settings.satZoom !== 'auto') ? +settings.satZoom : t.nativeZoom;   // hasta qué zoom pedir imagen real (más allá se amplía)
@@ -2446,7 +2458,7 @@ function makeTileLayer(t) {
           if (finished) return;
           if (err) {
             // el servidor no admite CORS: se reintenta sin él (sin detección de mosaico vacío)
-            if (tile.crossOrigin && !tile._retry) { tile._retry = true; tile.removeAttribute('crossorigin'); tile.src = self.getTileUrl(coords); return; }
+            if (tile.crossOrigin && !tile._retry) { satStats.blocked++; tile._retry = true; tile.removeAttribute('crossorigin'); tile.src = self.getTileUrl(coords); return; }
             return end(err, tl);
           }
           if (tile._retry || coords.z < SMART_MIN_Z) return end(null, tl);
@@ -2458,13 +2470,14 @@ function makeTileLayer(t) {
         return new Promise((res, rej) => {
           const im = new Image(); im.crossOrigin = 'anonymous';
           im.onload = () => res(im); im.onerror = rej;
-          im.src = this.getTileUrl({ x, y, z });
+          im.src = L.Util.template(this._url, { x, y, z, s: this._getSubdomain({ x, y }), r: '' });   // ojo: getTileUrl usaría el zoom actual, no el del padre
         });
       },
       async _replaceIfEmpty(tile, coords) {
         try {
           const probe = (im) => { const c = document.createElement('canvas'); c.width = c.height = 32; const g = c.getContext('2d'); g.drawImage(im, 0, 0, 32, 32); return isPlaceholderSample(g.getImageData(0, 0, 32, 32).data); };
-          if (!probe(tile)) return;
+          if (!probe(tile)) { satStats.read++; return; }
+          satStats.read++;
           const size = this.getTileSize().x;
           for (let k = 1; k <= SMART_MAX_UP && coords.z - k >= 1; k++) {
             const cr = parentCrop(coords.x, coords.y, k, size);
@@ -2473,8 +2486,10 @@ function makeTileLayer(t) {
             const c = document.createElement('canvas'); c.width = c.height = size;
             c.getContext('2d').drawImage(im, cr.sx, cr.sy, cr.side, cr.side, 0, 0, size, size);
             tile.src = c.toDataURL('image/jpeg', 0.9);
+            satStats.replaced++;
             return;
           }
+          satStats.failed++;
         } catch (e) { /* sin acceso a los píxeles: se deja el mosaico tal cual */ }
       }
     });

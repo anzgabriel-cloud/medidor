@@ -1586,7 +1586,7 @@ function updateMetrics(areaM2, distM) {
   liveArea = areaM2; liveDist = distM;
   updateLiveBadge();
 }
-const APP_VERSION = '2026.11.09-62';
+const APP_VERSION = '2026.11.09-64';
 let liveSelfIntersect = false; // el polígono se cruza a sí mismo (los marcadores rojos ya lo señalan)
 function updateSelfIntersectWarning(show) {
   const v = !!show;
@@ -1905,9 +1905,9 @@ function refreshInspectOverlays() {
         const px = L.point(vPx.x + Math.cos(ang) * ARC_R, vPx.y + Math.sin(ang) * ARC_R);
         arcLatLngs.push(map.containerPointToLatLng(px));
       }
-      // Arco punteado: grosor y rayas crecen con el zoom; contorno oscuro debajo para que se vea sobre cualquier imagen
-      const aw = Math.max(2, Math.min(5, 2 * Math.pow(scale, 0.8)));
-      const casing = L.polyline(arcLatLngs, { color: darkenColor(color, 0.5), weight: aw + 1.5, opacity: 0.8, interactive: false, lineCap: 'round' }).addTo(map);
+      // Arco: línea continua del color de la medición (oscurecido) y encima rayas blancas del mismo grosor; en los huecos se ve el color
+      const aw = Math.max(1.5, Math.min(4, 2 * Math.pow(scale, 0.8) - 1));   // 1 px menos que antes
+      const casing = L.polyline(arcLatLngs, { color: darkenColor(color, 0.5), weight: aw, opacity: 0.9, interactive: false, lineCap: 'butt' }).addTo(map);
       const arc = L.polyline(arcLatLngs, { color: '#fff', weight: aw, opacity: 0.95, dashArray: `${(aw * 2).toFixed(1)}, ${(aw * 1.8).toFixed(1)}`, interactive: false, lineCap: 'butt' }).addTo(map);
       inspectLayers.push(casing);
       inspectLayers.push(arc);

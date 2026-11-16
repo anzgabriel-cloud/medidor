@@ -17,6 +17,12 @@ function labelLuminance(color) {
   const r = (n >> 16) & 255, g = (n >> 8) & 255, b = n & 255;
   return { r, g, b, lum: (0.299 * r + 0.587 * g + 0.114 * b) / 255 };
 }
+/** Mismo tono, más oscuro (k = 0..1 del brillo original) */
+function darkenColor(color, k) {
+  const { r, g, b } = labelLuminance(color);
+  const h = (v) => Math.round(v * k).toString(16).padStart(2, '0');
+  return '#' + h(r) + h(g) + h(b);
+}
 function labelTextColor(color) {
   return labelLuminance(color).lum < 0.22 ? '#ffffff' : (color || '#00ff66');
 }
@@ -1580,7 +1586,7 @@ function updateMetrics(areaM2, distM) {
   liveArea = areaM2; liveDist = distM;
   updateLiveBadge();
 }
-const APP_VERSION = '2026.11.09-61';
+const APP_VERSION = '2026.11.09-62';
 let liveSelfIntersect = false; // el polígono se cruza a sí mismo (los marcadores rojos ya lo señalan)
 function updateSelfIntersectWarning(show) {
   const v = !!show;
@@ -1901,7 +1907,7 @@ function refreshInspectOverlays() {
       }
       // Arco punteado: grosor y rayas crecen con el zoom; contorno oscuro debajo para que se vea sobre cualquier imagen
       const aw = Math.max(2, Math.min(5, 2 * Math.pow(scale, 0.8)));
-      const casing = L.polyline(arcLatLngs, { color: '#000', weight: aw + 2.5, opacity: 0.55, interactive: false, lineCap: 'round' }).addTo(map);
+      const casing = L.polyline(arcLatLngs, { color: darkenColor(color, 0.5), weight: aw + 1.5, opacity: 0.8, interactive: false, lineCap: 'round' }).addTo(map);
       const arc = L.polyline(arcLatLngs, { color: '#fff', weight: aw, opacity: 0.95, dashArray: `${(aw * 2).toFixed(1)}, ${(aw * 1.8).toFixed(1)}`, interactive: false, lineCap: 'butt' }).addTo(map);
       inspectLayers.push(casing);
       inspectLayers.push(arc);

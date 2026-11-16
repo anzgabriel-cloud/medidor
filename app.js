@@ -1533,11 +1533,76 @@ function removeLiveBadge() { document.getElementById('liveReadout')?.classList.r
 const lrItem = (cap, val, sub) =>
   `<div class="lr-item"><div class="lr-cap">${cap}</div><div class="lr-val">${val}</div>${sub ? `<div class="lr-sub">${sub}</div>` : ''}</div>`;
 function clearReadoutTint(el) { el.style.removeProperty('--label-center'); el.style.removeProperty('--label-mid'); }
+
+// ========== TARJETA DE MEDIDAS (nueva medición / edición / recorrido) ==========
+// Una sola fila, arriba a la izquierda, bajo la barra superior: superficie, perímetro y altitud media s.n.m.
+let mcElev = { sig: '', text: '…', timer: null };
+function measureElevSig() { return (trackMode ? 'track' : mode) + '|' + points.map(p => p.lat.toFixed(5) + ',' + p.lng.toFixed(5)).join(';'); }
+/** Altitud media de lo que se está midiendo (se pide con una pausa para no consultar en cada movimiento del dedo) */
+function scheduleMeasureElev(sig) {
+  if (mcElev.sig === sig) return;
+  mcElev.sig = sig; mcElev.text = '…';
+  clearTimeout(mcElev.timer);
+  const poly = !trackMode && mode === 'polygon';
+  if (points.length < (poly ? 3 : 2)) { mcElev.text = '—'; return; }
+  const pts = points.map(p => L.latLng(p.lat, p.lng));
+  mcElev.timer = setTimeout(async () => {
+    let txt = '—';
+    try {
+      let vals;
+      if (poly) {
+        const { lls, inner, extra } = polygonElevStats({ points: pts });
+        const z = await fetchElevations(lls.concat(extra, inner));
+        const zi = z.slice(lls.length + extra.length).filter(v => v !== null);
+        const zb = z.slice(0, lls.length + extra.length).filter(v => v !== null);
+        vals = zi.length >= 3 ? zi : zb;
+      } else {
+        const smp = lineSamples(pts);
+        vals = smp ? (await fetchElevations(smp.samples.map(x => x.ll))).filter(v => v !== null) : [];
+      }
+      if (vals && vals.length) txt = fmtElev(vals.reduce((a, b) => a + b, 0) / vals.length);
+    } catch (e) {}
+    if (mcElev.sig !== sig) return;      // mientras tanto cambió la medición
+    mcElev.text = txt;
+    renderMeasureCard();
+  }, 900);
+}
+function removeMeasureCard() { document.getElementById('measureCard')?.classList.remove('on'); }
+function renderMeasureCard() {
+  const el = document.getElementById('measureCard');
+  if (!el) return;
+  const info = document.getElementById('infoPanel');
+  const infoOpen = !!(info && !info.classList.contains('hidden'));
+  const recording = gpsWatchId !== null;
+  const active = (drawingActive || trackMode || !!editingId) && !infoOpen && !poiMode && (appView === 'medir' || recording);
+  const poly = !trackMode && mode === 'polygon';
+  if (!active || points.length < (poly ? 3 : 2) && !(trackMode && recording && points.length >= 1)) { removeMeasureCard(); return; }
+  const cell = (cap, val, cls) => `<div class="mc-cell"><div class="mc-cap">${cap}</div><div class="mc-val ${cls || ''}">${val}</div></div>`;
+  let html;
+  if (poly) {
+    const am = areaMain(liveArea);
+    html = cell('Superficie', `${nf2.format(am.v)} ${am.u}`) + cell('Perímetro', fmtLenShort(liveDist));
+  } else {
+    html = cell(trackMode ? 'Recorrido' : 'Largo', fmtLenShort(liveDist));
+  }
+  scheduleMeasureElev(measureElevSig());
+  html += cell('Alt. media', mcElev.text, 'mc-alt');
+  if (poly && liveSelfIntersect) html += cell('Atención', 'Se cruza', 'mc-warn');
+  el.innerHTML = html;
+  el.classList.add('on');
+  const header = document.querySelector('header');
+  if (header) {
+    const r = header.getBoundingClientRect();
+    el.style.top = Math.round(r.bottom + 8) + 'px';
+    el.style.left = Math.round(r.left) + 'px';
+  }
+}
+
 function updateLiveBadge() {
   const el = document.getElementById('liveReadout');
   if (!el) return;
   updateViewSwitchUI();
-  if (!SHOW_LIVE_READOUT) { removeLiveBadge(); return; }   // números flotantes de la derecha desactivados
+  if (!SHOW_LIVE_READOUT) { removeLiveBadge(); renderMeasureCard(); return; }   // en lugar de los números flotantes: tarjeta compacta arriba
   const info = document.getElementById('infoPanel');
   const infoOpen = !!(info && !info.classList.contains('hidden'));
   const recording = gpsWatchId !== null;
@@ -1586,7 +1651,7 @@ function updateMetrics(areaM2, distM) {
   liveArea = areaM2; liveDist = distM;
   updateLiveBadge();
 }
-const APP_VERSION = '2026.11.09-64';
+const APP_VERSION = '2026.11.09-65';
 let liveSelfIntersect = false; // el polígono se cruza a sí mismo (los marcadores rojos ya lo señalan)
 function updateSelfIntersectWarning(show) {
   const v = !!show;

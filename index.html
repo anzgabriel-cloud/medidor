@@ -14,7 +14,7 @@
   <meta name="apple-mobile-web-app-title" content="Medidor">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <!-- Versión: debe coincidir con APP_VERSION (app.js) y --app-version (styles.css) -->
-  <meta name="app-version" content="2026.11.09-66">
+  <meta name="app-version" content="2026.11.09-67">
 
   <!-- Dependencias externas -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -222,11 +222,6 @@
             <button id="modePoiBtn" class="w-full flex items-center gap-2 py-2 px-2 rounded-lg text-xs font-bold text-slate-300 bg-slate-800/70 border border-slate-600/50 min-h-[36px]" aria-label="Modo POI">
               <i data-lucide="map-pin" class="w-4 h-4 flex-shrink-0"></i> <span class="truncate">POI (Puntos de interés)</span>
             </button>
-            <div id="poiSizeRow" class="grid grid-cols-3 gap-1" role="group" aria-label="Tamaño de los POI">
-              <button type="button" data-poi-size="s">Chico</button>
-              <button type="button" data-poi-size="m">Medio</button>
-              <button type="button" data-poi-size="l">Grande</button>
-            </div>
           </div>
           <div id="actionCol" class="w-[148px] flex flex-col gap-1.5">
             <button id="newBtn" class="text-xs font-semibold rounded-md inline-flex items-center justify-center gap-1 h-8 px-2 act-btn act-measure bg-sky-500/20 text-sky-300 border border-sky-500/40" aria-label="Nueva medición">
@@ -248,6 +243,11 @@
             <button id="poiDoneBtn" class="text-xs font-semibold rounded-md inline-flex items-center justify-center gap-1 h-8 px-2 act-btn act-poi bg-amber-500 text-slate-950 border border-amber-400" aria-label="Guardar POI" disabled>
               <i data-lucide="save" class="w-3.5 h-3.5"></i> Guardar POI
             </button>
+            <div id="poiSizeRow" class="grid grid-cols-3 gap-1" role="group" aria-label="Tamaño de los POI">
+              <button type="button" data-poi-size="s" aria-label="POI chico"><svg width="8" height="13" viewBox="0 0 22 34" fill="currentColor" aria-hidden="true"><path d="M11 33.2C11 33.2 1.4 20.2 1.4 12.4 1.4 6.4 5.6 1.6 11 1.6S20.6 6.4 20.6 12.4C20.6 20.2 11 33.2 11 33.2Z"/><circle cx="11" cy="12.2" r="3.4" fill="#0f172a" opacity=".55"/></svg></button>
+              <button type="button" data-poi-size="m" aria-label="POI medio"><svg width="12" height="18" viewBox="0 0 22 34" fill="currentColor" aria-hidden="true"><path d="M11 33.2C11 33.2 1.4 20.2 1.4 12.4 1.4 6.4 5.6 1.6 11 1.6S20.6 6.4 20.6 12.4C20.6 20.2 11 33.2 11 33.2Z"/><circle cx="11" cy="12.2" r="3.4" fill="#0f172a" opacity=".55"/></svg></button>
+              <button type="button" data-poi-size="l" aria-label="POI grande"><svg width="16" height="25" viewBox="0 0 22 34" fill="currentColor" aria-hidden="true"><path d="M11 33.2C11 33.2 1.4 20.2 1.4 12.4 1.4 6.4 5.6 1.6 11 1.6S20.6 6.4 20.6 12.4C20.6 20.2 11 33.2 11 33.2Z"/><circle cx="11" cy="12.2" r="3.4" fill="#0f172a" opacity=".55"/></svg></button>
+            </div>
             <div class="flex gap-1 mt-auto">
               <button id="undoBtn" class="flex-1 flex items-center justify-center py-2 rounded-lg bg-slate-800 text-slate-200 border border-slate-700 min-h-[36px]" title="Deshacer" aria-label="Deshacer">
                 <i data-lucide="undo-2" class="w-4 h-4"></i>

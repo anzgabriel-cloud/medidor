@@ -1659,7 +1659,7 @@ function updateMetrics(areaM2, distM) {
   liveArea = areaM2; liveDist = distM;
   updateLiveBadge();
 }
-const APP_VERSION = '2026.11.09-66';
+const APP_VERSION = '2026.11.09-67';
 let liveSelfIntersect = false; // el polígono se cruza a sí mismo (los marcadores rojos ya lo señalan)
 function updateSelfIntersectWarning(show) {
   const v = !!show;
@@ -3145,7 +3145,7 @@ const poiTipOffset = () => [0, -Math.round(36 * poiK())];
 function refreshPoiSizeUI() {
   document.querySelectorAll('#poiSizeRow [data-poi-size]').forEach(b => {
     const on = b.dataset.poiSize === settings.poiSize;
-    b.className = 'py-1.5 rounded-lg text-[11px] font-bold border min-h-[30px] ' + (on ? 'bg-amber-500 text-slate-950 border-amber-400' : 'bg-slate-800/70 text-slate-300 border-slate-600/50');
+    b.className = 'h-8 rounded-md inline-flex items-center justify-center border ' + (on ? 'bg-amber-500 text-slate-950 border-amber-400' : 'bg-slate-800/70 text-slate-300 border-slate-600/50');
     b.setAttribute('aria-pressed', on ? 'true' : 'false');
   });
 }

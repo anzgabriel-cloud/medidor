@@ -14,7 +14,7 @@
   <meta name="apple-mobile-web-app-title" content="Medidor">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <!-- Versión: debe coincidir con APP_VERSION (app.js) y --app-version (styles.css) -->
-  <meta name="app-version" content="2026.11.17-74">
+  <meta name="app-version" content="2026.11.17-75">
 
   <!-- Librerías locales (en este mismo repo) + Tailwind por CDN -->
   <link rel="stylesheet" href="leaflet.css" />
@@ -157,7 +157,7 @@
   </div>
 
   <!-- BOTTOM PANEL -->
-  <div id="fixedCompass" class="hidden fixed z-20 flex flex-col items-end gap-0 pointer-events-none">
+  <div id="fixedCompass" class="hidden fixed flex flex-col items-end gap-0 pointer-events-none" style="z-index:19">
     <div class="flex items-center gap-1.5">
     <div class="flex flex-col gap-1 pointer-events-auto" role="group" aria-label="Tamaño de la brújula">
       <button type="button" data-compass-scale="1" class="text-[11px] font-bold w-8 h-6 rounded-md border" style="touch-action:manipulation">1×</button>
@@ -165,7 +165,7 @@
     </div>
     <button id="compassBtn" type="button" class="pointer-events-auto" aria-label="Brújula: tocá para activar el sensor de rumbo" style="padding:0;background:none;border:0;-webkit-tap-highlight-color:transparent;touch-action:manipulation">
       <!-- Flecha y línea verdes fijas (hacia donde mirás); la rosa de los vientos gira debajo -->
-      <svg id="compassSvg" class="fixed-compass-svg" width="56" height="70" viewBox="0 0 64 80" xmlns="http://www.w3.org/2000/svg">
+      <svg id="compassSvg" class="fixed-compass-svg" width="66" height="83" viewBox="0 0 64 80" xmlns="http://www.w3.org/2000/svg">
         <g transform="translate(0,12)">
           <circle id="fixedCompassRing" cx="32" cy="32" r="30" fill="rgba(15,23,42,0.82)" stroke="#94a3b8" stroke-width="2"/>
           <g id="compassRose">
@@ -180,14 +180,14 @@
           <text x="10" y="34" text-anchor="middle" font-size="7" font-weight="700" fill="rgba(255,255,255,0.55)" font-family="system-ui,sans-serif">O</text>
         </g>
         </g>
-        <line x1="32" y1="11" x2="32" y2="80" stroke="#0f172a" stroke-opacity=".6" stroke-width="3.6"/>
-        <line x1="32" y1="11" x2="32" y2="80" stroke="#00ff66" stroke-width="1.8"/>
+        <line x1="32" y1="11" x2="32" y2="80" stroke="#0f172a" stroke-opacity=".6" stroke-width="2.65"/>
+        <line x1="32" y1="11" x2="32" y2="80" stroke="#00ff66" stroke-width="0.85"/>
         <polygon points="32,1 39,12.5 25,12.5" fill="#00ff66" stroke="#0f172a" stroke-width="1.2" stroke-linejoin="round"/>
         <circle cx="32" cy="44" r="3.5" fill="#fff"/>
       </svg>
     </button>
     </div>
-    <div id="compassCaption" class="text-[11px] font-extrabold px-2 py-0.5 rounded-md whitespace-nowrap pointer-events-none" style="background:rgba(2,6,23,.92);border:1.5px solid #00ff66;color:#00ff66;margin-top:-1px">Sin rumbo…</div>
+    <div id="compassCaption" class="text-[11px] font-extrabold px-2 py-0.5 rounded-md whitespace-nowrap pointer-events-none" style="background:rgba(2,6,23,.92);border:0.5px solid #00ff66;color:#00ff66;margin-top:-1px">Sin rumbo…</div>
   </div>
   <div id="liveReadout" aria-live="off"></div>
   <div id="measureCard" aria-live="off"></div>
@@ -330,7 +330,10 @@
           <span id="infoDeclinationValue" class="font-bold text-rose-300">—</span>
         </div>
         <div id="infoToggles">
-        <div class="text-[10px] font-semibold uppercase tracking-wide text-slate-400 mb-1">Mostrar en mediciones:</div>
+        <div class="flex items-center justify-between gap-2 mb-1">
+          <div class="text-[10px] font-semibold uppercase tracking-wide text-slate-400">Mostrar en mediciones:</div>
+          <button id="infoCopyCoordsBtn" type="button" class="hidden items-center gap-1 -my-1 px-2 py-1 rounded-md border border-slate-600 bg-slate-800 text-sky-300 text-[10px] font-semibold active:bg-slate-700" aria-label="Copiar coordenadas de los puntos" title="Copiar coordenadas de los puntos"><i data-lucide="copy" class="w-3.5 h-3.5"></i> Copiar</button>
+        </div>
         <div class="flex gap-1 flex-wrap">
           <button id="infoToggleSegs" class="flex-1 min-w-[22%] text-[10px] font-semibold py-2 rounded-lg border bg-emerald-500/15 text-emerald-300 border-emerald-500/40 flex items-center justify-center gap-1">
             <i data-lucide="ruler" class="w-3 h-3"></i> Distancias
@@ -401,7 +404,6 @@
       <div id="poiCoordsBox" class="hidden mb-3 px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-[11px] text-slate-300">
         <div class="text-[10px] uppercase tracking-wide text-slate-500 mb-1">Coordenadas</div>
         <div id="poiCoordsText" class="font-mono">—</div>
-        <button id="poiCopyCoordsBtn" type="button" class="mt-1.5 text-[11px] font-semibold text-amber-300">Copiar coordenadas</button>
       </div>
       <div class="flex justify-between gap-2">
         <button id="deletePoiBtn" class="hidden px-3 py-2 text-xs font-semibold text-red-400 rounded-xl border border-red-500/30">Eliminar</button>

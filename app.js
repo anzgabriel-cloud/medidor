@@ -805,20 +805,6 @@ document.getElementById('closePoiBtn').onclick = (e) => { e.preventDefault(); e.
     document.getElementById('poiModal').classList.add('hidden');
     deletePoi(id);
   };
-  document.getElementById('poiCopyCoordsBtn').onclick = () => {
-    const t = document.getElementById('poiCoordsText');
-    const btn = document.getElementById('poiCopyCoordsBtn');
-    if (!t || !btn) return;
-    const show = () => {
-      const r = btn.getBoundingClientRect();
-      const tip = document.createElement('div');
-      tip.textContent = 'Copiado';
-      tip.style.cssText = `position:fixed;left:${r.left}px;top:${r.top - 28}px;z-index:60;background:rgba(15,23,42,0.95);color:#fff;font-size:11px;font-weight:700;padding:4px 8px;border-radius:8px;border:1px solid rgba(255,255,255,0.25);pointer-events:none;`;
-      document.body.appendChild(tip);
-      setTimeout(() => tip.remove(), 1200);
-    };
-    navigator.clipboard?.writeText(t.dataset.dec || t.textContent || '').then(show, show);
-  };
   document.getElementById('closeSavedBtn').onclick = (e) => { e.preventDefault(); e.stopPropagation(); document.getElementById('savedDrawer').classList.add('hidden'); };
   document.getElementById('savedDrawer').onclick = (e) => { if (e.target.id === 'savedDrawer') { document.getElementById('savedDrawer').classList.add('hidden'); } };
   const savedPanel = document.getElementById('savedDrawerPanel');
@@ -854,6 +840,10 @@ document.getElementById('closePoiBtn').onclick = (e) => { e.preventDefault(); e.
   document.getElementById('infoToggleCoords').onclick = () => {
     inspectShowSegs = false; inspectShowBearings = false; inspectShowAngles = false; inspectShowCoords = true;
     updateInfoToggleUI(); refreshInspectOverlays();
+  };
+  document.getElementById('infoCopyCoordsBtn').onclick = (e) => {   // un punto por línea, decimal
+    if (!inspectItem || !inspectItem.points) return;
+    copyToClipboard(inspectItem.points.map(p => `${(+p.lat).toFixed(6)}, ${(+p.lng).toFixed(6)}`).join('\n'), e.currentTarget);
   };
   document.getElementById('exportBtn').onclick = exportBackup;
   document.getElementById('importInput').onchange = importBackup;
@@ -923,7 +913,7 @@ document.getElementById('closePoiBtn').onclick = (e) => { e.preventDefault(); e.
   document.getElementById('viewVerBtn').onclick = () => onViewSwitch('ver');
   document.getElementById('viewMedirBtn').onclick = () => onViewSwitch('medir');
   document.getElementById('viewHintOk').onclick = () => hideViewHint(true);
-  applyAppView(); // arranca en Medir
+  applyAppView(); // arranca en Ver
   checkAppVersion();
   setTimeout(checkBackupReminder, 3500);
   requestPersistentStorage();
@@ -1697,7 +1687,7 @@ function updateMetrics(areaM2, distM) {
   liveArea = areaM2; liveDist = distM;
   updateLiveBadge();
 }
-const APP_VERSION = '2026.11.17-74';
+const APP_VERSION = '2026.11.17-75';
 let liveSelfIntersect = false; // el polígono se cruza a sí mismo (los marcadores rojos ya lo señalan)
 function updateSelfIntersectWarning(show) {
   const v = !!show;
@@ -1805,7 +1795,7 @@ function angleArcGeometry(vPx, pPx, nPx, deg) {
 }
 
 // ---- Brújula fija (esquina superior derecha, bajo la barra de arriba) mientras hay una Consulta abierta ----
-const COMPASS_SIZE = 56;
+const COMPASS_SIZE = 66;   // píxeles del círculo en 1× (2× = el doble)
 const COMPASS_SCALE_KEY = 'medidor_compass_scale';
 let compassScale = 1;
 try { const v = parseInt(localStorage.getItem(COMPASS_SCALE_KEY), 10); if (v >= 2) compassScale = 2; } catch (e) {}   // solo 1× y 2× (un 3× guardado antes pasa a 2×)
@@ -2086,6 +2076,8 @@ function updateInfoToggleUI() {
   const brgBtn = document.getElementById('infoToggleBearings');
   const angBtn = document.getElementById('infoToggleAngles');
   const coordBtn = document.getElementById('infoToggleCoords');
+  const copyBtn = document.getElementById('infoCopyCoordsBtn');
+  if (copyBtn) copyBtn.classList.toggle('hidden', !(inspectShowCoords && inspectItem));
   if (inspectStraight && inspectShowAngles) { inspectShowAngles = false; inspectShowSegs = true; }   // sin ángulos en una recta
   if (angBtn) { angBtn.disabled = inspectStraight; angBtn.title = inspectStraight ? 'Una distancia recta no tiene ángulos' : ''; }
   if (segBtn) segBtn.className = inspectShowSegs ? baseOn + ' bg-emerald-500/15 text-emerald-300 border-emerald-500/40' : baseOff;
@@ -2196,6 +2188,28 @@ function showMeasurementInfo(item) {
   lucide.createIcons();
 }
 
+/** Copia texto al portapapeles y avisa con un cartelito junto al botón (con respaldo si el navegador no permite la API) */
+async function copyToClipboard(text, anchor) {
+  let ok = false;
+  try { await navigator.clipboard.writeText(text); ok = true; }
+  catch (e) {
+    try {
+      const ta = document.createElement('textarea');
+      ta.value = text; ta.setAttribute('readonly', '');
+      ta.style.cssText = 'position:fixed;top:0;left:0;opacity:0';
+      document.body.appendChild(ta); ta.select();
+      ok = document.execCommand('copy'); ta.remove();
+    } catch (e2) {}
+  }
+  const r = anchor ? anchor.getBoundingClientRect() : { left: window.innerWidth / 2 - 40, top: window.innerHeight / 2 };
+  const tip = document.createElement('div');
+  tip.textContent = ok ? 'Copiado' : 'No se pudo copiar';
+  tip.style.cssText = `position:fixed;left:${Math.max(8, Math.min(r.left, window.innerWidth - 130))}px;top:${Math.max(8, r.top - 32)}px;z-index:60;background:rgba(15,23,42,0.95);color:${ok ? '#fff' : '#fca5a5'};font-size:11px;font-weight:700;padding:4px 8px;border-radius:8px;border:1px solid rgba(255,255,255,0.25);pointer-events:none;`;
+  document.body.appendChild(tip);
+  setTimeout(() => tip.remove(), 1400);
+  return ok;
+}
+
 function showPoiInfo(p) {
   clearInspectLayers();   // quita etiquetas y arcos de una medición consultada antes
   inspectItem = null;
@@ -2222,10 +2236,14 @@ function showPoiInfo(p) {
       </div>
       <div id="infoElev" class="flex-none min-w-0 pl-3 border-l-2 border-slate-700"></div>
       <div class="flex-1 min-w-0 pl-3 border-l-2 border-slate-700">
-        <div class="text-[10px] text-slate-400 uppercase">Coordenadas</div>
+        <div class="flex items-center justify-between">
+          <div class="text-[10px] text-slate-400 uppercase">Coordenadas</div>
+          <button id="infoCopyPoiCoords" type="button" class="flex items-center justify-center w-7 h-6 -mt-1 -mr-1 rounded-md border border-slate-600 bg-slate-800 text-sky-300 active:bg-slate-700" aria-label="Copiar coordenadas" title="Copiar coordenadas"><i data-lucide="copy" class="w-3.5 h-3.5"></i></button>
+        </div>
         ${fmtCoordLines(p.lat, p.lng).map(t => `<div class="text-[11px] leading-snug font-mono text-slate-200 break-all">${escapeHtml(t)}</div>`).join('')}
       </div>
     </div>`;
+  document.getElementById('infoCopyPoiCoords').onclick = (e) => copyToClipboard(`${(+p.lat).toFixed(6)}, ${(+p.lng).toFixed(6)}`, e.currentTarget);   // decimal: lo entiende cualquier mapa
   loadInfoElevForPoi(p);
   document.getElementById('infoDeclination')?.classList.add('hidden');
   document.getElementById('infoToggles')?.classList.add('hidden');
@@ -2379,8 +2397,8 @@ function updateModeTheme() {
   mc?.setAttribute('data-rec', (trackMode && gpsWatchId !== null) ? '1' : '0');
 }
 // ========== VISTA: Ver / Medir ==========
-// Ver = mapa limpio, solo consulta. Medir = panel de medición. La app arranca en Medir.
-let appView = 'medir';
+// Ver = mapa limpio, solo consulta. Medir = panel de medición. La app arranca en Ver.
+let appView = 'ver';
 function hasPendingWork() { return points.length > 0 || gpsWatchId !== null || !!editingId; }
 function ensureMedir() { if (appView !== 'medir') { appView = 'medir'; applyAppView(); } }
 function setAppView(v) {

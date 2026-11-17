@@ -1358,7 +1358,9 @@ function addPoint(latlng, insertAt = null) {
   if (!drawingActive && !(trackMode && gpsWatchId !== null)) return;
   if (insertAt !== null) points.splice(insertAt, 0, latlng);
   else points.push(latlng);
-  rebuildMarkers();
+  // Grabando por GPS se agrega al final: alcanza con sumar el marcador nuevo (rehacerlos todos crece con el cuadrado de los puntos)
+  if (insertAt === null && gpsWatchId !== null && markers.length === points.length - 1) markers.push(makeVertexMarker(latlng, points.length - 1));
+  else rebuildMarkers();
   redraw();
   pushHistory();
   updateClearBtnState();
@@ -1413,43 +1415,49 @@ async function offerClosePolygon() {
   pushHistory();
   toast({ type: 'success', title: 'Polígono cerrado', message: 'Pasó a modo Superficie.', duration: 2200 });
 }
+/** Crea (y agrega al mapa) el marcador del vértice `idx` con sus manejadores de arrastre */
+function makeVertexMarker(ll, idx) {
+  const m = L.marker(ll, { icon: vertexIcon(false, isLocked), draggable: false, keyboard: false }).addTo(map);
+  const attachHandlers = () => {
+    const iconEl = m.getElement();
+    if (!iconEl) return;
+    iconEl.style.touchAction = 'none';
+    const handler = (e) => startDrag(idx, e);
+    iconEl.addEventListener('pointerdown', handler, { passive: false });
+    iconEl.addEventListener('touchstart', handler, { passive: false });
+    iconEl.addEventListener('mousedown', handler, { passive: false });
+  };
+  // getElement() puede ser null justo después de addTo; reintentar en el próximo frame
+  if (m.getElement()) attachHandlers();
+  else {
+    m.once('add', () => requestAnimationFrame(attachHandlers));
+    requestAnimationFrame(attachHandlers);
+  }
+  return m;
+}
 function rebuildMarkers() {
   selectedVertex = -1; positionVertexBtn();
   markers.forEach(m => map.removeLayer(m));
   markers = [];
-  points.forEach((ll, idx) => {
-    const m = L.marker(ll, { icon: vertexIcon(false, isLocked), draggable: false, keyboard: false }).addTo(map);
-    const attachHandlers = () => {
-      const iconEl = m.getElement();
-      if (!iconEl) return;
-      iconEl.style.touchAction = 'none';
-      const handler = (e) => startDrag(idx, e);
-      iconEl.addEventListener('pointerdown', handler, { passive: false });
-      iconEl.addEventListener('touchstart', handler, { passive: false });
-      iconEl.addEventListener('mousedown', handler, { passive: false });
-    };
-    // getElement() puede ser null justo después de addTo; reintentar en el próximo frame
-    if (m.getElement()) attachHandlers();
-    else {
-      m.once('add', () => requestAnimationFrame(attachHandlers));
-      requestAnimationFrame(attachHandlers);
-    }
-    markers.push(m);
-  });
+  points.forEach((ll, idx) => markers.push(makeVertexMarker(ll, idx)));
 }
 
 // ========== DRAW ==========
 function updateGeometry() {
+  // En distancia/recorrido la polilínea se reutiliza (setLatLngs) en lugar de quitarla y crearla en cada punto
+  const reuse = mode === 'line' && !!lineLayer && !polyLayer && points.length >= 2;
   if (polyLayer) map.removeLayer(polyLayer);
-  if (lineLayer) map.removeLayer(lineLayer);
-  polyLayer = lineLayer = null;
+  if (lineLayer && !reuse) map.removeLayer(lineLayer);
+  polyLayer = null;
+  if (!reuse) lineLayer = null;
   if (points.length < 2) { updateMetrics(0, 0); clearKinkMarkers(); updateSelfIntersectWarning(false); return; }
   if (mode === 'polygon') {
     lineLayer = L.polyline(points, { color: themeColor, weight: 3 }).addTo(map);
     if (points.length >= 3) polyLayer = L.polygon(points, { color: themeColor, fillColor: themeColor, fillOpacity: 0.22, weight: 3 }).addTo(map);
     calcPolygon();
   } else {
-    lineLayer = L.polyline(points, { color: themeColor, weight: 4 }).addTo(map);
+    if (reuse) lineLayer.setLatLngs(points).setStyle({ color: themeColor, weight: 4 });
+    else lineLayer = L.polyline(points, { color: themeColor, weight: 4 }).addTo(map);
     calcLine();
   }
 }
@@ -2679,6 +2687,11 @@ function startUserLocationWatch(centerOnFirst) {
   }
 }
 
+/** ¿El error de geolocalización obliga a detener la grabación? Solo el permiso rechazado (1) o la falta de contexto seguro.
+ *  Señal no disponible (2) o tiempo agotado (3) son pasajeros: monte, cañadón, o quedarse quieto en iOS. */
+function gpsErrorIsFatal(err) {
+  return !!(err && err.code === 1);
+}
 function geoErrorInfo(err) {
   const secure = window.isSecureContext;
   const code = err && err.code;
@@ -4306,6 +4319,7 @@ document.addEventListener('visibilitychange', () => {
   hiddenAt = null;
 });
 // Estado en vivo del recorrido (se muestra en los números flotantes de la derecha)
+let gpsSoftWarned = false;   // el aviso de "señal débil" sale una vez por grabación
 const gpsLive = { msg: '', speed: null, heading: null, lastFix: null, recStart: null, recMs: 0 };
 
 function setGpsBtnState(active) {
@@ -4403,6 +4417,7 @@ function startGpsRecording() {
   }
   gpsLive.msg = 'Buscando señal…'; gpsLive.speed = null; gpsLive.heading = null; gpsLive.lastFix = null;
   gpsLive.recStart = Date.now();
+  gpsSoftWarned = false;
   trackStarted = true; trackEnded = false;
   const wakeOk = acquireWakeLock();
   setGpsBtnState(true);
@@ -4434,6 +4449,16 @@ function startGpsRecording() {
       updateLiveBadge();
     },
     (err) => {
+      if (!gpsErrorIsFatal(err)) {
+        // Señal pasajera: la grabación sigue y el navegador reintenta solo; los puntos con mala precisión ya se descartan arriba
+        gpsLive.msg = err && err.code === 3 ? 'Buscando señal…' : 'Señal GPS débil…';
+        updateLiveBadge();
+        if (!gpsSoftWarned) {
+          gpsSoftWarned = true;
+          toast({ type: 'warning', title: 'Señal GPS débil', message: 'Se sigue grabando; se retoma sola cuando vuelva la señal.', duration: 4000 });
+        }
+        return;
+      }
       gpsLive.msg = 'Sin señal GPS';
       stopGpsTracking({ keepMode: true });
       toast({ type: 'error', title: 'GPS interrumpido', message: geoErrorInfo(err), duration: 9000 });

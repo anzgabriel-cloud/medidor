@@ -66,6 +66,7 @@ let inspectItem = null;
 let inspectShowSegs = true;
 let inspectShowBearings = false;
 let inspectShowAngles = false;
+let inspectStraight = false;   // distancia recta: no tiene ángulos que mostrar
 let inspectShowCoords = false;
 let isLocked = false;
 let drawingActive = false; // solo se agregan puntos tras pulsar Nueva (o al editar)
@@ -619,8 +620,12 @@ function init() {
     if (selectedVertex >= 0) { deselectVertex(); return; }   // tocar el mapa solo quita la selección
     if (inspectItem) return;
     if (appView === 'ver') return; // modo Ver: el mapa no agrega puntos
-    if (poiMode) {
-      openPoiModal(e.latlng);
+    if (poiMode) {   // en Modo POI el punto se ubica solo con la mira (botón «Nuevo POI»), no tocando el mapa
+      const now = Date.now();
+      if (now - lastPauseToastAt > 2500) {
+        lastPauseToastAt = now;
+        toast({ type: 'info', title: 'Modo POI', message: 'Mové el mapa hasta que la mira quede sobre el punto y tocá «Nuevo POI».', duration: 2600 });
+      }
       return;
     }
     if (trackMode) {
@@ -656,9 +661,17 @@ function init() {
     settings.poiSize = b.dataset.poiSize; saveSettings(); refreshPoiSizeUI();   // solo afecta a los POI que crees después
   });
   refreshPoiSizeUI();
-  document.getElementById('poiSearch').oninput = (e) => { poiFilter = e.target.value; renderPoiList(); };
-  document.getElementById('savedSearch').oninput = (e) => { savedFilter = e.target.value; renderSaved(); };
-  document.getElementById('compassSizeBtn').onclick = cycleCompassScale;
+  // Buscadores de las listas: con una × para vaciar el campo (aparece solo si hay texto)
+  const bindSearchClear = (inputId, btnId, setFilter, render) => {
+    const inp = document.getElementById(inputId), btn = document.getElementById(btnId);
+    const sync = () => btn.classList.toggle('hidden', !inp.value);
+    inp.oninput = () => { setFilter(inp.value); sync(); render(); };
+    btn.onclick = (e) => { e.preventDefault(); e.stopPropagation(); inp.value = ''; setFilter(''); sync(); render(); inp.focus(); };
+    sync();
+  };
+  bindSearchClear('poiSearch', 'poiSearchClear', v => { poiFilter = v; }, () => renderPoiList());
+  bindSearchClear('savedSearch', 'savedSearchClear', v => { savedFilter = v; }, () => renderSaved());
+  document.querySelectorAll('#fixedCompass [data-compass-scale]').forEach(b => b.onclick = () => setCompassScale(+b.dataset.compassScale));
   // Con la app en segundo plano se suelta el sensor de movimiento
   document.addEventListener('visibilitychange', () => {
     const el = document.getElementById('fixedCompass');
@@ -834,6 +847,7 @@ document.getElementById('closePoiBtn').onclick = (e) => { e.preventDefault(); e.
     updateInfoToggleUI(); refreshInspectOverlays();
   };
   document.getElementById('infoToggleAngles').onclick = () => {
+    if (inspectStraight) return;
     inspectShowSegs = false; inspectShowBearings = false; inspectShowAngles = true; inspectShowCoords = false;
     updateInfoToggleUI(); refreshInspectOverlays();
   };
@@ -1683,7 +1697,7 @@ function updateMetrics(areaM2, distM) {
   liveArea = areaM2; liveDist = distM;
   updateLiveBadge();
 }
-const APP_VERSION = '2026.11.17-72';
+const APP_VERSION = '2026.11.17-73';
 let liveSelfIntersect = false; // el polígono se cruza a sí mismo (los marcadores rojos ya lo señalan)
 function updateSelfIntersectWarning(show) {
   const v = !!show;
@@ -1794,16 +1808,19 @@ function angleArcGeometry(vPx, pPx, nPx, deg) {
 const COMPASS_SIZE = 56;
 const COMPASS_SCALE_KEY = 'medidor_compass_scale';
 let compassScale = 1;
-try { const v = parseInt(localStorage.getItem(COMPASS_SCALE_KEY), 10); if (v >= 1 && v <= 3) compassScale = v; } catch (e) {}
+try { const v = parseInt(localStorage.getItem(COMPASS_SCALE_KEY), 10); if (v >= 2) compassScale = 2; } catch (e) {}   // solo 1× y 2× (un 3× guardado antes pasa a 2×)
 function applyCompassScale() {
   const px = Math.min(COMPASS_SIZE * compassScale, Math.floor(window.innerWidth * 0.5));
   const svg = document.getElementById('compassSvg');
   if (svg) { svg.setAttribute('width', px); svg.setAttribute('height', px); }
-  const b = document.getElementById('compassSizeBtn');
-  if (b) b.textContent = compassScale + '×';
+  document.querySelectorAll('#fixedCompass [data-compass-scale]').forEach(b => {
+    const on = +b.dataset.compassScale === compassScale;
+    b.className = 'text-[11px] font-bold w-8 h-6 rounded-md border ' + (on ? 'bg-amber-500 text-slate-950 border-amber-400' : 'bg-slate-900/85 text-amber-300 border-slate-600');
+    b.setAttribute('aria-pressed', on ? 'true' : 'false');
+  });
 }
-function cycleCompassScale() {
-  compassScale = compassScale % 3 + 1;
+function setCompassScale(n) {
+  compassScale = n === 2 ? 2 : 1;
   try { localStorage.setItem(COMPASS_SCALE_KEY, String(compassScale)); } catch (e) {}
   applyCompassScale(); positionFixedCompass();
 }
@@ -2086,6 +2103,8 @@ function updateInfoToggleUI() {
   const brgBtn = document.getElementById('infoToggleBearings');
   const angBtn = document.getElementById('infoToggleAngles');
   const coordBtn = document.getElementById('infoToggleCoords');
+  if (inspectStraight && inspectShowAngles) { inspectShowAngles = false; inspectShowSegs = true; }   // sin ángulos en una recta
+  if (angBtn) { angBtn.disabled = inspectStraight; angBtn.title = inspectStraight ? 'Una distancia recta no tiene ángulos' : ''; }
   if (segBtn) segBtn.className = inspectShowSegs ? baseOn + ' bg-emerald-500/15 text-emerald-300 border-emerald-500/40' : baseOff;
   if (brgBtn) brgBtn.className = inspectShowBearings ? baseOn + ' bg-rose-500/15 text-rose-300 border-rose-500/40' : baseOff;
   if (angBtn) angBtn.className = inspectShowAngles ? baseOn + ' bg-amber-500/15 text-amber-300 border-amber-500/40' : baseOff;
@@ -2116,6 +2135,7 @@ function updateInfoToggleUI() {
 
 function showMeasurementInfo(item) {
   inspectItem = item;
+  inspectStraight = false;
   inspectShowSegs = true;
   inspectShowBearings = false;
   inspectShowAngles = false;
@@ -2155,6 +2175,7 @@ function showMeasurementInfo(item) {
         if (Math.abs(diff - 180) > 1.5) { straight = false; break; }
       }
     }
+    inspectStraight = straight && pts.length >= 2;
     let bearingHtml = '';
     if (straight && pts.length >= 2) {
       const brg = trueBearing(pts[0], pts[pts.length - 1]);
@@ -3194,7 +3215,7 @@ const poiTipOffset = (size) => [0, -Math.round(36 * poiK(size))];
 function refreshPoiSizeUI() {
   document.querySelectorAll('#poiSizeRow [data-poi-size]').forEach(b => {
     const on = b.dataset.poiSize === settings.poiSize;
-    b.className = 'h-8 rounded-md inline-flex items-center justify-center border ' + (on ? 'bg-amber-500 text-slate-950 border-amber-400' : 'bg-slate-800/70 text-slate-300 border-slate-600/50');
+    b.className = 'h-8 rounded-md inline-flex items-center justify-center border ' + (on ? 'text-amber-400 border-amber-400' : 'bg-slate-800/70 text-slate-500 border-slate-600/50');
     b.setAttribute('aria-pressed', on ? 'true' : 'false');
   });
 }

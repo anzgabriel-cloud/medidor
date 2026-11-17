@@ -2,7 +2,7 @@
    Separado del HTML para mejor mantenimiento
 */
 
-:root { --app-version: "2026.11.17-72"; }
+:root { --app-version: "2026.11.17-73"; }
 
 .leaflet-control-attribution { font-size: 9px !important; background: rgba(15,23,42,0.7) !important; color: #94a3b8 !important; }
 .leaflet-control-attribution a { color: #94a3b8 !important; }
@@ -495,6 +495,16 @@ button:disabled, .btn-disabled {
 #measureCard .mc-alt { color: #fcd34d; }
 #measureCard .mc-warn { color: #f87171; }
 
+/* Tamaños de POI: pin con relieve (sombra, brillo y centro blanco); el elegido se ve ámbar con aro */
+#poiSizeRow svg { filter: drop-shadow(0 1px 1.5px rgba(0,0,0,.65)); }
+#poiSizeRow .pin-dot { fill: #fff; opacity: .92; }
+#poiSizeRow button[aria-pressed="false"] .pin-dot { opacity: .4; }
+#poiSizeRow button[aria-pressed="true"] {
+  background: linear-gradient(#1e293b, #0b1220);
+  box-shadow: 0 0 0 1px rgba(251,191,36,.75), 0 0 9px rgba(251,191,36,.35), inset 0 1px 0 rgba(255,255,255,.12);
+}
+/* Buscadores de listas: usan la × propia, no la nativa del navegador */
+input[type="search"]::-webkit-search-cancel-button { -webkit-appearance: none; appearance: none; display: none; }
 /* Tamaños de POI: solo en Modo POI */
 #poiSizeRow { display: none; }
 #mainControls[data-mode="poi"] #poiSizeRow { display: grid; }

@@ -99,7 +99,7 @@ node --test tests/calculos.test.js tests/altitud.test.js tests/cercania.test.js
 - Borrar un punto de una superficie o distancia: tocarlo (sin arrastrar) lo selecciona y aparece "Borrar punto"; se recupera con Deshacer. Mínimo 3 puntos en superficie y 2 en distancia. No aplica a recorridos.
 
 ## Brújula (Modo vista)
-Siempre visible arriba a la derecha. Tocarla alterna **Norte fijo** (mapa y rosa al norte) y **Rumbo**: la rosa gira y una marca ámbar indica hacia dónde mirás; el mapa no rota. El rumbo sale del sensor del teléfono (corregido por declinación) y del GPS cuando te movés rápido. En iPhone pide un permiso la primera vez.
+Siempre visible arriba a la derecha (y en cualquier modo mientras hay una Consulta abierta). La **flecha verde** y su línea quedan fijas (hacia donde mirás) y la **rosa de los vientos gira** debajo; la etiqueta verde de abajo muestra el rumbo verdadero (V), el magnético (M) y el punto cardinal, p. ej. «341° V - 358° M - NNO». El mapa no rota. El rumbo sale del sensor del teléfono (corregido por declinación) y del GPS cuando te movés rápido (la etiqueta agrega «- GPS»). En iPhone, la primera vez hay que tocar la brújula para dar el permiso del sensor. Dos tamaños: 1× y 2× (botones a la izquierda).
 
 ## Navegación a un POI
 La cuerda punteada lleva una etiqueta con rumbo y distancia que se mantiene siempre dentro de la pantalla (zoom o desplazamiento) y se actualiza con el GPS. En el POI donde estás parado (a menos de 15 m) "Navegar" queda desactivado ("Estás aquí"); al llegar, la navegación termina sola.

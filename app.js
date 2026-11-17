@@ -582,6 +582,7 @@ function confirmToast({ title, message = '', confirmLabel = 'Confirmar', cancelL
 
 // ========== INIT ==========
 function init() {
+  checkAppVersion();   // primero: si los archivos son de versiones distintas, avisa aunque algo más abajo falle
   loadSettings();
   draftPending = !!readDraft(); // protege el borrador hasta resolver si se recupera
   document.documentElement.style.setProperty('--theme-color', themeColor);
@@ -664,6 +665,7 @@ function init() {
   // Buscadores de las listas: con una × para vaciar el campo (aparece solo si hay texto)
   const bindSearchClear = (inputId, btnId, setFilter, render) => {
     const inp = document.getElementById(inputId), btn = document.getElementById(btnId);
+    if (!inp || !btn) return;
     const sync = () => btn.classList.toggle('hidden', !inp.value);
     inp.oninput = () => { setFilter(inp.value); sync(); render(); };
     btn.onclick = (e) => { e.preventDefault(); e.stopPropagation(); inp.value = ''; setFilter(''); sync(); render(); inp.focus(); };
@@ -841,7 +843,8 @@ document.getElementById('closePoiBtn').onclick = (e) => { e.preventDefault(); e.
     inspectShowSegs = false; inspectShowBearings = false; inspectShowAngles = false; inspectShowCoords = true;
     updateInfoToggleUI(); refreshInspectOverlays();
   };
-  document.getElementById('infoCopyCoordsBtn').onclick = (e) => {   // un punto por línea, decimal
+  const copyCoordsBtn = document.getElementById('infoCopyCoordsBtn');
+  if (copyCoordsBtn) copyCoordsBtn.onclick = (e) => {   // un punto por línea, decimal
     if (!inspectItem || !inspectItem.points) return;
     copyToClipboard(inspectItem.points.map(p => `${(+p.lat).toFixed(6)}, ${(+p.lng).toFixed(6)}`).join('\n'), e.currentTarget);
   };
@@ -914,7 +917,6 @@ document.getElementById('closePoiBtn').onclick = (e) => { e.preventDefault(); e.
   document.getElementById('viewMedirBtn').onclick = () => onViewSwitch('medir');
   document.getElementById('viewHintOk').onclick = () => hideViewHint(true);
   applyAppView(); // arranca en Ver
-  checkAppVersion();
   setTimeout(checkBackupReminder, 3500);
   requestPersistentStorage();
   setTimeout(showViewHint, 900);
@@ -1687,7 +1689,7 @@ function updateMetrics(areaM2, distM) {
   liveArea = areaM2; liveDist = distM;
   updateLiveBadge();
 }
-const APP_VERSION = '2026.11.17-75';
+const APP_VERSION = '2026.11.17-76';
 let liveSelfIntersect = false; // el polígono se cruza a sí mismo (los marcadores rojos ya lo señalan)
 function updateSelfIntersectWarning(show) {
   const v = !!show;

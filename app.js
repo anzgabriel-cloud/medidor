@@ -267,13 +267,15 @@ function refreshSettingsUI() {
   const est = (() => { const o = ov; setDeclOverride(null); const v = magneticDeclination(c.lat, c.lng); if (o !== null) setDeclOverride(o); return v; })();
   // El teclado numérico del iPhone no tiene signo: se escribe el valor y se elige Este (+) u Oeste (−)
   if (ov !== null) declSign = ov < 0 ? -1 : 1;
-  else declSign = est < 0 ? -1 : 1;          // por defecto, el sentido de la estimación del lugar
+  else declSign = est < 0 ? -1 : 1;          // por defecto, el sentido de la declinación calculada para el lugar
   document.getElementById('setDecl').value = ov === null ? '' : (ov < 0 ? '−' : '+') + String(Math.abs(ov));
   document.getElementById('setDecl').placeholder = `Auto: ${Math.abs(est).toFixed(1)}° ${est < 0 ? 'O' : 'E'}`;
   updateDeclSignUI();
   document.getElementById('setDeclHint').textContent = ov === null
-    ? `Usando estimación aproximada: ${fmtDecl(est)} (puede tener varios grados de error). Escribí el valor real del lugar (NOAA/NCEI) y elegí Este u Oeste.`
-    : `Valor manual en uso: ${fmtDecl(ov)}. La estimación aquí sería ${fmtDecl(est)}.`;
+    ? (typeof wmmDeclination === 'function'
+      ? `Calculada con el modelo WMM2025 (NOAA/BGS): ${fmtDecl(est)}. Precisión típica de medio grado; vale hasta fines de 2029. Si tenés el valor medido del lugar, escribilo y elegí Este u Oeste.`
+      : `Usando estimación aproximada: ${fmtDecl(est)} (puede tener varios grados de error). Escribí el valor real del lugar (NOAA/NCEI) y elegí Este u Oeste.`)
+    : `Valor manual en uso: ${fmtDecl(ov)}. ${typeof wmmDeclination === 'function' ? 'El modelo WMM2025' : 'La estimación'} aquí daría ${fmtDecl(est)}.`;
   const accSel = document.getElementById('setGpsAcc'), stepSel = document.getElementById('setGpsStep');
   const u = (m) => isImp() ? `${Math.round(m * FT).toLocaleString('es-AR')} ft` : `${m.toLocaleString('es-AR')} m`;
   accSel.innerHTML = [5, 10, 20, 30, 50].map(v => `<option value="${v}">±${u(v)}</option>`).join('');
@@ -910,6 +912,7 @@ document.getElementById('closePoiBtn').onclick = (e) => { e.preventDefault(); e.
   applyAppView(); // arranca en Medir
   checkAppVersion();
   setTimeout(checkBackupReminder, 3500);
+  requestPersistentStorage();
   setTimeout(showViewHint, 900);
   updateModeTheme();
 }
@@ -924,8 +927,9 @@ function checkAppVersion() {
     if (html !== APP_VERSION) bad.push('index.html');
     if (css !== APP_VERSION) bad.push('styles.css');
     if (typeof BACKUP_VERSION === 'undefined' || BACKUP_VERSION !== APP_VERSION) bad.push('backup.js');
+    if (typeof wmmDeclination !== 'function') bad.push('wmm.js');
     if (bad.length) {
-      toast({ type: 'warning', title: 'Actualización incompleta', message: `Falta actualizar ${bad.join(' y ')} (la app es ${APP_VERSION}). Subí index.html, styles.css, app.js y backup.js juntos y recargá.`, duration: 15000 });
+      toast({ type: 'warning', title: 'Actualización incompleta', message: `Falta actualizar ${bad.join(' y ')} (la app es ${APP_VERSION}). Subí index.html, styles.css, app.js, backup.js y wmm.js juntos y recargá.`, duration: 15000 });
     }
   } catch (e) {}
 }
@@ -1244,10 +1248,9 @@ function trueBearing(from, to) {
 /**
  * Declinación magnética (°). Este positivo = este.
  * Si el usuario cargó un valor manual (Ajustes), se usa ese.
- * Si no, se usa una ESTIMACIÓN regional muy gruesa ajustada a Buenos Aires
- * (~ -9,5°). Lejos de Buenos Aires, sobre todo en el sur patagónico, el error
- * puede ser de varios grados: para trabajo de campo cargar el valor real
- * del lugar (calculador NOAA/NCEI o IGRF) como valor manual.
+ * Si no, se calcula con el modelo WMM2025 (wmm.js, sin conexión, válido hasta fines de 2029).
+ * Si wmm.js no cargó, queda como respaldo una ESTIMACIÓN regional muy gruesa ajustada a
+ * Buenos Aires (~ -9,5°) que lejos de allí puede errar varios grados.
  */
 const DECL_KEY = 'medidor_decl_override';
 function getDeclOverride() {
@@ -1265,6 +1268,7 @@ function setDeclOverride(v) {
 function magneticDeclination(lat, lng) {
   const manual = getDeclOverride();
   if (manual !== null) return manual;
+  if (typeof wmmDeclination === 'function') return wmmDeclination(lat, lng);
   if (lat >= -56 && lat <= -20 && lng >= -75 && lng <= -48) {
     const dLat = lat + 34.6;
     const dLng = lng + 58.4;
@@ -1679,7 +1683,7 @@ function updateMetrics(areaM2, distM) {
   liveArea = areaM2; liveDist = distM;
   updateLiveBadge();
 }
-const APP_VERSION = '2026.11.09-71';
+const APP_VERSION = '2026.11.17-72';
 let liveSelfIntersect = false; // el polígono se cruza a sí mismo (los marcadores rojos ya lo señalan)
 function updateSelfIntersectWarning(show) {
   const v = !!show;
@@ -3784,7 +3788,27 @@ function renderSaved() {
 // ----- Recordatorio de respaldo: los datos viven solo en este navegador -----
 const LAST_BACKUP_KEY = 'medidor_last_backup';
 const BACKUP_SNOOZE_KEY = 'medidor_backup_snooze';
-const BACKUP_EVERY_DAYS = 14;
+/** ¿La app corre instalada en la pantalla de inicio (y no en una pestaña del navegador)? */
+const isStandalone = () => { try { return !!(navigator.standalone || (window.matchMedia && matchMedia('(display-mode: standalone)').matches)); } catch (e) { return false; } };
+/** Cada cuántos días recordar la copia. En una pestaña de Safari el sistema puede borrar los datos de un sitio que no se abre
+ *  por ~7 días; instalada en la pantalla de inicio esa regla no aplica. */
+function backupIntervalDays(standalone) { return standalone ? 14 : 6; }
+function backupSnoozeDays(standalone) { return standalone ? 3 : 1; }
+/** Texto de Ajustes sobre la protección del almacenamiento ('' = nada que advertir) */
+function storageStatusText(persisted, standalone) {
+  if (standalone || persisted) return '';
+  return 'Estás en una pestaña del navegador: si no la abrís por varios días, el sistema puede borrar los datos. Instalá la app en la pantalla de inicio y exportá copias seguido.';
+}
+let storagePersisted = null;
+/** Pide al navegador que no borre los datos por falta de espacio o inactividad (puede negarse; no hay diálogo) */
+async function requestPersistentStorage() {
+  try {
+    if (navigator.storage && navigator.storage.persist) {
+      storagePersisted = (await navigator.storage.persisted()) || (await navigator.storage.persist());
+    }
+  } catch (e) {}
+  try { updateBackupInfo(); } catch (e) {}
+}
 function readNum(key) { try { return +localStorage.getItem(key) || 0; } catch (e) { return 0; } }
 function backupAgeDays() { const t = readNum(LAST_BACKUP_KEY); return t ? (Date.now() - t) / 86400000 : null; }
 function updateBackupInfo() {
@@ -3793,14 +3817,17 @@ function updateBackupInfo() {
   const d = backupAgeDays();
   el.textContent = d === null ? 'Todavía no exportaste una copia de tus datos.'
     : d < 1 ? 'Última copia exportada: hoy.' : `Última copia exportada: hace ${Math.floor(d)} día${Math.floor(d) === 1 ? '' : 's'}.`;
-  el.classList.toggle('text-amber-300', d === null || d > BACKUP_EVERY_DAYS);
-  el.classList.toggle('text-slate-500', !(d === null || d > BACKUP_EVERY_DAYS));
+  const late = d === null || d > backupIntervalDays(isStandalone());
+  el.classList.toggle('text-amber-300', late);
+  el.classList.toggle('text-slate-500', !late);
+  const warn = storageStatusText(storagePersisted === true, isStandalone());
+  if (warn) el.textContent += ' ' + warn;
 }
 function checkBackupReminder() {
   if (!saved.length && !pois.length) return;
   if (gpsWatchId !== null || Date.now() < readNum(BACKUP_SNOOZE_KEY)) return;
   const d = backupAgeDays();
-  if (d !== null && d <= BACKUP_EVERY_DAYS) return;
+  if (d !== null && d <= backupIntervalDays(isStandalone())) return;
   toast({
     type: 'warning', title: 'Copia de seguridad',
     message: d === null
@@ -3808,7 +3835,7 @@ function checkBackupReminder() {
       : `Hace ${Math.floor(d)} días que no exportás una copia de tus datos.`,
     duration: 0,
     actions: [
-      { label: 'Luego', style: 'secondary', onClick: () => { try { localStorage.setItem(BACKUP_SNOOZE_KEY, String(Date.now() + 3 * 86400000)); } catch (e) {} } },
+      { label: 'Luego', style: 'secondary', onClick: () => { try { localStorage.setItem(BACKUP_SNOOZE_KEY, String(Date.now() + backupSnoozeDays(isStandalone()) * 86400000)); } catch (e) {} } },
       { label: 'Exportar ahora', onClick: exportBackup }
     ]
   });

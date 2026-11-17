@@ -9,7 +9,7 @@ const TILE_HOSTS = ['server.arcgisonline.com', 'tile.openstreetmap.org'];
 const LIB_HOSTS = ['unpkg.com', 'cdn.jsdelivr.net', 'cdn.tailwindcss.com'];
 
 // Se guarda TODO al instalar (primera visita), así la app abre sin conexión desde el principio.
-const CORE_FILES = ['./', 'index.html', 'styles.css', 'app.js', 'backup.js', 'manifest.webmanifest',
+const CORE_FILES = ['./', 'index.html', 'styles.css', 'app.js', 'backup.js', 'wmm.js', 'manifest.webmanifest',
   'icon-180.png', 'icon-192.png', 'icon-512.png', 'icon-maskable-512.png'];
 const CORE_LIBS = [
   'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css',
@@ -49,24 +49,32 @@ async function trim(cache) {
   if (keys.length > MAX_TILES) await Promise.all(keys.slice(0, keys.length - MAX_TILES).map(k => cache.delete(k)));
 }
 
-async function networkFirst(req, cacheName) {
+// Con mala señal (campo) un fetch puede quedar colgado minutos: si ya hay copia guardada, se espera la red
+// solo NETWORK_TIMEOUT_MS y se abre desde la copia; el pedido sigue en segundo plano y deja la versión nueva para la próxima vez.
+const NETWORK_TIMEOUT_MS = 3000;
+async function networkFirst(req, cacheName, evt) {
   const cache = await caches.open(cacheName);
-  try {
-    // 'no-cache': revalida con el servidor y no usa la copia del caché HTTP del navegador
-    // (GitHub Pages permite reutilizarla ~10 min, por eso a veces se veía la versión vieja).
-    const res = await fetch(req, { cache: 'no-cache' });
+  // 'no-cache': revalida con el servidor y no usa la copia del caché HTTP del navegador
+  // (GitHub Pages permite reutilizarla ~10 min, por eso a veces se veía la versión vieja).
+  const fresh = fetch(req, { cache: 'no-cache' }).then(res => {
     if (res && (res.ok || res.type === 'opaque')) cache.put(req, res.clone());
     return res;
+  });
+  fresh.catch(() => {});   // si falla cuando ya se abrió desde la copia, que no quede como error sin atender
+  let timer;
+  const timeout = new Promise((_, rej) => { timer = setTimeout(() => rej(new Error('timeout')), NETWORK_TIMEOUT_MS); });
+  try {
+    return await Promise.race([fresh, timeout]);
   } catch (err) {
     const hit = await cache.match(req, { ignoreSearch: req.mode === 'navigate' });
-    if (hit) return hit;
     // Abrir la app sin conexión (inicio, ?parámetros, etc.): servir index.html guardado
-    if (req.mode === 'navigate') {
-      const home = await cache.match('index.html') || await cache.match('./');
-      if (home) return home;
+    const home = hit || (req.mode === 'navigate' ? (await cache.match('index.html') || await cache.match('./')) : null);
+    if (home) {
+      if (evt && evt.waitUntil) evt.waitUntil(fresh.catch(() => {}));   // que termine de actualizar la copia
+      return home;
     }
-    throw err;
-  }
+    return fresh;   // sin copia guardada: no queda más que esperar a la red (si falla, el error sale igual que antes)
+  } finally { clearTimeout(timer); }
 }
 
 // Mosaicos: se pide en modo CORS para poder ver el estado HTTP y NO guardar errores
@@ -103,6 +111,6 @@ self.addEventListener('fetch', (e) => {
   } else if (LIB_HOSTS.includes(url.hostname)) {
     e.respondWith(cacheFirst(req, APP_CACHE));
   } else if (url.origin === self.location.origin) {
-    e.respondWith(networkFirst(req, APP_CACHE));
+    e.respondWith(networkFirst(req, APP_CACHE, e));
   }
 });

@@ -5,6 +5,7 @@ Estructura de archivos:
 - **index.html** — Estructura HTML limpia. Solo markup y enlaces a CSS/JS.
 - **styles.css** — Todos los estilos (antes embebidos). Agrupados con los comentarios originales.
 - **app.js** — Toda la lógica JavaScript (~3300 líneas).
+- **wmm.js** — Modelo magnético WMM2025 (declinación sin conexión, coeficientes oficiales de NOAA).
 - **backup.js** — Exportación e importación de copias de seguridad en GeoJSON, KML y GPX (escritores y lectores, sin dependencias de la app).
 - **sw.js** — Service worker: guarda la app completa desde la primera visita y permite usarla sin conexión.
 - **manifest.webmanifest** e **icon-*.png** — Hacen que la app se pueda instalar (pantalla completa en el iPhone).
@@ -44,7 +45,7 @@ La versión está escrita en tres lugares y deben coincidir; si no, la app avisa
 - `app.js` → `const APP_VERSION = '…';`
 - `backup.js` → `const BACKUP_VERSION = '…';`
 
-Al publicar cambios, subir siempre `index.html`, `styles.css`, `app.js` y `backup.js` juntos (y `sw.js` / `manifest` / íconos solo si cambiaron).
+Al publicar cambios de versión, subir siempre `index.html`, `styles.css`, `app.js` y `backup.js` juntos (y `wmm.js` si cambió; la app avisa si falta) (y `sw.js` / `manifest` / íconos solo si cambiaron).
 
 ## Instalar en el iPhone (pantalla completa)
 
@@ -106,3 +107,14 @@ La cuerda punteada lleva una etiqueta con rumbo y distancia que se mantiene siem
 ## Zoom alto en satélite
 Donde Esri no tiene imagen a cierto zoom devuelve un mosaico gris "Map data not yet available". La app lo detecta (en zoom ≥ 13) y lo reemplaza por el mosaico del nivel anterior ampliado, hasta 8 niveles arriba. Requiere que el servidor permita leer los píxeles (CORS); si no, se muestra el mosaico tal cual.
 Ajustes → "Zoom máximo de la imagen satelital": Automático (detecta el cartel) o un nivel fijo (16/17/18) como respaldo si la detección no funciona.
+
+## Apertura con mala señal y almacenamiento
+- `sw.js`: los archivos de la app se piden primero a la red, pero si ya hay copia guardada y la red no responde en 3 s (`NETWORK_TIMEOUT_MS`), se abre desde la copia y la versión nueva queda lista para la próxima vez.
+- Ajustes → Copia de seguridad: en una pestaña de Safari el recordatorio salta a los 6 días (el sistema puede borrar los datos de un sitio sin uso por ~7 días); instalada en la pantalla de inicio, a los 14. La app pide además almacenamiento persistente (`navigator.storage.persist()`); si no se concede y no está instalada, Ajustes lo advierte.
+- Tests nuevos: `tests/gps-grabacion.test.js`, `tests/sw-y-respaldo.test.js`. Se ejecutan todos con `node --test tests/*.test.js`.
+
+## Declinación magnética (WMM2025)
+- `wmm.js` calcula la declinación con el modelo oficial WMM2025 (NOAA/NCEI y BGS), sin conexión. Se verificó contra los 100 valores de prueba de NOAA (`tests/datos/WMM2025_TestValues.txt`, `tests/wmm.test.js`): diferencia máxima 0,005° (el redondeo del archivo oficial).
+- El valor manual de Ajustes sigue teniendo prioridad; "Auto" usa el modelo.
+- **Vence a fines de 2029.** Entonces NOAA publica WMM2030: regenerar `WMM_COF` con el nuevo `WMM.COF` y actualizar `WMM_EPOCH` / `WMM_VALID_UNTIL`.
+- Si `wmm.js` no carga, la app usa la estimación antigua (solo buena cerca de Buenos Aires).

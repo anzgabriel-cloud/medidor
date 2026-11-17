@@ -14,7 +14,7 @@
   <meta name="apple-mobile-web-app-title" content="Medidor">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <!-- Versión: debe coincidir con APP_VERSION (app.js) y --app-version (styles.css) -->
-  <meta name="app-version" content="2026.11.17-76">
+  <meta name="app-version" content="2026.11.17-77">
 
   <!-- Librerías locales (en este mismo repo) + Tailwind por CDN -->
   <link rel="stylesheet" href="leaflet.css" />
@@ -187,10 +187,12 @@
       </svg>
     </button>
     </div>
-    <div id="compassCaption" class="text-[11px] font-extrabold px-2 py-0.5 rounded-md whitespace-nowrap pointer-events-none" style="background:rgba(2,6,23,.92);border:0.5px solid #00ff66;color:#00ff66;margin-top:-1px">Sin rumbo…</div>
+    <div id="compassCaption" class="text-[11px] font-extrabold px-2 py-0.5 rounded-md whitespace-nowrap pointer-events-none" style="background:rgba(2,6,23,.92);border:1px solid #00ff66;color:#00ff66;margin-top:-1px">Sin rumbo…</div>
   </div>
   <div id="liveReadout" aria-live="off"></div>
   <div id="measureCard" aria-live="off"></div>
+  <!-- Aviso de espera: aparece solo si el mapa tarda en cargar -->
+  <div id="mapLoading" role="status" aria-live="polite"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 22h14"/><path d="M5 2h14"/><path d="M17 22v-4.172a2 2 0 0 0-.586-1.414L12 12l-4.414 4.414A2 2 0 0 0 7 17.828V22"/><path d="M7 2v4.172a2 2 0 0 0 .586 1.414L12 12l4.414-4.414A2 2 0 0 0 17 6.172V2"/></svg><span>Cargando mapa…</span></div>
 
   <div id="mainControls" data-mode="polygon" class="absolute bottom-0 left-0 right-0 z-20 p-3 safe-bottom pointer-events-none">
     <div class="max-w-xl mx-auto flex flex-col">

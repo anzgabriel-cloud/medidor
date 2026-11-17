@@ -1689,7 +1689,7 @@ function updateMetrics(areaM2, distM) {
   liveArea = areaM2; liveDist = distM;
   updateLiveBadge();
 }
-const APP_VERSION = '2026.11.17-76';
+const APP_VERSION = '2026.11.17-77';
 let liveSelfIntersect = false; // el polígono se cruza a sí mismo (los marcadores rojos ya lo señalan)
 function updateSelfIntersectWarning(show) {
   const v = !!show;
@@ -2588,8 +2588,37 @@ function satStatusText() {
   if (!satStats.read && satStats.blocked) return 'Detección: NO disponible (el servidor no deja leer los mosaicos). Elegí un nivel fijo.';
   return `Detección activa: ${satStats.read} mosaicos revisados, ${satStats.replaced} vacíos reemplazados${satStats.failed ? ', ' + satStats.failed + ' sin respaldo' : ''}.`;
 }
+// ---- Reloj de arena: si la imagen del mapa tarda más de ~1 s, se avisa que hay que esperar ----
+let mapLoadTimer = null, mapLoadFailsafe = null;
+function positionMapLoading() {
+  const el = document.getElementById('mapLoading');
+  if (!el) return;
+  const tb = document.getElementById('bottomToolbar');
+  const edge = (tb && tb.offsetParent !== null) ? tb.getBoundingClientRect().top : window.innerHeight - 8;   // justo arriba del panel (o del borde inferior en Modo vista)
+  el.style.top = Math.max(120, Math.round(edge - 52)) + 'px';
+}
+function showMapLoading() {
+  const el = document.getElementById('mapLoading');
+  if (!el) return;
+  positionMapLoading();
+  el.classList.add('on');
+  clearTimeout(mapLoadFailsafe);
+  mapLoadFailsafe = setTimeout(hideMapLoading, 25000);   // por las dudas: nunca queda girando para siempre
+}
+function hideMapLoading() {
+  clearTimeout(mapLoadTimer); clearTimeout(mapLoadFailsafe);
+  document.getElementById('mapLoading')?.classList.remove('on');
+}
+function watchTileLayer(layer) {
+  layer.on('loading', () => { clearTimeout(mapLoadTimer); mapLoadTimer = setTimeout(showMapLoading, 1000); });
+  layer.on('load remove', hideMapLoading);
+  return layer;
+}
+window.addEventListener('resize', () => { if (document.getElementById('mapLoading')?.classList.contains('on')) positionMapLoading(); });
+
 let SmartTileLayer = null;
-function makeTileLayer(t) {
+function makeTileLayer(t) { return watchTileLayer(makeTileLayerRaw(t)); }
+function makeTileLayerRaw(t) {
   const native = (t.smart && settings.satZoom !== 'auto') ? +settings.satZoom : t.nativeZoom;   // hasta qué zoom pedir imagen real (más allá se amplía)
   const opts = { maxZoom: t.maxZoom, maxNativeZoom: native, attribution: t.attr };
   if (!t.smart) return L.tileLayer(t.url, opts);
@@ -4525,11 +4554,12 @@ function startGpsRecording() {
   }
 
   wakeOk.then(ok => {
-    const base = `Caminá: se agregarán puntos solos (mín. ${fmtAcc(settings.gpsMinStep)}, precisión ≤ ${fmtAcc(settings.gpsMaxAcc)}). Usá Pausar o Detener.`;
-    if (ok) return toast({ type: 'info', title: 'Grabando recorrido', message: base + ' La pantalla se mantiene encendida.' });
+    const step = fmtAcc(settings.gpsMinStep);
+    const base = `Se agrega un punto cada ${step} recorridos (se descartan lecturas con error mayor a ${fmtAcc(settings.gpsMaxAcc)}). Si querés más o menos puntos: Ajustes › GPS al grabar recorridos › Distancia entre puntos.`;
+    if (ok) return toast({ type: 'info', title: `Grabando: un punto cada ${step}`, message: base + ' La pantalla se mantiene encendida.', duration: 9000 });
     // No se pudo mantener la pantalla encendida: si se apaga, el GPS deja de registrar puntos
     const msg = 'Este iPhone no permite mantener la pantalla encendida desde la app. Poné Ajustes › Pantalla y brillo › Bloqueo automático en «Nunca» mientras grabás, o se perderán tramos.';
-    toast({ type: 'warning', title: 'Grabando, pero ojo con la pantalla', message: msg, duration: 12000 });
+    toast({ type: 'warning', title: `Grabando: un punto cada ${step}, pero ojo con la pantalla`, message: msg, duration: 12000 });
   });
 }
 

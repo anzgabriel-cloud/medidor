@@ -2,7 +2,7 @@
    Separado del HTML para mejor mantenimiento
 */
 
-:root { --app-version: "2026.11.17-76"; }
+:root { --app-version: "2026.11.17-77"; }
 
 .leaflet-control-attribution { font-size: 9px !important; background: rgba(15,23,42,0.7) !important; color: #94a3b8 !important; }
 .leaflet-control-attribution a { color: #94a3b8 !important; }
@@ -495,6 +495,16 @@ button:disabled, .btn-disabled {
 #measureCard .mc-alt { color: #fcd34d; }
 #measureCard .mc-warn { color: #f87171; }
 
+/* Reloj de arena: aparece centrado, arriba del panel de abajo, solo si el mapa tarda en cargar */
+#mapLoading {
+  position: fixed; left: 50%; transform: translateX(-50%); z-index: 14; display: none; align-items: center; gap: 8px;
+  padding: 7px 14px 7px 10px; border-radius: 999px; pointer-events: none; white-space: nowrap;
+  background: rgba(11,18,32,.9); border: 1px solid rgba(245,158,11,.65); color: #fde68a;
+  font: 700 12px system-ui, -apple-system, sans-serif; box-shadow: 0 2px 10px rgba(0,0,0,.55);
+}
+#mapLoading.on { display: flex; }
+#mapLoading svg { width: 20px; height: 20px; flex: none; animation: hourglassFlip 1.7s ease-in-out infinite; }
+@keyframes hourglassFlip { 0%, 30% { transform: rotate(0deg); } 70%, 100% { transform: rotate(180deg); } }
 /* Tamaños de POI: pin con relieve (sombra, brillo y centro blanco); el elegido se ve ámbar con aro */
 #poiSizeRow svg { filter: drop-shadow(0 1px 1.5px rgba(0,0,0,.65)); }
 #poiSizeRow .pin-dot { fill: #fff; opacity: .92; }

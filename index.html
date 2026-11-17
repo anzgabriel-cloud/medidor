@@ -16,11 +16,11 @@
   <!-- Versión: debe coincidir con APP_VERSION (app.js) y --app-version (styles.css) -->
   <meta name="app-version" content="2026.11.17-72">
 
-  <!-- Dependencias externas -->
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <!-- Librerías locales (en este mismo repo) + Tailwind por CDN -->
+  <link rel="stylesheet" href="leaflet.css" />
   <script src="https://cdn.tailwindcss.com/3.4.16"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@turf/turf@6.5.0/turf.min.js"></script>
-  <script src="https://unpkg.com/lucide@0.469.0"></script>
+  <script src="turf.min.js"></script>
+  <script src="lucide.min.js"></script>
 
   <!-- Estilos propios -->
   <link rel="stylesheet" href="styles.css">
@@ -566,7 +566,7 @@
   </div>
 
   <!-- Leaflet + App -->
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="leaflet.js"></script>
   <script src="backup.js"></script>
   <script src="wmm.js"></script>
   <script src="app.js"></script>

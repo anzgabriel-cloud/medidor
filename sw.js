@@ -6,17 +6,14 @@ const APP_CACHE = VERSION + '-app';
 const TILE_CACHE = VERSION + '-tiles';
 const MAX_TILES = 4000;
 const TILE_HOSTS = ['server.arcgisonline.com', 'tile.openstreetmap.org'];
-const LIB_HOSTS = ['unpkg.com', 'cdn.jsdelivr.net', 'cdn.tailwindcss.com'];
+const LIB_HOSTS = ['cdn.tailwindcss.com'];
 
 // Se guarda TODO al instalar (primera visita), así la app abre sin conexión desde el principio.
 const CORE_FILES = ['./', 'index.html', 'styles.css', 'app.js', 'backup.js', 'wmm.js', 'manifest.webmanifest',
+  'leaflet.css', 'leaflet.js', 'turf.min.js', 'lucide.min.js',
   'icon-180.png', 'icon-192.png', 'icon-512.png', 'icon-maskable-512.png'];
 const CORE_LIBS = [
-  'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css',
-  'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js',
-  'https://cdn.tailwindcss.com/3.4.16',
-  'https://cdn.jsdelivr.net/npm/@turf/turf@6.5.0/turf.min.js',
-  'https://unpkg.com/lucide@0.469.0'
+  'https://cdn.tailwindcss.com/3.4.16'
 ];
 
 // Descarga con tope de tiempo: una librería lenta no debe trabar la instalación

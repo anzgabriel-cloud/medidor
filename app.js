@@ -167,6 +167,12 @@ const nf2 = new Intl.NumberFormat('es-AR', { maximumFractionDigits: 2 });
 const nf0 = new Intl.NumberFormat('es-AR', { maximumFractionDigits: 0 });
 const isImp = () => settings.units === 'imperial';
 /** Distancia corta para etiquetas: 250 m / 1,20 km  ·  820 ft / 0,85 mi */
+/** Velocidad en m/s → texto (km/h o mph); null = sin dato */
+function fmtSpeed(v) {
+  if (v === null || v === undefined || !isFinite(v)) return '—';
+  if (v < 0.3) v = 0;            // por debajo de ~1 km/h es ruido del GPS
+  return isImp() ? `${(v * 2.23694).toFixed(1)} mph` : `${(v * 3.6).toFixed(1)} km/h`;
+}
 function fmtLenShort(m) {
   if (isImp()) { const mi = m / MI; return mi >= 0.5 ? mi.toFixed(2) + ' mi' : Math.round(m * FT) + ' ft'; }
   return m >= 1000 ? (m / 1000).toFixed(2) + ' km' : Math.round(m) + ' m';
@@ -1593,6 +1599,11 @@ function renderMeasureCard() {
     html = cell('Superficie', `${nf2.format(am.v)} ${am.u}`) + cell('Perímetro', fmtLenShort(liveDist));
   } else {
     html = cell(trackMode ? 'Recorrido' : 'Largo', fmtLenShort(liveDist));
+    if (trackMode) {
+      const secs = (gpsLive.recMs + (gpsLive.recStart ? Date.now() - gpsLive.recStart : 0)) / 1000;
+      html += cell('Velocidad', fmtSpeed(gpsLive.speed), 'mc-spd');
+      if (secs > 5 && liveDist > 0) html += cell('Prom.', fmtSpeed(liveDist / secs));
+    }
   }
   scheduleMeasureElev(measureElevSig());
   html += cell('Alt. media', mcElev.text, 'mc-alt');
@@ -1660,7 +1671,7 @@ function updateMetrics(areaM2, distM) {
   liveArea = areaM2; liveDist = distM;
   updateLiveBadge();
 }
-const APP_VERSION = '2026.11.09-69';
+const APP_VERSION = '2026.11.09-70';
 let liveSelfIntersect = false; // el polígono se cruza a sí mismo (los marcadores rojos ya lo señalan)
 function updateSelfIntersectWarning(show) {
   const v = !!show;
@@ -1816,6 +1827,22 @@ let compassShown = 0, compassTimer = null, compassOn = false, compassLastTxt = '
 const wrap360 = (d) => ((d % 360) + 360) % 360;
 const shortDiff = (from, to) => { let d = wrap360(to - from); if (d > 180) d -= 360; return d; };
 
+let gpsSpeed = { v: null, t: 0 }, gpsPrevFix = null;
+/** Velocidad (m/s) del último fijo: la del GPS si existe; si no, desplazamiento / tiempo entre fijos (con zona muerta por el ruido) */
+function noteGpsSpeed(c) {
+  const now = Date.now();
+  let v = (typeof c.speed === 'number' && isFinite(c.speed) && c.speed >= 0) ? c.speed : null;
+  if (v === null && gpsPrevFix) {
+    const dt = (now - gpsPrevFix.t) / 1000;
+    if (dt >= 0.8 && dt <= 15) {
+      const d = L.latLng(gpsPrevFix.lat, gpsPrevFix.lng).distanceTo(L.latLng(c.latitude, c.longitude));
+      v = d < Math.max(3, (c.accuracy || 0) * 0.6) ? 0 : d / dt;
+    }
+  }
+  gpsPrevFix = { lat: c.latitude, lng: c.longitude, t: now };
+  gpsSpeed = { v, t: now };
+}
+const navSpeed = () => (Date.now() - gpsSpeed.t < 8000 ? gpsSpeed.v : null);
 function noteGpsHeading(c) {
   const sp = (typeof c.speed === 'number' && isFinite(c.speed)) ? c.speed : 0;
   const h = (typeof c.heading === 'number' && isFinite(c.heading)) ? c.heading : null;
@@ -2627,6 +2654,7 @@ function startUserLocationWatch(centerOnFirst) {
     const lng = pos.coords.longitude;
     const acc = pos.coords.accuracy || 40;
     noteGpsHeading(pos.coords);
+    noteGpsSpeed(pos.coords);
     updateUserLocation(lat, lng, acc);
     if (navPoi) updateNavLine();
     if (!didCenter) {
@@ -3279,7 +3307,8 @@ function updateNavLabel() {
   el.querySelector('.nav-label').style.borderColor = color;
   const bEl = el.querySelector('.nav-txt b'), sEl = el.querySelector('.nav-txt span');
   if (bEl.dataset.v !== rumbo) { bEl.innerHTML = rumbo; bEl.dataset.v = rumbo; }
-  if (sEl.textContent !== dist) sEl.textContent = dist;
+  const dsp = `${dist}<em>${escapeHtml(fmtSpeed(navSpeed()))}</em>`;
+  if (sEl.dataset.v !== dsp) { sEl.innerHTML = dsp; sEl.dataset.v = dsp; }
 }
 function removeNavLabel() { if (navLabel) { map.removeLayer(navLabel); navLabel = null; } }
 /** En el POI donde estás parado: "Navegar" queda desactivado (gris) e "Ir" dice "Ud está aquí" */

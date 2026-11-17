@@ -2,7 +2,7 @@
    Separado del HTML para mejor mantenimiento
 */
 
-:root { --app-version: "2026.11.09-69"; }
+:root { --app-version: "2026.11.09-70"; }
 
 .leaflet-control-attribution { font-size: 9px !important; background: rgba(15,23,42,0.7) !important; color: #94a3b8 !important; }
 .leaflet-control-attribution a { color: #94a3b8 !important; }
@@ -281,6 +281,7 @@ body.is-dragging .midpoint-marker { opacity: 0 !important; pointer-events: none 
 .nav-label b i { font-style: normal; color: #7dd3fc; margin-left: 8px; }
 .nav-label b u { text-decoration: none; color: #cbd5e1; font-weight: 700; margin-left: 8px; }
 .nav-label span { color: #fde68a; font-size: 15px; font-weight: 800; }
+.nav-label span em { font-style: normal; color: #a7f3d0; font-size: 12px; font-weight: 700; margin-left: 9px; }
 .fixed-compass-svg { display: block; filter: drop-shadow(0 2px 6px rgba(0,0,0,0.7)); }
 .inspect-angle-text {
   color: var(--inspect-label-text, var(--inspect-color, #00ff66));
@@ -497,3 +498,4 @@ button:disabled, .btn-disabled {
 /* Tamaños de POI: solo en Modo POI */
 #poiSizeRow { display: none; }
 #mainControls[data-mode="poi"] #poiSizeRow { display: grid; }
+#measureCard .mc-spd { color: #a7f3d0; }

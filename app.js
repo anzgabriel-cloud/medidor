@@ -660,6 +660,18 @@ function init() {
   map.on('move zoom', () => { if (selectedVertex >= 0) positionVertexBtn(); if (navLabel) updateNavLabel(); });
   document.getElementById('vertexDelBtn').onclick = deleteSelectedVertex;
   document.getElementById('compassBtn').onclick = enableCompassSensor;
+  // iPhone: el permiso del sensor solo se puede pedir desde un toque, pero no hace falta que sea en la brújula:
+  // se pide con el primer toque en cualquier parte de la app (una sola vez por apertura).
+  if (compassNeedsTap()) {
+    const askOnce = (e) => {
+      if (e.target && e.target.closest && e.target.closest('#compassBtn')) return;   // ese toque ya lo atiende el botón de la brújula
+      document.removeEventListener('touchend', askOnce, true);
+      document.removeEventListener('click', askOnce, true);
+      if (!compassAsked) enableCompassSensor();
+    };
+    document.addEventListener('touchend', askOnce, true);
+    document.addEventListener('click', askOnce, true);
+  }
   document.querySelectorAll('#poiSizeRow [data-poi-size]').forEach(b => b.onclick = () => {
     settings.poiSize = b.dataset.poiSize; saveSettings(); refreshPoiSizeUI();   // solo afecta a los POI que crees después
   });
@@ -1691,7 +1703,7 @@ function updateMetrics(areaM2, distM) {
   liveArea = areaM2; liveDist = distM;
   updateLiveBadge();
 }
-const APP_VERSION = '2026.11.17-79';
+const APP_VERSION = '2026.11.17-80';
 let liveSelfIntersect = false; // el polígono se cruza a sí mismo (los marcadores rojos ya lo señalan)
 function updateSelfIntersectWarning(show) {
   const v = !!show;
@@ -1920,7 +1932,9 @@ function compassActive(on) {
     clearInterval(compassTimer); compassTimer = null;
   }
 }
+let compassAsked = false;   // ya se pidió el permiso del sensor en esta apertura
 async function enableCompassSensor() {
+  compassAsked = true;
   // iOS pide un permiso explícito para el sensor de movimiento y solo se puede pedir desde un toque
   const D = window.DeviceOrientationEvent;
   if (D && typeof D.requestPermission === 'function') {

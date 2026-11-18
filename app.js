@@ -509,7 +509,7 @@ const touchIcon = L.divIcon({ className: 'touch-dot', iconSize: [16, 16], iconAn
 const kinkIcon = L.divIcon({ className: 'kink-marker', iconSize: [22, 22], iconAnchor: [11, 11] });
 
 // ========== TOASTS ==========
-function toast({ type = 'info', title = '', message = '', duration = 3500, actions = [] }) {
+function toast({ type = 'info', title = '', message = '', duration = 3500, actions = [], autoClose = false }) {
   const container = document.getElementById('toastContainer');
   if (!actions.length) {
     [...container.children].forEach(c => c.remove());
@@ -550,7 +550,7 @@ function toast({ type = 'info', title = '', message = '', duration = 3500, actio
   el.appendChild(body);
   container.appendChild(el);
   lucide.createIcons();
-  if (duration > 0 && !actions.length) setTimeout(() => dismissToast(el), duration);
+  if (duration > 0 && (!actions.length || autoClose)) setTimeout(() => dismissToast(el), duration);
   return el;
 }
 function dismissToast(el) {
@@ -1691,7 +1691,7 @@ function updateMetrics(areaM2, distM) {
   liveArea = areaM2; liveDist = distM;
   updateLiveBadge();
 }
-const APP_VERSION = '2026.11.17-78';
+const APP_VERSION = '2026.11.17-79';
 let liveSelfIntersect = false; // el polígono se cruza a sí mismo (los marcadores rojos ya lo señalan)
 function updateSelfIntersectWarning(show) {
   const v = !!show;
@@ -2895,11 +2895,37 @@ function parseCoordForm(fmt, v) {
 // Marcador temporal (resultado de búsqueda o de coordenadas)
 let gotoMarker = null;
 function clearGotoMarker() { if (gotoMarker) { map.removeLayer(gotoMarker); gotoMarker = null; } }
-function showGotoMarker(lat, lng, label) {
+let gotoLabel = '', gotoIsPlace = false, gotoAskSeq = 0;
+function showGotoMarker(lat, lng, label, opts = {}) {
   clearGotoMarker();
+  gotoLabel = label; gotoIsPlace = !!opts.place;
   gotoMarker = L.marker([lat, lng], { icon: poiIcon('#fbbf24'), zIndexOffset: 1200 }).addTo(map);
-  gotoMarker.bindTooltip(`${escapeHtml(label)} ✕`, { permanent: true, direction: 'top', className: 'poi-label', offset: poiTipOffset() });
-  gotoMarker.on('click', (e) => { L.DomEvent.stopPropagation(e); clearGotoMarker(); });
+  gotoMarker.bindTooltip(escapeHtml(label), { permanent: true, direction: 'top', className: 'poi-label', offset: poiTipOffset() });
+  gotoMarker.on('click', (e) => { L.DomEvent.stopPropagation(e); askGotoPoi(false); });   // tocar el pin: ¿guardar como POI o quitarlo?
+  if (opts.ask) {   // al llegar al lugar buscado se pregunta una vez (si el mapa ya está ahí o no se mueve, igual a los 2,5 s)
+    const token = ++gotoAskSeq;
+    const fire = () => { if (token !== gotoAskSeq) return; gotoAskSeq++; if (gotoMarker) askGotoPoi(true); };
+    map.once('moveend', fire); setTimeout(fire, 2500);
+  }
+}
+/** Pregunta qué hacer con el marcador de búsqueda: guardarlo como POI ahí mismo, o (según cómo se llegó) dejarlo / quitarlo */
+function askGotoPoi(auto) {
+  if (!gotoMarker) return;
+  const ll = gotoMarker.getLatLng();
+  const name = gotoIsPlace ? gotoLabel : '';
+  toast({
+    type: 'info', title: gotoIsPlace ? `¿Guardar «${name}» como POI?` : '¿Guardar este punto como POI?',
+    message: auto ? 'Queda en tu Lista de POI, en este mismo punto.' : 'Podés guardarlo en este punto o quitar el marcador.',
+    duration: auto ? 10000 : 0, autoClose: !!auto,
+    actions: [
+      auto ? { label: 'Ahora no', style: 'secondary', onClick: () => {} }
+           : { label: 'Quitar marcador', style: 'secondary', onClick: () => clearGotoMarker() },
+      { label: 'Guardar como POI', style: 'primary', onClick: () => {
+        openPoiModal(ll);
+        if (name) { const inp = document.getElementById('poiNameInput'); if (inp) { inp.value = name; inp.select(); } }   // nombre del lugar buscado
+      } }
+    ]
+  });
 }
 
 let cgLast = null;
@@ -3033,7 +3059,7 @@ async function doSearch(q) {
       div.onclick = () => {
         box.classList.add('hidden');
         const short = String(item.display_name).split(',')[0];
-        showGotoMarker(+item.lat, +item.lon, short);
+        showGotoMarker(+item.lat, +item.lon, short, { place: true, ask: true });
         map.flyTo([+item.lat, +item.lon], 16, { duration: 1.1 });
       };
       box.appendChild(div);
@@ -3153,6 +3179,7 @@ function confirmPoi() {
       visible: true
     };
     pois.push(created);
+    if (gotoMarker) { const g = gotoMarker.getLatLng(); if (Math.abs(g.lat - created.lat) < 1e-9 && Math.abs(g.lng - created.lng) < 1e-9) clearGotoMarker(); }   // el POI ya marca ese punto
     fetchElevations([L.latLng(created.lat, created.lng)]).then(v => {
       if (v[0] !== null) { created.elev = v[0]; created.elevAt = elevKey(created); persistPois(); renderPoiList(); }
     });

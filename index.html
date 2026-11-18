@@ -14,7 +14,7 @@
   <meta name="apple-mobile-web-app-title" content="Medidor">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <!-- Versión: debe coincidir con APP_VERSION (app.js) y --app-version (styles.css) -->
-  <meta name="app-version" content="2026.11.17-80">
+  <meta name="app-version" content="2026.11.18-v2-01">
 
   <!-- Librerías locales (en este mismo repo) + Tailwind por CDN -->
   <link rel="stylesheet" href="leaflet.css" />
@@ -25,7 +25,7 @@
   <!-- Estilos propios -->
   <link rel="stylesheet" href="styles.css">
 </head>
-<body class="bg-slate-950 text-slate-100">
+<body class="bg-slate-950 text-slate-100 ui-min">
 
   <!-- TOP BAR -->
   <header class="absolute left-3 right-3 z-20 flex flex-col gap-2 max-w-4xl mx-auto" style="top: max(12px, env(safe-area-inset-top, 12px));">
@@ -53,8 +53,8 @@
         </div>
       </div>
       <!-- Barra de herramientas: capas · ubicación · ajustes | listas -->
-      <div class="section-rule" aria-hidden="true"></div>
-      <div class="flex items-stretch">
+      <div id="topRule" class="section-rule" aria-hidden="true"></div>
+      <div id="topToolRow" class="flex items-stretch">
         <button id="layerBtn" class="flex items-center justify-center w-11 flex-shrink-0 min-h-[42px] active:bg-white/10" title="Cambiar capa del mapa" aria-label="Cambiar capa">
           <i data-lucide="layers" class="w-5 h-5 text-emerald-400"></i><span id="layerText" class="hidden"></span>
         </button>
@@ -144,6 +144,22 @@
       </div>
     </div>
   </header>
+
+  <!-- TIRAS DE ÍCONOS (interfaz mínima): solo se ven con body.ui-min -->
+  <nav id="stripTop" class="strip" aria-label="Mapa">
+    <button type="button" id="tpSettings" class="sb" aria-label="Ajustes"><i data-lucide="settings"></i></button>
+    <button type="button" id="tpLayers" class="sb" aria-label="Cambiar capa del mapa"><i data-lucide="layers"></i></button>
+    <button type="button" id="tpLocate" class="sb" aria-label="Centrar en mi ubicación"><i data-lucide="locate-fixed"></i></button>
+  </nav>
+  <nav id="stripBottom" class="strip" aria-label="Herramientas">
+    <button type="button" id="tpSearch" class="sb" aria-label="Buscar" aria-pressed="false"><i data-lucide="search"></i></button>
+    <button type="button" id="tpMeasure" class="sb" aria-label="Medir y dibujar" aria-pressed="false"><i data-lucide="ruler"></i></button>
+    <button type="button" id="tpFolder" class="sb" aria-label="Guardados" aria-expanded="false"><i data-lucide="folder-heart"></i></button>
+  </nav>
+  <div id="folderMenu" class="hidden" role="menu" aria-label="Guardados">
+    <button type="button" id="fmPoi" role="menuitem"><i data-lucide="map-pin"></i><span>POI</span><b id="fmPoiN">0</b></button>
+    <button type="button" id="fmSaved" role="menuitem"><i data-lucide="ruler"></i><span>Mediciones</span><b id="fmSavedN">0</b></button>
+  </div>
 
   <div id="map"></div>
 
@@ -588,5 +604,6 @@
   <script src="backup.js"></script>
   <script src="wmm.js"></script>
   <script src="app.js"></script>
+  <script src="tiras.js"></script>
 </body>
 </html>

@@ -2,7 +2,7 @@
    Separado del HTML para mejor mantenimiento
 */
 
-:root { --app-version: "2026.11.17-80"; }
+:root { --app-version: "2026.11.18-v2-01"; }
 
 .leaflet-control-attribution { font-size: 9px !important; background: rgba(15,23,42,0.7) !important; color: #94a3b8 !important; }
 .leaflet-control-attribution a { color: #94a3b8 !important; }
@@ -519,3 +519,37 @@ input[type="search"]::-webkit-search-cancel-button { -webkit-appearance: none; a
 #poiSizeRow { display: none; }
 #mainControls[data-mode="poi"] #poiSizeRow { display: grid; }
 #measureCard .mc-spd { color: #a7f3d0; }
+
+/* ========== INTERFAZ MÍNIMA (body.ui-min): dos tiras de íconos, paneles bajo demanda ========== */
+.strip { display: none; }
+body.ui-min .strip {
+  display: flex; flex-direction: column; gap: 2px; padding: 4px;
+  position: fixed; left: 10px; z-index: 25;
+  background: rgba(15, 23, 42, .85); border: 1.5px solid #d97706; border-radius: 14px;
+  backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+}
+body.ui-min #stripTop { top: max(12px, env(safe-area-inset-top, 12px)); }
+body.ui-min #stripBottom { bottom: var(--strip-bottom, 12px); }
+.sb { width: 44px; height: 44px; display: grid; place-items: center; border: 0; border-radius: 10px;
+  background: transparent; color: #f5e6c8; touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
+.sb svg { width: 24px; height: 24px; }
+.sb.on, .sb[aria-pressed="true"], .sb[aria-expanded="true"] { background: rgba(217, 119, 6, .3); color: #fbbf24; }
+
+/* Se esconde la barra superior vieja; el buscador sale al tocar la lupa */
+body.ui-min #viewSwitch, body.ui-min #topToolRow, body.ui-min #topRule, body.ui-min #viewHint { display: none !important; }
+body.ui-min header { display: none; left: 66px !important; right: 12px !important; top: auto !important; bottom: var(--strip-bottom, 12px); max-width: none; margin: 0; }
+body.ui-min.search-open header { display: flex; }
+body.ui-min #searchResults, body.ui-min #coordPanel { top: auto; bottom: 100%; margin-top: 0; margin-bottom: 4px; }
+
+/* Menú de guardados (POI / Mediciones) */
+body.ui-min #folderMenu {
+  position: fixed; left: 66px; bottom: var(--strip-bottom, 12px); z-index: 26; min-width: 190px; padding: 4px;
+  background: rgba(15, 23, 42, .95); border: 1.5px solid #d97706; border-radius: 14px;
+}
+body.ui-min #folderMenu.hidden { display: none; }
+#folderMenu button { width: 100%; min-height: 44px; display: flex; align-items: center; gap: 10px; padding: 0 12px;
+  border: 0; border-radius: 10px; background: transparent; color: #f5e6c8; font-size: 15px; text-align: left; }
+#folderMenu button:active { background: rgba(217, 119, 6, .3); }
+#folderMenu svg { width: 20px; height: 20px; color: #fbbf24; }
+#folderMenu span { flex: 1; }
+#folderMenu b { font-size: 12px; color: #fbbf24; font-family: ui-monospace, monospace; }

@@ -1703,7 +1703,7 @@ function updateMetrics(areaM2, distM) {
   liveArea = areaM2; liveDist = distM;
   updateLiveBadge();
 }
-const APP_VERSION = '2026.11.17-80';
+const APP_VERSION = '2026.11.18-v2-01';
 let liveSelfIntersect = false; // el polígono se cruza a sí mismo (los marcadores rojos ya lo señalan)
 function updateSelfIntersectWarning(show) {
   const v = !!show;
@@ -1834,6 +1834,9 @@ function positionFixedCompass() {
   const el = document.getElementById('fixedCompass');
   const header = document.querySelector('header');
   if (!el || !header || el.classList.contains('hidden')) return;
+  if (document.body.classList.contains('ui-min')) {   // interfaz mínima: la brújula va arriba a la derecha
+    el.style.top = 'max(12px, env(safe-area-inset-top, 12px))'; el.style.right = '12px'; return;
+  }
   const r = header.getBoundingClientRect();
   el.style.top = Math.round(r.bottom + 8) + 'px';
   el.style.right = Math.max(0, Math.round(window.innerWidth - r.right)) + 'px';

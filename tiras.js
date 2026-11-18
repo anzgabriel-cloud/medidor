@@ -99,4 +99,42 @@
     };
   });
   applyPanel();
+
+  // --- Colores del panel nuevo: Visibles / Compacto (ícono de paleta). Se elige en Ajustes y se recuerda ---
+  var COL_KEY = 'medidor_colores_compacto';
+  function coloresCompacto() { try { return localStorage.getItem(COL_KEY) === '1'; } catch (e) { return false; } }
+  function paintColorBtns() {
+    var c = body.classList.contains('col-compact');
+    document.querySelectorAll('.set-colors').forEach(function (b) {
+      var on = (b.dataset.colors === 'compacto') === c;
+      b.className = 'set-colors py-2 rounded-xl text-xs font-bold border ' +
+        (on ? 'bg-emerald-600 text-white border-emerald-500' : 'bg-slate-800 text-slate-300 border-slate-600');
+    });
+  }
+  function applyColors() {
+    body.classList.toggle('col-compact', coloresCompacto());
+    body.classList.remove('colors-open');
+    paintColorBtns();
+  }
+  document.querySelectorAll('.set-colors').forEach(function (b) {
+    b.onclick = function () {
+      try { localStorage.setItem(COL_KEY, b.dataset.colors === 'compacto' ? '1' : '0'); } catch (e) {}
+      applyColors();
+    };
+  });
+  var ct = $('colorToggleBtn');
+  if (ct) ct.onclick = function () { body.classList.toggle('colors-open'); };
+  var pal = $('colorPalette');
+  if (pal) pal.addEventListener('click', function (e) {
+    if (e.target.closest('.color-swatch')) setTimeout(function () { body.classList.remove('colors-open'); }, 0);
+  });
+  applyColors();
+
+  // --- Herramientas que todavía no existen (ruta a mano alzada, anillo): solo avisan ---
+  ['modeFreeBtn', 'modeRingBtn'].forEach(function (id) {
+    var b = $(id); if (!b) return;
+    b.onclick = function () {
+      if (typeof toast === 'function') toast({ type: 'info', title: 'Próximamente', message: 'Esta herramienta todavía no está disponible.', duration: 2500 });
+    };
+  });
 })();

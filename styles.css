@@ -2,7 +2,7 @@
    Separado del HTML para mejor mantenimiento
 */
 
-:root { --app-version: "2026.11.18-v2-04"; }
+:root { --app-version: "2026.11.18-v2-05"; }
 
 .leaflet-control-attribution { font-size: 9px !important; background: rgba(15,23,42,0.7) !important; color: #94a3b8 !important; }
 .leaflet-control-attribution a { color: #94a3b8 !important; }
@@ -528,7 +528,7 @@ body.ui-min .strip {
   background: rgba(15, 23, 42, .85); border: 1.5px solid #d97706; border-radius: 14px;
   backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
 }
-body.ui-min #stripTop { top: max(12px, env(safe-area-inset-top, 12px)); }
+body.ui-min #stripTop { top: auto; bottom: calc(var(--strip-bottom, 12px) + 152px); }   /* apilada sobre la de abajo; arriba queda libre el mapa */
 body.ui-min #stripBottom { bottom: var(--strip-bottom, 12px); }
 .sb { width: 44px; height: 44px; display: grid; place-items: center; border: 0; border-radius: 10px;
   background: transparent; color: #f5e6c8; touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
@@ -555,22 +555,82 @@ body.ui-min #folderMenu.hidden { display: none; }
 #folderMenu b { font-size: 12px; color: #fbbf24; font-family: ui-monospace, monospace; }
 
 /* ========== PANEL DE MEDICIÓN NUEVO (body.ui-min.med2) ==========
-   Es el panel de siempre (colores arriba, herramientas a la izquierda, acciones con texto a la derecha),
-   pegado a la tira de íconos. Las herramientas son una columna de íconos siempre visible. */
+   Dos tiras a la izquierda (ajustes/capas/ubicación sobre buscar/regla/carpeta), al lado la columna de
+   herramientas (6 lugares) y, a su derecha, un panel compacto: título del modo, colores, acciones y deshacer/rehacer/borrar. */
+body:not(.med2) .med2-only { display: none !important; }
+body.ui-min.med2 .med2-hide { display: none !important; }
+
 body.ui-min.med2 #bottomToolbar {
-  position: fixed; left: 66px; right: 10px; bottom: var(--strip-bottom, 12px);
-  width: auto; max-width: 28rem; margin: 0; z-index: 21;
+  position: fixed; left: 128px; right: 10px; bottom: var(--strip-bottom, 12px);
+  width: auto; max-width: 20rem; margin: 0; padding: 8px; z-index: 21;
+  overflow: visible; border-radius: 14px; border-width: 1.5px;
+  backdrop-filter: none; -webkit-backdrop-filter: none;   /* si no, la columna de herramientas (fija) quedaría atada a este panel */
 }
+body.ui-min.med2 #bottomToolbar::before { display: none; }
 body.ui-min.med2.pop-open #bottomToolbar { display: none; }   /* mientras el buscador o la carpeta están abiertos */
-/* Colores: solo la fila de círculos, sin ícono ni rótulo */
+
+/* Título del modo (con marcador amarillo, como en el boceto) */
+body.ui-min.med2 #panelTitle {
+  display: block; width: fit-content; margin: 0 0 6px; padding: 1px 8px; border-radius: 5px;
+  background: rgba(245, 158, 11, .3); color: #fde68a; font: 700 13px/1.5 system-ui, -apple-system, sans-serif;
+}
+#mainControls[data-mode="poi"] #panelTitle::before { content: 'Ubicar POI'; }
+#mainControls[data-mode="polygon"] #panelTitle::before { content: 'Medir superficie'; }
+#mainControls[data-mode="line"] #panelTitle::before { content: 'Medir distancia'; }
+#mainControls[data-mode="track"] #panelTitle::before { content: 'Medir / Grabar recorrido'; }
+
+/* Colores: una fila de círculos que se desliza hacia el costado ("…" del boceto) */
+body.ui-min.med2 #colorRow { margin: 0 0 6px; }
 body.ui-min.med2 #colorRow > :not(#colorPalette) { display: none; }
-body.ui-min.med2 #colorPalette { flex: 1; flex-wrap: wrap; justify-content: space-between; gap: 4px; }
-/* Herramientas: columna vertical de íconos */
-body.ui-min.med2 #modeCol { flex: none; width: 44px; gap: 4px; }
-body.ui-min.med2 :is(#modePolyBtn, #modeLineBtn, #modeTrackBtn, #modePoiBtn) {
+body.ui-min.med2 #colorPalette {
+  flex-wrap: nowrap; overflow-x: auto; gap: 8px; padding: 4px; margin: -4px;
+  scrollbar-width: none; -webkit-overflow-scrolling: touch; touch-action: pan-x;
+}
+body.ui-min.med2 #colorPalette::-webkit-scrollbar { display: none; }
+body.ui-min.med2 #colorPalette .color-swatch { flex: none; width: 24px; height: 24px; }
+/* Opción compacta: la fila de colores sale al tocar el ícono de paleta */
+body.ui-min.med2.col-compact #colorRow { display: none; }
+body.ui-min.med2.col-compact.colors-open #colorRow { display: block; }
+body.ui-min.med2:not(.col-compact) #colorToggleBtn { display: none !important; }
+
+/* Herramientas: columna vertical de 6 lugares, pegada a la tira (misma altura que las dos cajas apiladas) */
+body.ui-min.med2 #modeCol {
+  position: fixed; left: 69px; bottom: var(--strip-bottom, 12px); z-index: 21; flex: none; width: auto;
+  display: flex; flex-direction: column; gap: 4.8px; padding: 4px;
+  background: rgba(15, 23, 42, .85); border: 1.5px solid #d97706; border-radius: 14px;
+  backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+}
+body.ui-min.med2 :is(#modePoiBtn, #modePolyBtn, #modeLineBtn, #modeTrackBtn, #modeFreeBtn, #modeRingBtn) {
   width: 44px !important; height: 44px !important; min-height: 44px !important; padding: 0 !important;
   gap: 0 !important; justify-content: center; font-size: 0 !important; border-radius: 10px !important;
 }
-body.ui-min.med2 :is(#modePolyBtn, #modeLineBtn, #modeTrackBtn, #modePoiBtn) svg { width: 22px !important; height: 22px !important; flex: none; }
-/* Acciones: como antes (botones con texto), ocupan el resto del ancho */
-body.ui-min.med2 #actionCol { width: auto !important; flex: 1 1 0; min-width: 0; min-height: 188px; }
+body.ui-min.med2 :is(#modePoiBtn, #modePolyBtn, #modeLineBtn, #modeTrackBtn, #modeFreeBtn, #modeRingBtn) svg {
+  width: 24px !important; height: 24px !important; flex: none;
+}
+body.ui-min.med2 #modePoiBtn { order: 1; }
+body.ui-min.med2 #modePolyBtn { order: 2; }
+body.ui-min.med2 #modeLineBtn { order: 3; }
+body.ui-min.med2 #modeTrackBtn { order: 4; }
+body.ui-min.med2 #modeFreeBtn { order: 5; }
+body.ui-min.med2 #modeRingBtn { order: 6; }
+body.ui-min.med2 :is(#modeFreeBtn, #modeRingBtn) { opacity: .4; }   /* todavía sin función */
+
+/* Acciones: íconos en filas (nueva · guardar · …), y debajo deshacer / rehacer / borrar */
+body.ui-min.med2 #actionCol {
+  width: auto !important; flex: 1 1 0; min-width: 0; min-height: 0 !important;
+  flex-direction: row !important; flex-wrap: wrap; gap: 2px !important; align-content: flex-start; align-items: flex-start;
+}
+body.ui-min.med2 #actionCol .act-btn, body.ui-min.med2 #colorToggleBtn, body.ui-min.med2 :is(#undoBtn, #redoBtn, #clearBtn) {
+  width: 44px !important; height: 44px !important; min-height: 44px !important; flex: none !important; padding: 0 !important;
+  gap: 0 !important; justify-content: center; font-size: 0 !important; border-radius: 10px !important;
+}
+body.ui-min.med2 #actionCol button svg { width: 22px !important; height: 22px !important; flex: none; }
+body.ui-min.med2 #histRow { flex: 0 0 100%; justify-content: flex-start; gap: 2px; margin: 0; }
+body.ui-min.med2 #poiSizeRow { grid-template-columns: repeat(3, 44px) !important; gap: 2px !important; flex: none; }
+body.ui-min.med2 #poiSizeRow button { width: 44px; height: 44px !important; }
+
+/* Tarjeta de medidas en vivo: arriba a la izquierda, sin tapar la brújula (que queda arriba a la derecha) */
+body.ui-min #measureCard {
+  top: max(12px, env(safe-area-inset-top, 12px)) !important; left: 12px !important;
+  max-width: calc(100vw - var(--compass-w, 120px) - 6px); flex-wrap: wrap;
+}

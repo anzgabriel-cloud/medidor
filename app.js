@@ -1703,7 +1703,7 @@ function updateMetrics(areaM2, distM) {
   liveArea = areaM2; liveDist = distM;
   updateLiveBadge();
 }
-const APP_VERSION = '2026.11.18-v2-04';
+const APP_VERSION = '2026.11.18-v2-05';
 let liveSelfIntersect = false; // el polígono se cruza a sí mismo (los marcadores rojos ya lo señalan)
 function updateSelfIntersectWarning(show) {
   const v = !!show;
@@ -1835,7 +1835,9 @@ function positionFixedCompass() {
   const header = document.querySelector('header');
   if (!el || !header || el.classList.contains('hidden')) return;
   if (document.body.classList.contains('ui-min')) {   // interfaz mínima: la brújula va arriba a la derecha
-    el.style.top = 'max(12px, env(safe-area-inset-top, 12px))'; el.style.right = '12px'; return;
+    el.style.top = 'max(12px, env(safe-area-inset-top, 12px))'; el.style.right = '12px';
+    document.documentElement.style.setProperty('--compass-w', Math.round(el.getBoundingClientRect().width + 24) + 'px');   // ancho que la tarjeta de medidas debe dejar libre
+    return;
   }
   const r = header.getBoundingClientRect();
   el.style.top = Math.round(r.bottom + 8) + 'px';
@@ -1846,7 +1848,7 @@ function positionFixedCompass() {
 function syncFixedCompass() {
   const el = document.getElementById('fixedCompass');
   if (!el) return;
-  const show = appView === 'ver' || !!inspectItem;
+  const show = document.body.classList.contains('ui-min') || appView === 'ver' || !!inspectItem;   // interfaz mínima: brújula permanente
   el.classList.toggle('hidden', !show);
   const ring = document.getElementById('fixedCompassRing');
   if (ring) ring.setAttribute('stroke', inspectItem ? safeColor(inspectItem.color) : '#94a3b8');

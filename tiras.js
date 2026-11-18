@@ -90,7 +90,6 @@
   }
   function applyPanel() {
     body.classList.toggle('med2', panelNuevo());
-    body.classList.remove('palette-open');
     paintPanelBtns(); lift();
   }
   document.querySelectorAll('.set-panel').forEach(function (b) {
@@ -99,10 +98,5 @@
       applyPanel();
     };
   });
-  // Color: el ícono abre la paleta; al elegir un color se cierra
-  var cb = $('colorRailBtn');
-  if (cb) cb.onclick = function () { body.classList.toggle('palette-open'); };
-  var pal = $('colorPalette');
-  if (pal) pal.addEventListener('click', function () { setTimeout(function () { body.classList.remove('palette-open'); }, 0); });
   applyPanel();
 })();

@@ -14,7 +14,7 @@
   <meta name="apple-mobile-web-app-title" content="Medidor">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <!-- Versión: debe coincidir con APP_VERSION (app.js) y --app-version (styles.css) -->
-  <meta name="app-version" content="2026.11.18-v2-01">
+  <meta name="app-version" content="2026.11.18-v2-02">
 
   <!-- Librerías locales (en este mismo repo) + Tailwind por CDN -->
   <link rel="stylesheet" href="leaflet.css" />
@@ -250,6 +250,7 @@
             </button>
           </div>
           <div id="actionCol" class="w-[148px] flex flex-col gap-1.5">
+            <button id="colorRailBtn" type="button" class="rail-only" aria-label="Color de la medición" title="Color"><i data-lucide="palette"></i></button>
             <button id="newBtn" class="text-xs font-semibold rounded-md inline-flex items-center justify-center gap-1 h-8 px-2 act-btn act-measure bg-sky-500/20 text-sky-300 border border-sky-500/40" aria-label="Nueva medición">
               <i data-lucide="plus" class="w-3.5 h-3.5"></i> Nueva medición
             </button>
@@ -468,6 +469,13 @@
         </button>
       </div>
 
+      <label class="text-[10px] uppercase tracking-wide text-slate-500">Panel de medición</label>
+      <div class="grid grid-cols-2 gap-2 mt-1 mb-0">
+        <button type="button" data-panel="clasico" class="set-panel py-2 rounded-xl text-xs font-bold border">Clásico</button>
+        <button type="button" data-panel="nuevo" class="set-panel py-2 rounded-xl text-xs font-bold border">Nuevo (prueba)</button>
+      </div>
+
+      <div class="set-rule"></div>
       <label class="text-[10px] uppercase tracking-wide text-slate-500">Sistema de unidades</label>
       <div class="grid grid-cols-2 gap-2 mt-1 mb-0">
         <button type="button" data-units="metric" class="set-units py-2 rounded-xl text-xs font-bold border">Métrico (m, km, ha)</button>

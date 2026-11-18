@@ -13,13 +13,17 @@
   $('tpLocate').onclick = function () { click('locateBtn'); };
 
   // --- Buscar: abre/cierra el buscador (lugar + coordenadas) arriba de la tira ---
+  function updatePop() {
+    body.classList.toggle('pop-open', body.classList.contains('search-open') || !$('folderMenu').classList.contains('hidden'));
+  }
   function closeSearch() {
     body.classList.remove('search-open');
     $('tpSearch').setAttribute('aria-pressed', 'false');
     if (typeof setSearchMode === 'function') setSearchMode('place');
     var si = $('searchInput'); if (si) si.blur();
+    updatePop();
   }
-  function closeFolder() { $('folderMenu').classList.add('hidden'); $('tpFolder').setAttribute('aria-expanded', 'false'); }
+  function closeFolder() { $('folderMenu').classList.add('hidden'); $('tpFolder').setAttribute('aria-expanded', 'false'); updatePop(); }
   function closeAll() { closeSearch(); closeFolder(); }
   $('tpSearch').onclick = function () {
     var open = !body.classList.contains('search-open');
@@ -27,6 +31,7 @@
     if (!open) { closeSearch(); return; }
     body.classList.add('search-open');
     $('tpSearch').setAttribute('aria-pressed', 'true');
+    updatePop();
   };
 
   // --- Medir: alterna Modo vista / Modo medición (el panel de medición se abre solo en medición) ---
@@ -47,6 +52,7 @@
     closeSearch();
     m.classList.toggle('hidden', !open);
     $('tpFolder').setAttribute('aria-expanded', open ? 'true' : 'false');
+    updatePop();
   };
   $('fmPoi').onclick = function () { closeFolder(); click('poiBtn'); };
   $('fmSaved').onclick = function () { closeFolder(); click('savedBtn'); };
@@ -84,7 +90,6 @@
   }
   function applyPanel() {
     body.classList.toggle('med2', panelNuevo());
-    if (mc) mc.classList.remove('rail-open');
     body.classList.remove('palette-open');
     paintPanelBtns(); lift();
   }
@@ -94,18 +99,6 @@
       applyPanel();
     };
   });
-  // Herramientas: tocar la activa despliega la lista; elegir otra la cierra
-  var modeOf = { modePolyBtn: 'polygon', modeLineBtn: 'line', modeTrackBtn: 'track', modePoiBtn: 'poi' };
-  var bt = $('bottomToolbar');
-  if (bt && mc) bt.addEventListener('click', function (e) {
-    if (!body.classList.contains('med2')) return;
-    var btn = e.target.closest('#modePolyBtn, #modeLineBtn, #modeTrackBtn, #modePoiBtn');
-    if (!btn) return;
-    var open = mc.classList.contains('rail-open');
-    var active = mc.getAttribute('data-mode') === modeOf[btn.id];
-    if (!open && active) { e.stopImmediatePropagation(); e.preventDefault(); mc.classList.add('rail-open'); return; }
-    if (open) { mc.classList.remove('rail-open'); if (active) { e.stopImmediatePropagation(); e.preventDefault(); } }
-  }, true);
   // Color: el ícono abre la paleta; al elegir un color se cierra
   var cb = $('colorRailBtn');
   if (cb) cb.onclick = function () { body.classList.toggle('palette-open'); };

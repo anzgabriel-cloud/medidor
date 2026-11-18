@@ -614,6 +614,8 @@ function init() {
     } catch (e) {}
   };
   map.on('moveend', saveMapView);
+  map.on('movestart', () => { mapWait.moving = true; startMapWait(); });    // vuelo / zoom / arrastre: todavía no se cuenta la espera
+  map.on('moveend', () => { mapWait.moving = false; startMapWait(); });     // el mapa se detuvo: si faltan mosaicos, empieza a contar
   map.on('zoomend', saveMapView);
 
   map.on('click', (e) => {
@@ -1689,7 +1691,7 @@ function updateMetrics(areaM2, distM) {
   liveArea = areaM2; liveDist = distM;
   updateLiveBadge();
 }
-const APP_VERSION = '2026.11.17-77';
+const APP_VERSION = '2026.11.17-78';
 let liveSelfIntersect = false; // el polígono se cruza a sí mismo (los marcadores rojos ya lo señalan)
 function updateSelfIntersectWarning(show) {
   const v = !!show;
@@ -2588,33 +2590,42 @@ function satStatusText() {
   if (!satStats.read && satStats.blocked) return 'Detección: NO disponible (el servidor no deja leer los mosaicos). Elegí un nivel fijo.';
   return `Detección activa: ${satStats.read} mosaicos revisados, ${satStats.replaced} vacíos reemplazados${satStats.failed ? ', ' + satStats.failed + ' sin respaldo' : ''}.`;
 }
-// ---- Reloj de arena: si la imagen del mapa tarda más de ~1 s, se avisa que hay que esperar ----
-let mapLoadTimer = null, mapLoadFailsafe = null;
-function positionMapLoading() {
-  const el = document.getElementById('mapLoading');
-  if (!el) return;
-  const tb = document.getElementById('bottomToolbar');
-  const edge = (tb && tb.offsetParent !== null) ? tb.getBoundingClientRect().top : window.innerHeight - 8;   // justo arriba del panel (o del borde inferior en Modo vista)
-  el.style.top = Math.max(120, Math.round(edge - 52)) + 'px';
+// ---- Reloj de arena: si el mapa tarda en mostrar la imagen, se avisa que hay que esperar ----
+// No depende de un solo aviso de Leaflet: mientras el mapa se mueve o carga, se revisa cada 250 ms cuántos mosaicos de la
+// vista actual siguen sin llegar. Si hay mosaicos pendientes ~0,7 s seguidos (las pausas cortas no cuentan) aparece el reloj;
+// se va cuando ya no queda ninguno. Si la red no responde, a los 25 s se rinde y no vuelve a molestar hasta que algo cargue.
+const MAP_WAIT_SHOW_MS = 700, MAP_WAIT_GIVEUP_MS = 25000;
+const mapWait = { timer: null, since: 0, calm: 0, shownAt: 0, gaveUp: false, moving: false };   // moving: el mapa está en vuelo/zoom/arrastre (no se cuenta la espera)
+function pendingTiles(layer) {
+  let n = 0;
+  if (layer && layer._tiles) for (const k in layer._tiles) { const t = layer._tiles[k]; if (t.current && !t.loaded) n++; }
+  return n;
 }
-function showMapLoading() {
-  const el = document.getElementById('mapLoading');
-  if (!el) return;
-  positionMapLoading();
-  el.classList.add('on');
-  clearTimeout(mapLoadFailsafe);
-  mapLoadFailsafe = setTimeout(hideMapLoading, 25000);   // por las dudas: nunca queda girando para siempre
+function showMapLoading() { document.getElementById('mapLoading')?.classList.add('on'); }
+function hideMapLoading() { document.getElementById('mapLoading')?.classList.remove('on'); mapWait.shownAt = 0; }
+function mapWaitTick() {
+  const n = pendingTiles(tileLayer), now = Date.now(), on = document.getElementById('mapLoading')?.classList.contains('on');
+  if (mapWait.moving) { mapWait.since = 0; mapWait.calm = 0; if (on) hideMapLoading(); return; }   // se ve la animación: la espera empieza cuando el mapa se detiene
+  if (n > 0) {
+    mapWait.calm = 0;
+    if (!mapWait.since) mapWait.since = now;
+    if (!mapWait.gaveUp && now - mapWait.since >= MAP_WAIT_SHOW_MS) {
+      if (!on) { showMapLoading(); mapWait.shownAt = now; }
+      else if (mapWait.shownAt && now - mapWait.shownAt >= MAP_WAIT_GIVEUP_MS) { hideMapLoading(); mapWait.gaveUp = true; }
+    }
+  } else {
+    mapWait.calm += 250;
+    if (mapWait.calm >= 300) { mapWait.since = 0; mapWait.gaveUp = false; if (on) hideMapLoading(); }
+    if (mapWait.calm >= 3000) stopMapWait();   // todo quieto: se apaga la revisión (no gasta batería)
+  }
 }
-function hideMapLoading() {
-  clearTimeout(mapLoadTimer); clearTimeout(mapLoadFailsafe);
-  document.getElementById('mapLoading')?.classList.remove('on');
-}
+function startMapWait() { if (!mapWait.timer) { mapWait.calm = 0; mapWait.timer = setInterval(mapWaitTick, 250); } }
+function stopMapWait() { clearInterval(mapWait.timer); mapWait.timer = null; mapWait.since = 0; hideMapLoading(); }
 function watchTileLayer(layer) {
-  layer.on('loading', () => { clearTimeout(mapLoadTimer); mapLoadTimer = setTimeout(showMapLoading, 1000); });
-  layer.on('load remove', hideMapLoading);
+  layer.on('loading tileloadstart', startMapWait);
+  layer.on('remove', () => { mapWait.since = 0; hideMapLoading(); });
   return layer;
 }
-window.addEventListener('resize', () => { if (document.getElementById('mapLoading')?.classList.contains('on')) positionMapLoading(); });
 
 let SmartTileLayer = null;
 function makeTileLayer(t) { return watchTileLayer(makeTileLayerRaw(t)); }

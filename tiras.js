@@ -137,4 +137,18 @@
       if (typeof toast === 'function') toast({ type: 'info', title: 'Próximamente', message: 'Esta herramienta todavía no está disponible.', duration: 2500 });
     };
   });
+
+  // --- Brújula permanente: si algo la oculta con la interfaz mínima activa (por ejemplo un app.js viejo en el caché), vuelve a mostrarse ---
+  var cmp = $('fixedCompass');
+  if (cmp) {
+    var keepCompass = function () {
+      if (!cmp.classList.contains('hidden')) return;
+      cmp.classList.remove('hidden');
+      if (typeof applyCompassScale === 'function') applyCompassScale();
+      if (typeof positionFixedCompass === 'function') positionFixedCompass();
+      if (typeof compassActive === 'function' && !document.hidden) compassActive(true);
+    };
+    new MutationObserver(keepCompass).observe(cmp, { attributes: true, attributeFilter: ['class'] });
+    keepCompass();
+  }
 })();

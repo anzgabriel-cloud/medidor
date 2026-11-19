@@ -2,7 +2,7 @@
    Separado del HTML para mejor mantenimiento
 */
 
-:root { --app-version: "2026.11.18-v2-05"; }
+:root { --app-version: "2026.11.18-v2-07"; }
 
 .leaflet-control-attribution { font-size: 9px !important; background: rgba(15,23,42,0.7) !important; color: #94a3b8 !important; }
 .leaflet-control-attribution a { color: #94a3b8 !important; }
@@ -628,9 +628,19 @@ body.ui-min.med2 #actionCol button svg { width: 22px !important; height: 22px !i
 body.ui-min.med2 #histRow { flex: 0 0 100%; justify-content: flex-start; gap: 2px; margin: 0; }
 body.ui-min.med2 #poiSizeRow { grid-template-columns: repeat(3, 44px) !important; gap: 2px !important; flex: none; }
 body.ui-min.med2 #poiSizeRow button { width: 44px; height: 44px !important; }
+/* los tres pines conservan tamaños distintos (chico, medio, grande) como los POI del mapa */
+body.ui-min.med2 #poiSizeRow [data-poi-size="s"] svg { width: 12px !important; height: 19px !important; }
+body.ui-min.med2 #poiSizeRow [data-poi-size="m"] svg { width: 16px !important; height: 25px !important; }
+body.ui-min.med2 #poiSizeRow [data-poi-size="l"] svg { width: 21px !important; height: 33px !important; }
 
 /* Tarjeta de medidas en vivo: arriba a la izquierda, sin tapar la brújula (que queda arriba a la derecha) */
 body.ui-min #measureCard {
   top: max(12px, env(safe-area-inset-top, 12px)) !important; left: 12px !important;
   max-width: calc(100vw - var(--compass-w, 120px) - 6px); flex-wrap: wrap;
+}
+
+/* Avisos (toasts): flotan por encima de la pila de tiras, para no tapar el panel ni las herramientas */
+body.ui-min #toastContainer {
+  position: fixed; left: 12px; right: 12px; bottom: calc(var(--strip-bottom, 12px) + 312px);
+  width: auto; margin: 0;
 }

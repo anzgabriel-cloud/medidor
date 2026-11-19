@@ -7,8 +7,7 @@
   var KEY = 'medidor_rutas', DKEY = 'medidor_ruta_borrador';
   var $ = function (id) { return document.getElementById(id); };
   var body = document.body;
-  // ui: la interfaz nueva está activa (con ?clasica solo existe la API de datos para copias de seguridad)
-  var ui = !/[?&]clasica/.test(location.search) && !!$('modeFreeBtn') && !!$('freeSaveBtn');
+  var ui = !!$('modeFreeBtn') && !!$('freeSaveBtn');
 
   var active = false;
   var strokes = [], redo = [];          // tramos: cada uno es [[lat,lng],...] (el primero ya incluye el punto de unión)

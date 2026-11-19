@@ -2,7 +2,7 @@
    Separado del HTML para mejor mantenimiento
 */
 
-:root { --app-version: "2026.11.19-v2-12"; }
+:root { --app-version: "2026.11.19-v2-13"; }
 
 .leaflet-control-attribution { font-size: 9px !important; background: rgba(15,23,42,0.7) !important; color: #94a3b8 !important; }
 .leaflet-control-attribution a { color: #94a3b8 !important; }
@@ -559,8 +559,6 @@ body.ui-min #folderMenu.hidden { display: none; }
 /* ========== PANEL DE MEDICIÓN NUEVO (body.ui-min.med2) ==========
    Dos tiras a la izquierda (ajustes/capas/ubicación sobre buscar/regla/carpeta), al lado la columna de
    herramientas (6 lugares) y, a su derecha, un panel compacto: título del modo, colores, acciones y deshacer/rehacer/borrar. */
-body:not(.med2) .med2-only { display: none !important; }
-body.ui-min.med2 .med2-hide { display: none !important; }
 
 body.ui-min.med2 #bottomToolbar {
   position: fixed; left: 128px; right: 10px; bottom: var(--strip-bottom, 12px);
@@ -590,10 +588,6 @@ body.ui-min.med2 #colorPalette {
 }
 body.ui-min.med2 #colorPalette::-webkit-scrollbar { display: none; }
 body.ui-min.med2 #colorPalette .color-swatch { flex: none; width: 24px; height: 24px; }
-/* Opción compacta: la fila de colores sale al tocar el ícono de paleta */
-body.ui-min.med2.col-compact #colorRow { display: none; }
-body.ui-min.med2.col-compact.colors-open #colorRow { display: block; }
-body.ui-min.med2:not(.col-compact) #colorToggleBtn { display: none !important; }
 
 /* Herramientas: columna vertical de 6 lugares, pegada a la tira (misma altura que las dos cajas apiladas) */
 body.ui-min.med2 #modeCol {
@@ -621,7 +615,7 @@ body.ui-min.med2 #actionCol {
   width: auto !important; flex: 1 1 0; min-width: 0; min-height: 0 !important;
   flex-direction: row !important; flex-wrap: wrap; gap: 2px !important; align-content: flex-start; align-items: flex-start;
 }
-body.ui-min.med2 #actionCol .act-btn, body.ui-min.med2 #colorToggleBtn, body.ui-min.med2 :is(#undoBtn, #redoBtn, #clearBtn) {
+body.ui-min.med2 #actionCol .act-btn, body.ui-min.med2 :is(#undoBtn, #redoBtn, #clearBtn) {
   width: 44px !important; height: 44px !important; min-height: 44px !important; flex: none !important; padding: 0 !important;
   gap: 0 !important; justify-content: center; font-size: 0 !important; border-radius: 10px !important;
 }

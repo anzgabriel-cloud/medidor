@@ -6,8 +6,7 @@
   var KEY = 'medidor_anillos';
   var $ = function (id) { return document.getElementById(id); };
   var body = document.body;
-  // ui: la interfaz nueva está activa (con ?clasica solo existe la API de datos para copias de seguridad)
-  var ui = !/[?&]clasica/.test(location.search) && !!$('modeRingBtn') && !!$('ringNewBtn');
+  var ui = !!$('modeRingBtn') && !!$('ringNewBtn');
 
   var ringMode = false, aiming = false;
   var draft = null;            // { lat, lng, r, color } mientras no se guarda

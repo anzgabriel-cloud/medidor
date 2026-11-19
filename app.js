@@ -1703,7 +1703,7 @@ function updateMetrics(areaM2, distM) {
   liveArea = areaM2; liveDist = distM;
   updateLiveBadge();
 }
-const APP_VERSION = '2026.11.19-v2-12';
+const APP_VERSION = '2026.11.19-v2-13';
 let liveSelfIntersect = false; // el polígono se cruza a sí mismo (los marcadores rojos ya lo señalan)
 function updateSelfIntersectWarning(show) {
   const v = !!show;
@@ -1832,23 +1832,17 @@ function setCompassScale(n) {
 }
 function positionFixedCompass() {
   const el = document.getElementById('fixedCompass');
-  const header = document.querySelector('header');
-  if (!el || !header || el.classList.contains('hidden')) return;
-  if (document.body.classList.contains('ui-min')) {   // interfaz mínima: la brújula va arriba a la derecha
-    el.style.top = 'max(12px, env(safe-area-inset-top, 12px))'; el.style.right = '12px';
-    document.documentElement.style.setProperty('--compass-w', Math.round(el.getBoundingClientRect().width + 24) + 'px');   // ancho que la tarjeta de medidas debe dejar libre
-    return;
-  }
-  const r = header.getBoundingClientRect();
-  el.style.top = Math.round(r.bottom + 8) + 'px';
-  el.style.right = Math.max(0, Math.round(window.innerWidth - r.right)) + 'px';
+  if (!el || el.classList.contains('hidden')) return;
+  // La brújula va arriba a la derecha
+  el.style.top = 'max(12px, env(safe-area-inset-top, 12px))'; el.style.right = '12px';
+  document.documentElement.style.setProperty('--compass-w', Math.round(el.getBoundingClientRect().width + 24) + 'px');   // ancho que la tarjeta de medidas debe dejar libre
 }
-// La brújula se ve siempre en Modo vista, y en cualquier modo mientras hay una Consulta abierta.
+// La brújula es permanente.
 // El aro toma el color de la medición consultada (gris si no hay ninguna).
 function syncFixedCompass() {
   const el = document.getElementById('fixedCompass');
   if (!el) return;
-  const show = document.body.classList.contains('ui-min') || appView === 'ver' || !!inspectItem;   // interfaz mínima: brújula permanente
+  const show = true;
   el.classList.toggle('hidden', !show);
   const ring = document.getElementById('fixedCompassRing');
   if (ring) ring.setAttribute('stroke', inspectItem ? safeColor(inspectItem.color) : '#94a3b8');

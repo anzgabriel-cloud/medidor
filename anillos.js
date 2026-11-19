@@ -3,11 +3,11 @@
    Se guarda aparte (localStorage 'medidor_anillos'); la lista está en Guardados > Anillos. */
 (function () {
   'use strict';
-  if (/[?&]clasica/.test(location.search)) return;
   var KEY = 'medidor_anillos';
   var $ = function (id) { return document.getElementById(id); };
   var body = document.body;
-  if (!$('modeRingBtn') || !$('ringNewBtn')) return;
+  // ui: la interfaz nueva está activa (con ?clasica solo existe la API de datos para copias de seguridad)
+  var ui = !/[?&]clasica/.test(location.search) && !!$('modeRingBtn') && !!$('ringNewBtn');
 
   var ringMode = false, aiming = false;
   var draft = null;            // { lat, lng, r, color } mientras no se guarda
@@ -20,7 +20,7 @@
   function persist() { try { localStorage.setItem(KEY, JSON.stringify(rings)); } catch (e) {} }
   function getMap() { try { return (typeof map !== 'undefined' && map && map.getContainer) ? map : null; } catch (e) { return null; } }
   function fmt(r) {
-    if (r >= 1000) { var k = r / 1000; return (k >= 10 ? Math.round(k * 10) / 10 : Math.round(k * 100) / 100).toString().replace('.', ',') + ' km'; }
+    if (Math.round(r) >= 1000) { var k = r / 1000; return (k >= 10 ? Math.round(k * 10) / 10 : Math.round(k * 100) / 100).toString().replace('.', ',') + ' km'; }
     return Math.round(r).toString() + ' m';
   }
   function safeColor(c) { return /^#[0-9a-f]{6}$/i.test(c || '') ? c : '#00ff66'; }
@@ -49,12 +49,28 @@
     if (draft) draftLayer = build(m, draft);
   }
   function renderSaved() {
-    var m = getMap(); if (!m) return;
+    var m = getMap(); if (!m || !ui) return;
     Object.keys(savedLayers).forEach(function (k) { m.removeLayer(savedLayers[k]); });
     savedLayers = {};
     rings.forEach(function (a) { if (!a.hidden) savedLayers[a.id] = build(m, a); });
     var n = $('fmRingN'); if (n) n.textContent = String(rings.length);
   }
+  var sig = function (x) { return x.lat.toFixed(6) + ',' + x.lng.toFixed(6) + ',' + Math.round(x.r); };
+  window.MedidorAnillos = {
+    list: function () { return rings.map(function (a) { return { lat: a.lat, lng: a.lng, r: a.r, color: a.color }; }); },
+    add: function (items) {
+      var n = 0, d = 0, have = {}; rings.forEach(function (a) { have[sig(a)] = 1; });
+      items.forEach(function (it) {
+        var x = { id: 'r' + Date.now().toString(36) + Math.random().toString(16).slice(2, 6), lat: it.lat, lng: it.lng, r: it.r, color: safeColor(it.color), hidden: false, ts: Date.now() };
+        if (have[sig(x)]) { d++; return; }
+        have[sig(x)] = 1; rings.push(x); n++;
+      });
+      if (n) { persist(); renderSaved(); }
+      return { added: n, dupes: d };
+    },
+    clear: function () { rings = []; persist(); renderSaved(); }
+  };
+  if (!ui) return;
   var tries = 0;
   (function waitMap() { if (getMap()) { renderSaved(); } else if (tries++ < 60) setTimeout(waitMap, 250); })();
 

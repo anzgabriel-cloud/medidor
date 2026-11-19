@@ -2,7 +2,8 @@
 // Modelo común (lo que lee y devuelve este archivo):
 //   mediciones: { name, mode: 'polygon' | 'line', color: '#rrggbb', date, points: [{ lat, lng }] }
 //   POI:        { name, note, color: '#rrggbb', size: 's'|'m'|'l', lat, lng, elev? }
-const BACKUP_VERSION = '2026.11.19-v2-11';
+//   anillos:    { lat, lng, r (metros), color }        rutas a mano alzada: { pts: [[lat, lng]], color, date }
+const BACKUP_VERSION = '2026.11.19-v2-12';
 const BACKUP_FORMATS = {
   geojson: {
     label: 'GeoJSON', ext: 'geojson', mime: 'application/geo+json',
@@ -28,10 +29,11 @@ const bkColor = (c, fallback) => bkHex(c) ? c.toLowerCase() : fallback;
 const bkValidLL = (lat, lng) => Number.isFinite(lat) && Number.isFinite(lng) && Math.abs(lat) <= 90 && Math.abs(lng) <= 180;
 const bkToday = () => new Date().toLocaleDateString('es-AR');
 const bkFix = (n) => (+n).toFixed(7).replace(/\.?0+$/, '');   // ≈ 1 cm, sin ceros de más
+const bkRingLabel = (r) => r >= 1000 ? (Math.round(r / 10) / 100) + ' km' : Math.round(r) + ' m';
 const bkIsPoly = (m) => m.mode === 'polygon' && m.points.length >= 3;   // 2 puntos no forman polígono
 
 // ---------- exportación ----------
-function buildGeoJSON(saved, pois) {
+function buildGeoJSON(saved, pois, ex) {
   const features = saved.map(m => {
     const coords = m.points.map(p => [p.lng, p.lat]);
     const poly = bkIsPoly(m);
@@ -50,6 +52,15 @@ function buildGeoJSON(saved, pois) {
       geometry: { type: 'Point', coordinates: [+p.lng, +p.lat] }
     });
   });
+  ((ex && ex.rings) || []).forEach(a => {
+    if (!bkValidLL(+a.lat, +a.lng) || !(+a.r > 0)) return;
+    features.push({ type: 'Feature', properties: { kind: 'ring', name: 'Anillo ' + bkRingLabel(a.r), radius: Math.round(a.r * 10) / 10, color: a.color }, geometry: { type: 'Point', coordinates: [+a.lng, +a.lat] } });
+  });
+  ((ex && ex.routes) || []).forEach(r => {
+    const coords = (r.pts || []).filter(p => bkValidLL(+p[0], +p[1])).map(p => [+p[1], +p[0]]);
+    if (coords.length < 2) return;
+    features.push({ type: 'Feature', properties: { kind: 'route', name: 'Ruta a mano alzada', color: r.color, date: r.date || null }, geometry: { type: 'LineString', coordinates: coords } });
+  });
   return JSON.stringify({ type: 'FeatureCollection', features }, null, 2);
 }
 
@@ -62,7 +73,7 @@ const bkFromKmlColor = (c) => {
   const m = /^([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec((c || '').trim());
   return m ? ('#' + m[4] + m[3] + m[2]).toLowerCase() : null;
 };
-function buildKML(saved, pois) {
+function buildKML(saved, pois, ex) {
   const data = (k, v) => `<Data name="${k}"><value>${bkEsc(v)}</value></Data>`;
   const out = ['<?xml version="1.0" encoding="UTF-8"?>',
     '<kml xmlns="http://www.opengis.net/kml/2.2">', '<Document>', '<name>Medidor de Terrenos</name>'];
@@ -92,11 +103,29 @@ function buildKML(saved, pois) {
       `<Point><coordinates>${bkFix(p.lng)},${bkFix(p.lat)},${z}</coordinates></Point>`,
       '</Placemark>');
   });
+  ((ex && ex.rings) || []).forEach(a => {
+    if (!bkValidLL(+a.lat, +a.lng) || !(+a.r > 0)) return;
+    out.push('<Placemark>',
+      `<name>Anillo ${bkEsc(bkRingLabel(a.r))}</name>`,
+      `<ExtendedData>${data('kind', 'ring')}${data('radius', Math.round(a.r * 10) / 10)}${data('color', bkColor(a.color, '#00ff66'))}</ExtendedData>`,
+      `<Point><coordinates>${bkFix(a.lng)},${bkFix(a.lat)},0</coordinates></Point>`,
+      '</Placemark>');
+  });
+  ((ex && ex.routes) || []).forEach(r => {
+    const pts = (r.pts || []).filter(p => bkValidLL(+p[0], +p[1]));
+    if (pts.length < 2) return;
+    out.push('<Placemark>',
+      '<name>Ruta a mano alzada</name>',
+      `<Style><LineStyle><color>${bkKmlColor(r.color, 'ff')}</color><width>3</width></LineStyle></Style>`,
+      `<ExtendedData>${data('kind', 'route')}${data('color', bkColor(r.color, '#00ff66'))}${data('date', r.date || '')}</ExtendedData>`,
+      `<LineString><tessellate>1</tessellate><coordinates>${pts.map(p => `${bkFix(p[1])},${bkFix(p[0])},0`).join(' ')}</coordinates></LineString>`,
+      '</Placemark>');
+  });
   out.push('</Document>', '</kml>');
   return out.join('\n');
 }
 
-function buildGPX(saved, pois) {
+function buildGPX(saved, pois, ex) {
   const out = ['<?xml version="1.0" encoding="UTF-8"?>',
     '<gpx version="1.1" creator="Medidor de Terrenos" xmlns="http://www.topografix.com/GPX/1/1" xmlns:md="https://anzgabriel-cloud.github.io/medidor">',
     `<metadata><name>Medidor de Terrenos</name><time>${new Date().toISOString()}</time></metadata>`];
@@ -121,21 +150,33 @@ function buildGPX(saved, pois) {
       ...pts.map(p => `<trkpt lat="${bkFix(p.lat)}" lon="${bkFix(p.lng)}"/>`),
       '</trkseg>', '</trk>');
   });
+  ((ex && ex.rings) || []).forEach(a => {
+    if (!bkValidLL(+a.lat, +a.lng) || !(+a.r > 0)) return;
+    out.push(`<wpt lat="${bkFix(a.lat)}" lon="${bkFix(a.lng)}"><name>Anillo ${bkEsc(bkRingLabel(a.r))}</name>` +
+      `<extensions><md:kind>ring</md:kind><md:radius>${Math.round(a.r * 10) / 10}</md:radius><md:color>${bkColor(a.color, '#00ff66')}</md:color></extensions></wpt>`);
+  });
+  ((ex && ex.routes) || []).forEach(r => {
+    const pts = (r.pts || []).filter(p => bkValidLL(+p[0], +p[1]));
+    if (pts.length < 2) return;
+    out.push('<trk>', '<name>Ruta a mano alzada</name>', `<desc>${bkEsc(r.date || '')}</desc>`, '<type>route</type>',
+      `<extensions><md:color>${bkColor(r.color, '#00ff66')}</md:color></extensions>`, '<trkseg>',
+      ...pts.map(p => `<trkpt lat="${bkFix(p[0])}" lon="${bkFix(p[1])}"/>`), '</trkseg>', '</trk>');
+  });
   out.push('</gpx>');
   return out.join('\n');
 }
 
 /** Arma el archivo de respaldo: { text, mime, ext } */
-function buildBackup(fmt, saved, pois) {
+function buildBackup(fmt, saved, pois, ex) {
   const f = BACKUP_FORMATS[fmt] || BACKUP_FORMATS.geojson;
-  const text = fmt === 'kml' ? buildKML(saved, pois) : fmt === 'gpx' ? buildGPX(saved, pois) : buildGeoJSON(saved, pois);
+  const text = fmt === 'kml' ? buildKML(saved, pois, ex) : fmt === 'gpx' ? buildGPX(saved, pois, ex) : buildGeoJSON(saved, pois, ex);
   return { text, mime: f.mime, ext: f.ext };
 }
 
 // ---------- importación ----------
 // Cada lector devuelve { measures, pois, holes, invalid }:
 //   holes = polígonos con huecos (no soportados) · invalid = geometrías sin puntos válidos o de tipo no soportado
-function bkNewModel() { return { measures: [], pois: [], holes: 0, invalid: 0 }; }
+function bkNewModel() { return { measures: [], pois: [], rings: [], routes: [], holes: 0, invalid: 0 }; }
 
 function bkAddMeasure(model, { name, color, date, coords, poly, suffix }) {
   // coords: [[lng, lat], ...]
@@ -155,6 +196,16 @@ function bkAddPoi(model, { name, note, color, lat, lng, suffix, size }) {
   model.pois.push({ name: String(name || 'POI importado') + (suffix || ''), note: String(note || ''), color: bkColor(color, '#f59e0b'), size: bkSize(size), lat: +lat, lng: +lng });
 }
 
+function bkAddRing(model, { lat, lng, r, color }) {
+  if (!bkValidLL(+lat, +lng) || !(+r > 0) || +r > 2e7) { model.invalid++; return; }
+  model.rings.push({ lat: +lat, lng: +lng, r: +r, color: bkColor(color, '#00ff66') });
+}
+function bkAddRoute(model, { coords, color, date }) {
+  const c = (coords || []).filter(x => Array.isArray(x) && bkValidLL(+x[1], +x[0])).map(x => [+x[1], +x[0]]);   // [lat, lng]
+  if (c.length < 2) { model.invalid++; return; }
+  model.routes.push({ pts: c, color: bkColor(color, '#00ff66'), date: date ? String(date).replace(/[<>&"']/g, '').slice(0, 40) : null });
+}
+
 function parseGeoJSON(text) {
   const json = JSON.parse(text);
   const features = json.type === 'FeatureCollection' ? (json.features || []) : (json.type === 'Feature' ? [json] : []);
@@ -165,7 +216,9 @@ function parseGeoJSON(text) {
     const t = f.geometry.type, g = f.geometry.coordinates, p = f.properties || {};
     const base = { name: p.name, color: p.color, date: typeof p.date === 'string' ? p.date : null };
     const multi = (arr, fn) => (Array.isArray(arr) ? arr : []).forEach((x, i) => fn(x, ` (${i + 1})`));
-    if (t === 'Point') bkAddPoi(model, { name: p.name, note: p.note, color: p.color, size: p.size, lat: g[1], lng: g[0] });
+    if (t === 'Point' && p.kind === 'ring') bkAddRing(model, { lat: g[1], lng: g[0], r: p.radius, color: p.color });
+    else if (t === 'LineString' && p.kind === 'route') bkAddRoute(model, { coords: g, color: p.color, date: base.date });
+    else if (t === 'Point') bkAddPoi(model, { name: p.name, note: p.note, color: p.color, size: p.size, lat: g[1], lng: g[0] });
     else if (t === 'MultiPoint') multi(g, (c, s) => bkAddPoi(model, { name: p.name, note: p.note, color: p.color, size: p.size, lat: c && c[1], lng: c && c[0], suffix: s }));
     else if (t === 'LineString') bkAddMeasure(model, { ...base, coords: g, poly: false });
     else if (t === 'MultiLineString') multi(g, (l, s) => bkAddMeasure(model, { ...base, coords: l, poly: false, suffix: s }));
@@ -223,9 +276,10 @@ function parseKML(text) {
     points.forEach(pt => {
       const c = bkCoords(bkChildText(pt, 'coordinates'))[0];
       n++; found++;
+      if (ext.kind === 'ring') { bkAddRing(model, { lat: c && c[1], lng: c && c[0], r: ext.radius, color }); return; }
       bkAddPoi(model, { name, note: desc, color, size: ext.size, lat: c && c[1], lng: c && c[0], suffix: sfx(n) });
     });
-    lines.forEach(ln => { n++; found++; bkAddMeasure(model, { name, color, date, coords: bkCoords(bkChildText(ln, 'coordinates')), poly: false, suffix: sfx(n) }); });
+    lines.forEach(ln => { n++; found++; if (ext.kind === 'route') { bkAddRoute(model, { coords: bkCoords(bkChildText(ln, 'coordinates')), color, date }); return; } bkAddMeasure(model, { name, color, date, coords: bkCoords(bkChildText(ln, 'coordinates')), poly: false, suffix: sfx(n) }); });
     polys.forEach(pg => {
       n++; found++;
       if (bkKids(pg, 'innerBoundaryIs').length) { model.holes++; return; }
@@ -244,23 +298,28 @@ function parseGPX(text) {
   const model = bkNewModel();
   const colorOf = (el) => { const c = bkKids(el, 'color')[0]; return c ? c.textContent.trim() : null; };
   const pts = (seg, tag) => bkKids(seg, tag).map(p => [+p.getAttribute('lon'), +p.getAttribute('lat')]);
-  bkKids(doc, 'wpt').forEach(w => bkAddPoi(model, {
+  bkKids(doc, 'wpt').forEach(w => {
+    const kind = (bkKids(w, 'kind')[0] || {}).textContent;
+    if (kind === 'ring') { bkAddRing(model, { lat: +w.getAttribute('lat'), lng: +w.getAttribute('lon'), r: +((bkKids(w, 'radius')[0] || {}).textContent), color: colorOf(w) }); return; }
+    bkAddPoi(model, {
     name: bkChildText(w, 'name'), note: bkPlain(bkChildText(w, 'desc')), color: colorOf(w), size: (bkKids(w, 'size')[0] || {}).textContent,
     lat: +w.getAttribute('lat'), lng: +w.getAttribute('lon')
-  }));
+    });
+  });
   bkKids(doc, 'rte').forEach(r => bkAddMeasure(model, { name: bkChildText(r, 'name'), color: colorOf(r), coords: pts(r, 'rtept'), poly: false }));
   bkKids(doc, 'trk').forEach(t => {
     const segs = bkKids(t, 'trkseg');
     const poly = bkChildText(t, 'type') === 'polygon';
     const desc = bkChildText(t, 'desc');
     const date = /^\d{1,2}\/\d{1,2}\/\d{4}$/.test(desc) ? desc : null;   // la app guarda la fecha en desc
+    if (bkChildText(t, 'type') === 'route') { segs.forEach(s => bkAddRoute(model, { coords: pts(s, 'trkpt'), color: colorOf(t), date })); if (!segs.length) model.invalid++; return; }
     segs.forEach((s, i) => bkAddMeasure(model, {
       name: bkChildText(t, 'name'), color: colorOf(t), date, coords: pts(s, 'trkpt'), poly,
       suffix: segs.length > 1 ? ` (${i + 1})` : ''
     }));
     if (!segs.length) model.invalid++;
   });
-  if (!model.measures.length && !model.pois.length && !model.invalid) throw new Error('Sin datos');
+  if (!model.measures.length && !model.pois.length && !model.rings.length && !model.routes.length && !model.invalid) throw new Error('Sin datos');
   return model;
 }
 

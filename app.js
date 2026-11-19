@@ -1703,7 +1703,7 @@ function updateMetrics(areaM2, distM) {
   liveArea = areaM2; liveDist = distM;
   updateLiveBadge();
 }
-const APP_VERSION = '2026.11.19-v2-11';
+const APP_VERSION = '2026.11.19-v2-12';
 let liveSelfIntersect = false; // el polígono se cruza a sí mismo (los marcadores rojos ya lo señalan)
 function updateSelfIntersectWarning(show) {
   const v = !!show;
@@ -3976,14 +3976,29 @@ function refreshBackupUI() {
   ['exportBtn', 'dataResetBtn'].forEach(id => { const b = document.getElementById(id); if (b) b.disabled = empty; });
   updateBackupInfo();
 }
+// Anillos y rutas a mano alzada viven en anillos.js / rutas.js (se guardan aparte)
+function extraData() {
+  return {
+    rings: (window.MedidorAnillos && window.MedidorAnillos.list()) || [],
+    routes: (window.MedidorRutas && window.MedidorRutas.list()) || []
+  };
+}
+function extraText(ex) {
+  const t = [];
+  if (ex.rings.length) t.push(`${ex.rings.length} anillo(s)`);
+  if (ex.routes.length) t.push(`${ex.routes.length} ruta(s)`);
+  return t.length ? ', ' + t.join(', ') : '';
+}
+
 function exportBackup() {
-  if (!saved.length && !pois.length) {
-    toast({ type: 'warning', title: 'Nada para exportar', message: 'Todavía no hay mediciones ni POI guardados.' });
+  const ex = extraData();
+  if (!saved.length && !pois.length && !ex.rings.length && !ex.routes.length) {
+    toast({ type: 'warning', title: 'Nada para exportar', message: 'Todavía no hay mediciones, POI, anillos ni rutas guardados.' });
     return;
   }
   const fmt = getBackupFmt();
   const poiData = pois.map(p => ({ ...p, elev: (typeof p.elev === 'number' && p.elevAt === elevKey(p)) ? p.elev : null }));
-  const out = buildBackup(fmt, saved, poiData);
+  const out = buildBackup(fmt, saved, poiData, ex);
   const blob = new Blob([out.text], { type: out.mime });
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
@@ -3992,7 +4007,7 @@ function exportBackup() {
   setTimeout(() => URL.revokeObjectURL(a.href), 1000);
   try { localStorage.setItem(LAST_BACKUP_KEY, String(Date.now())); } catch (e) {}
   updateBackupInfo();
-  toast({ type: 'success', title: 'Exportado (' + BACKUP_FORMATS[fmt].label + ')', message: `${saved.length} medición(es) y ${pois.length} POI exportados.` });
+  toast({ type: 'success', title: 'Exportado (' + BACKUP_FORMATS[fmt].label + ')', message: `${saved.length} medición(es) y ${pois.length} POI` + extraText(ex) + ' exportados.' });
 }
 
 // Incorpora el modelo leído por backup.js; omite POI duplicados
@@ -4021,7 +4036,9 @@ function applyBackupModel(model) {
     });
     poiCount++;
   });
-  if (!count && !poiCount && !dupM && !dupes) throw new Error('Sin geometrías válidas');
+  const rr = model.rings && model.rings.length && window.MedidorAnillos ? window.MedidorAnillos.add(model.rings) : { added: 0, dupes: 0 };
+  const rt = model.routes && model.routes.length && window.MedidorRutas ? window.MedidorRutas.add(model.routes) : { added: 0, dupes: 0 };
+  if (!count && !poiCount && !dupM && !dupes && !rr.added && !rr.dupes && !rt.added && !rt.dupes) throw new Error('Sin geometrías válidas');
   if (count) { persist(); renderSaved(); refreshLockedLayers(); }
   if (poiCount) { persistPois(); renderPois(); }
   const omitted = [];
@@ -4029,11 +4046,14 @@ function applyBackupModel(model) {
   if (model.invalid) omitted.push(`${model.invalid} geometría(s) inválida(s) o no soportada(s)`);
   if (dupes) omitted.push(`${dupes} POI ya existente(s)`);
   if (dupM) omitted.push(`${dupM} medición(es) ya existente(s)`);
+  if (rr.dupes) omitted.push(`${rr.dupes} anillo(s) ya existente(s)`);
+  if (rt.dupes) omitted.push(`${rt.dupes} ruta(s) ya existente(s)`);
+  const exAdded = [rr.added ? `${rr.added} anillo(s)` : '', rt.added ? `${rt.added} ruta(s)` : ''].filter(Boolean);
   toast({
     type: omitted.length ? 'warning' : 'success',
     title: 'Importado',
     duration: omitted.length ? 8000 : 3500,
-    message: `${count} medición(es) y ${poiCount} POI importados.` + (omitted.length ? ` Omitidos: ${omitted.join(', ')}.` : '')
+    message: `${count} medición(es) y ${poiCount} POI` + (exAdded.length ? ', ' + exAdded.join(', ') : '') + ' importados.' + (omitted.length ? ` Omitidos: ${omitted.join(', ')}.` : '')
   });
 }
 function importBackup(e) {
@@ -4057,8 +4077,9 @@ function importBackup(e) {
 
 // ========== BORRAR TODO (mediciones y POI) ==========
 async function resetAllData() {
-  if (!saved.length && !pois.length) {
-    toast({ type: 'info', title: 'No hay datos', message: 'No hay mediciones ni POI guardados.' });
+  const ex = extraData();
+  if (!saved.length && !pois.length && !ex.rings.length && !ex.routes.length) {
+    toast({ type: 'info', title: 'No hay datos', message: 'No hay mediciones, POI, anillos ni rutas guardados.' });
     return;
   }
   // Exige una copia reciente (últimos 30 min) antes de borrar
@@ -4076,7 +4097,7 @@ async function resetAllData() {
   }
   const ok = await confirmToast({
     title: '¿Borrar todo?',
-    message: `Se van a eliminar ${saved.length} medición(es) y ${pois.length} POI. No se puede deshacer; la copia que exportaste es tu respaldo.`,
+    message: `Se van a eliminar ${saved.length} medición(es) y ${pois.length} POI` + extraText(ex) + `. No se puede deshacer; la copia que exportaste es tu respaldo.`,
     confirmLabel: 'Borrar todo', danger: true
   });
   if (!ok) return;
@@ -4084,6 +4105,8 @@ async function resetAllData() {
   if (inspectItem || inspectPoi) hideMeasurementInfo();
   saved.slice().forEach(m => removeLockedLayer(m.id));
   saved = []; pois = [];
+  if (window.MedidorAnillos) window.MedidorAnillos.clear();
+  if (window.MedidorRutas) window.MedidorRutas.clear();
   poiSession = []; poiSessionRedo = [];
   editingId = null;
   persist(); persistPois();
@@ -4091,7 +4114,7 @@ async function resetAllData() {
   document.getElementById('savedDrawer')?.classList.add('hidden');
   document.getElementById('poiDrawer')?.classList.add('hidden');
   try { updateUndoRedoUI(); } catch (e) {}
-  toast({ type: 'success', title: 'Todo borrado', message: 'Mediciones y POI eliminados.' });
+  toast({ type: 'success', title: 'Todo borrado', message: 'Mediciones, POI, anillos y rutas eliminados.' });
 }
 
 // ========== MOSAICOS GUARDADOS (caché del service worker) ==========

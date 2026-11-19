@@ -14,7 +14,7 @@
   <meta name="apple-mobile-web-app-title" content="Medidor">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <!-- Versión: debe coincidir con APP_VERSION (app.js) y --app-version (styles.css) -->
-  <meta name="app-version" content="2026.11.19-v2-10">
+  <meta name="app-version" content="2026.11.19-v2-11">
 
   <!-- Librerías locales (en este mismo repo) + Tailwind por CDN -->
   <link rel="stylesheet" href="leaflet.css" />
@@ -160,12 +160,19 @@
     <button type="button" id="fmPoi" role="menuitem"><i data-lucide="map-pin"></i><span>POI</span><b id="fmPoiN">0</b></button>
     <button type="button" id="fmSaved" role="menuitem"><i data-lucide="ruler"></i><span>Mediciones</span><b id="fmSavedN">0</b></button>
     <button type="button" id="fmRing" role="menuitem"><i data-lucide="circle-dot"></i><span>Anillos</span><b id="fmRingN">0</b></button>
+    <button type="button" id="fmFree" role="menuitem"><i data-lucide="route"></i><span>Rutas</span><b id="fmFreeN">0</b></button>
   </div>
 
   <div id="ringList" class="hidden" role="dialog" aria-label="Anillos guardados">
     <div class="ring-head"><span>Anillos</span><button type="button" id="ringListClose" aria-label="Cerrar">✕</button></div>
     <div id="ringItems"></div>
   </div>
+
+  <div id="freeList" class="hidden" role="dialog" aria-label="Rutas guardadas">
+    <div class="ring-head"><span>Rutas</span><button type="button" id="freeListClose" aria-label="Cerrar">✕</button></div>
+    <div id="freeItems"></div>
+  </div>
+  <div id="freeNum" aria-hidden="true"><span id="freeNumV">≈ 0 m</span><small>aproximado</small></div>
 
   <div id="map"></div>
 
@@ -255,7 +262,7 @@
             <button id="modePoiBtn" class="w-full flex items-center gap-2 py-2 px-2 rounded-lg text-xs font-bold text-slate-300 bg-slate-800/70 border border-slate-600/50 min-h-[36px]" aria-label="Modo POI">
               <i data-lucide="map-pin" class="w-4 h-4 flex-shrink-0"></i> <span class="truncate">POI (Puntos de interés)</span>
             </button>
-            <button id="modeFreeBtn" type="button" class="med2-only w-full flex items-center gap-2 py-2 px-2 rounded-lg text-xs font-bold text-slate-300 bg-slate-800/70 border border-slate-600/50 min-h-[36px]" aria-label="Dibujar ruta a mano alzada (próximamente)" title="Dibujar ruta a mano alzada (próximamente)" aria-disabled="true">
+            <button id="modeFreeBtn" type="button" class="med2-only w-full flex items-center gap-2 py-2 px-2 rounded-lg text-xs font-bold text-slate-300 bg-slate-800/70 border border-slate-600/50 min-h-[36px]" aria-label="Dibujar ruta a mano alzada" title="Dibujar ruta a mano alzada" aria-pressed="false">
               <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 18c4 0 3-8 8-8s3 8 7 8"/><path d="M16 4l4 4-6 6-4 1 1-4z"/></svg> Dibujar ruta
             </button>
             <button id="modeRingBtn" type="button" class="med2-only w-full flex items-center gap-2 py-2 px-2 rounded-lg text-xs font-bold text-slate-300 bg-slate-800/70 border border-slate-600/50 min-h-[36px]" aria-label="Crear anillo por radio" title="Crear anillo por radio" aria-pressed="false">
@@ -292,6 +299,10 @@
               <button id="ringUnit" type="button" aria-label="Cambiar unidad entre metros y kilómetros">km</button>
               <button id="ringApply" type="button" aria-label="Aplicar radio y ver el anillo completo"><i data-lucide="check" class="w-4 h-4"></i></button>
             </div>
+                        <button id="freeUndoBtn" type="button" class="act-btn act-free ringbtn ring-neutral" aria-label="Deshacer último tramo" title="Deshacer último tramo" disabled><i data-lucide="undo-2" class="w-3.5 h-3.5"></i></button>
+            <button id="freeRedoBtn" type="button" class="act-btn act-free ringbtn ring-neutral" aria-label="Rehacer tramo" title="Rehacer tramo" disabled><i data-lucide="redo-2" class="w-3.5 h-3.5"></i></button>
+            <button id="freeSaveBtn" type="button" class="act-btn act-free ringbtn ring-save" aria-label="Guardar ruta" title="Guardar ruta" disabled><i data-lucide="save" class="w-3.5 h-3.5"></i></button>
+            <button id="freeClearBtn" type="button" class="act-btn act-free ringbtn ring-clear" aria-label="Descartar ruta" title="Descartar ruta" disabled><i data-lucide="trash-2" class="w-3.5 h-3.5"></i></button>
             <div id="poiSizeRow" class="grid grid-cols-3 gap-1" role="group" aria-label="Tamaño de los POI">
               <button type="button" data-poi-size="s" aria-label="POI chico"><svg width="10" height="16" viewBox="0 0 22 34" aria-hidden="true"><path d="M11 33.2C11 33.2 1.4 20.2 1.4 12.4 1.4 6.4 5.6 1.6 11 1.6S20.6 6.4 20.6 12.4C20.6 20.2 11 33.2 11 33.2Z" fill="currentColor" stroke="rgba(0,0,0,.55)" stroke-width="1.6" stroke-linejoin="round"/><ellipse cx="7.3" cy="9.6" rx="2.1" ry="3.9" fill="#fff" opacity=".32" transform="rotate(-16 7.3 9.6)"/><circle class="pin-dot" cx="11" cy="12.2" r="3.4"/></svg></button>
               <button type="button" data-poi-size="m" aria-label="POI medio"><svg width="14" height="22" viewBox="0 0 22 34" aria-hidden="true"><path d="M11 33.2C11 33.2 1.4 20.2 1.4 12.4 1.4 6.4 5.6 1.6 11 1.6S20.6 6.4 20.6 12.4C20.6 20.2 11 33.2 11 33.2Z" fill="currentColor" stroke="rgba(0,0,0,.55)" stroke-width="1.6" stroke-linejoin="round"/><ellipse cx="7.3" cy="9.6" rx="2.1" ry="3.9" fill="#fff" opacity=".32" transform="rotate(-16 7.3 9.6)"/><circle class="pin-dot" cx="11" cy="12.2" r="3.4"/></svg></button>
@@ -641,5 +652,6 @@
   <script src="app.js"></script>
   <script src="tiras.js"></script>
   <script src="anillos.js"></script>
+  <script src="rutas.js"></script>
 </body>
 </html>

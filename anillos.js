@@ -95,7 +95,7 @@
 
   $('modeRingBtn').onclick = function () { if (ringMode) return; enter(); };
   // Cualquier otra herramienta o volver a Ver cierra el modo anillo (el borrador se descarta)
-  ['modePolyBtn', 'modeLineBtn', 'modeTrackBtn', 'modePoiBtn', 'viewVerBtn'].forEach(function (id) {
+  ['modePolyBtn', 'modeLineBtn', 'modeTrackBtn', 'modePoiBtn', 'modeFreeBtn', 'viewVerBtn'].forEach(function (id) {
     var b = $(id); if (b) b.addEventListener('click', exit, true);
   });
   var mc = $('mainControls');
@@ -179,6 +179,7 @@
   if (fmRing) fmRing.onclick = function () {
     $('folderMenu').classList.add('hidden'); $('tpFolder').setAttribute('aria-expanded', 'false');
     body.classList.remove('pop-open');
+    var fl = $('freeList'); if (fl) fl.classList.add('hidden');
     renderList(); $('ringList').classList.remove('hidden');
   };
   $('ringListClose').onclick = closeList;

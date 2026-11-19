@@ -2,7 +2,7 @@
    Separado del HTML para mejor mantenimiento
 */
 
-:root { --app-version: "2026.11.19-v2-10"; }
+:root { --app-version: "2026.11.19-v2-11"; }
 
 .leaflet-control-attribution { font-size: 9px !important; background: rgba(15,23,42,0.7) !important; color: #94a3b8 !important; }
 .leaflet-control-attribution a { color: #94a3b8 !important; }
@@ -94,13 +94,14 @@ select.cg-input:focus {
 /* Modo Ver: se oculta el panel de medición (mapa limpio) */
 #mainControls.view-only #panelBody { display: none !important; }
 /* Botones de acción: solo los del modo activo */
-.act-measure, .act-track, .act-poi, .act-ring { display: none !important; }
+.act-measure, .act-track, .act-poi, .act-ring, .act-free { display: none !important; }
 #mainControls[data-mode="polygon"] .act-measure,
 #mainControls[data-mode="line"] .act-measure,
 #mainControls[data-mode="track"] .act-measure,
 #mainControls[data-mode="track"] .act-track,
 #mainControls[data-mode="poi"] .act-poi,
-#mainControls[data-mode="ring"] .act-ring { display: inline-flex !important; }
+#mainControls[data-mode="ring"] .act-ring,
+#mainControls[data-mode="free"] .act-free { display: inline-flex !important; }
 /* Recorrido tiene 4 acciones: se compactan para no agrandar el panel */
 /* Altura del panel constante: 4 botones de modo de 40 px + 3 huecos de 4 px = 172 px en ambas columnas */
 #modePolyBtn, #modeLineBtn, #modeTrackBtn, #modePoiBtn { min-height: 40px; }
@@ -614,7 +615,6 @@ body.ui-min.med2 #modeLineBtn { order: 3; }
 body.ui-min.med2 #modeTrackBtn { order: 4; }
 body.ui-min.med2 #modeFreeBtn { order: 5; }
 body.ui-min.med2 #modeRingBtn { order: 6; }
-body.ui-min.med2 #modeFreeBtn { opacity: .4; }   /* todavía sin función */
 
 /* Acciones: íconos en filas (nueva · guardar · …), y debajo deshacer / rehacer / borrar */
 body.ui-min.med2 #actionCol {
@@ -662,14 +662,25 @@ body.ui-min #toastContainer {
 #ringRow button { flex: none; width: 44px; height: 40px; border-radius: 9px; border: 1px solid #d97706; background: transparent; color: #fbbf24; font-size: 14px; font-weight: 700; display: grid; place-items: center; }
 #ringRow #ringApply { background: rgba(217,119,6,.3); }
 .ring-label span { position: absolute; transform: translate(-50%, -135%); white-space: nowrap; font: 700 13px/1 system-ui, sans-serif; text-shadow: 0 0 3px #000, 0 0 3px #000, 0 0 6px #000; }
-#ringList { position: fixed; left: 66px; right: 10px; bottom: var(--strip-bottom, 12px); z-index: 26; max-height: 55vh; overflow-y: auto; padding: 8px;
+#ringList, #freeList { position: fixed; left: 66px; right: 10px; bottom: var(--strip-bottom, 12px); z-index: 26; max-height: 55vh; overflow-y: auto; padding: 8px;
   background: rgba(15,23,42,.95); border: 1.5px solid #d97706; border-radius: 14px; color: #f5e6c8; }
-#ringList.hidden { display: none; }
-#ringList .ring-head { display: flex; align-items: center; justify-content: space-between; font-size: 13px; color: #d9c8a4; letter-spacing: .04em; margin-bottom: 4px; }
-#ringList .ring-head button, #ringList .ring-ic { width: 40px; height: 40px; border: 0; background: transparent; color: #fbbf24; font-size: 16px; }
-#ringList .ring-row { display: flex; align-items: center; gap: 6px; min-height: 48px; border-top: 1px solid #3a3224; }
-#ringList .ring-dot { width: 14px; height: 14px; border-radius: 50%; flex: none; margin-left: 4px; }
-#ringList .ring-nm { flex: 1; min-width: 0; font-size: 15px; line-height: 1.2; }
-#ringList .ring-nm small { display: block; font-size: 11px; color: #d9c8a4; }
-#ringList .ring-go { height: 36px; padding: 0 12px; border: 1px solid #d97706; border-radius: 18px; background: transparent; color: #fbbf24; font-size: 14px; }
-#ringList .ring-empty { margin: 8px 4px; font-size: 14px; color: #d9c8a4; }
+#ringList.hidden, #freeList.hidden { display: none; }
+#ringList .ring-head , #freeList .ring-head { display: flex; align-items: center; justify-content: space-between; font-size: 13px; color: #d9c8a4; letter-spacing: .04em; margin-bottom: 4px; }
+#ringList .ring-head button, #ringList .ring-ic , #freeList .ring-head button, #freeList .ring-ic { width: 40px; height: 40px; border: 0; background: transparent; color: #fbbf24; font-size: 16px; }
+#ringList .ring-row , #freeList .ring-row { display: flex; align-items: center; gap: 6px; min-height: 48px; border-top: 1px solid #3a3224; }
+#ringList .ring-dot , #freeList .ring-dot { width: 14px; height: 14px; border-radius: 50%; flex: none; margin-left: 4px; }
+#ringList .ring-nm , #freeList .ring-nm { flex: 1; min-width: 0; font-size: 15px; line-height: 1.2; }
+#ringList .ring-nm small , #freeList .ring-nm small { display: block; font-size: 11px; color: #d9c8a4; }
+#ringList .ring-go , #freeList .ring-go { height: 36px; padding: 0 12px; border: 1px solid #d97706; border-radius: 18px; background: transparent; color: #fbbf24; font-size: 14px; }
+#ringList .ring-empty , #freeList .ring-empty { margin: 8px 4px; font-size: 14px; color: #d9c8a4; }
+
+/* ===== Ruta a mano alzada ===== */
+#mainControls[data-mode="free"] #panelTitle::before { content: 'Ruta a mano alzada'; }
+#mainControls[data-mode="free"] #histRow, #mainControls[data-mode="free"] #poiSizeRow { display: none !important; }
+#modeFreeBtn[aria-pressed="true"] { background: #7c3aed !important; color: #fff !important; border-color: transparent !important; opacity: 1 !important; }
+.ring-neutral { background: rgba(51,65,85,.6); color: #e2e8f0; border-color: rgba(100,116,139,.6); }
+#map.free-draw, #map.free-draw * { touch-action: none !important; cursor: crosshair; }
+#freeNum { display: none; position: fixed; right: 14px; top: calc(max(12px, env(safe-area-inset-top, 12px)) + 170px); z-index: 16; pointer-events: none; text-align: right; color: #fff; }
+#freeNum.on { display: block; }
+#freeNum span { display: block; font: 600 28px/1.1 system-ui, -apple-system, sans-serif; }
+#freeNum small { display: block; font: 500 11px/1.2 system-ui, sans-serif; color: #e2e8f0; text-shadow: 0 0 4px #000; }

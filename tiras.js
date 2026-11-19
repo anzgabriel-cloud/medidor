@@ -134,14 +134,6 @@
   });
   applyColors();
 
-  // --- Herramienta que todavía no existe (ruta a mano alzada): solo avisan ---
-  ['modeFreeBtn'].forEach(function (id) {
-    var b = $(id); if (!b) return;
-    b.onclick = function () {
-      if (typeof toast === 'function') toast({ type: 'info', title: 'Próximamente', message: 'Esta herramienta todavía no está disponible.', duration: 2500 });
-    };
-  });
-
   // --- Brújula permanente: si algo la oculta con la interfaz mínima activa (por ejemplo un app.js viejo en el caché), vuelve a mostrarse ---
   var cmp = $('fixedCompass');
   if (cmp) {

@@ -25,10 +25,13 @@
   }
   function closeFolder() { $('folderMenu').classList.add('hidden'); $('tpFolder').setAttribute('aria-expanded', 'false'); updatePop(); }
   function closeAll() { closeSearch(); closeFolder(); }
+  // Si se abre buscar/carpeta estando en medición, se pasa a Ver (así la regla se desmarca)
+  function leaveMeasure() { if ($('viewMedirBtn').getAttribute('aria-pressed') === 'true') click('viewVerBtn'); }
   $('tpSearch').onclick = function () {
     var open = !body.classList.contains('search-open');
     closeFolder();
     if (!open) { closeSearch(); return; }
+    leaveMeasure();
     body.classList.add('search-open');
     $('tpSearch').setAttribute('aria-pressed', 'true');
     updatePop();
@@ -50,6 +53,7 @@
   $('tpFolder').onclick = function () {
     var m = $('folderMenu'), open = m.classList.contains('hidden');
     closeSearch();
+    if (open) leaveMeasure();
     m.classList.toggle('hidden', !open);
     $('tpFolder').setAttribute('aria-expanded', open ? 'true' : 'false');
     updatePop();
@@ -130,8 +134,8 @@
   });
   applyColors();
 
-  // --- Herramientas que todavía no existen (ruta a mano alzada, anillo): solo avisan ---
-  ['modeFreeBtn', 'modeRingBtn'].forEach(function (id) {
+  // --- Herramienta que todavía no existe (ruta a mano alzada): solo avisan ---
+  ['modeFreeBtn'].forEach(function (id) {
     var b = $(id); if (!b) return;
     b.onclick = function () {
       if (typeof toast === 'function') toast({ type: 'info', title: 'Próximamente', message: 'Esta herramienta todavía no está disponible.', duration: 2500 });

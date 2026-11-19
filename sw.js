@@ -9,7 +9,7 @@ const TILE_HOSTS = ['server.arcgisonline.com', 'tile.openstreetmap.org'];
 const LIB_HOSTS = ['cdn.tailwindcss.com'];
 
 // Se guarda TODO al instalar (primera visita), así la app abre sin conexión desde el principio.
-const CORE_FILES = ['./', 'index.html', 'styles.css', 'app.js', 'tiras.js', 'backup.js', 'wmm.js', 'manifest.webmanifest',
+const CORE_FILES = ['./', 'index.html', 'styles.css', 'app.js', 'tiras.js', 'anillos.js', 'backup.js', 'wmm.js', 'manifest.webmanifest',
   'leaflet.css', 'leaflet.js', 'turf.min.js', 'lucide.min.js',
   'icon-180.png', 'icon-192.png', 'icon-512.png', 'icon-maskable-512.png'];
 const CORE_LIBS = [

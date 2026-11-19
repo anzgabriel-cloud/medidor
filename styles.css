@@ -2,7 +2,7 @@
    Separado del HTML para mejor mantenimiento
 */
 
-:root { --app-version: "2026.11.18-v2-07"; }
+:root { --app-version: "2026.11.19-v2-10"; }
 
 .leaflet-control-attribution { font-size: 9px !important; background: rgba(15,23,42,0.7) !important; color: #94a3b8 !important; }
 .leaflet-control-attribution a { color: #94a3b8 !important; }
@@ -94,12 +94,13 @@ select.cg-input:focus {
 /* Modo Ver: se oculta el panel de medición (mapa limpio) */
 #mainControls.view-only #panelBody { display: none !important; }
 /* Botones de acción: solo los del modo activo */
-.act-measure, .act-track, .act-poi { display: none !important; }
+.act-measure, .act-track, .act-poi, .act-ring { display: none !important; }
 #mainControls[data-mode="polygon"] .act-measure,
 #mainControls[data-mode="line"] .act-measure,
 #mainControls[data-mode="track"] .act-measure,
 #mainControls[data-mode="track"] .act-track,
-#mainControls[data-mode="poi"] .act-poi { display: inline-flex !important; }
+#mainControls[data-mode="poi"] .act-poi,
+#mainControls[data-mode="ring"] .act-ring { display: inline-flex !important; }
 /* Recorrido tiene 4 acciones: se compactan para no agrandar el panel */
 /* Altura del panel constante: 4 botones de modo de 40 px + 3 huecos de 4 px = 172 px en ambas columnas */
 #modePolyBtn, #modeLineBtn, #modeTrackBtn, #modePoiBtn { min-height: 40px; }
@@ -613,7 +614,7 @@ body.ui-min.med2 #modeLineBtn { order: 3; }
 body.ui-min.med2 #modeTrackBtn { order: 4; }
 body.ui-min.med2 #modeFreeBtn { order: 5; }
 body.ui-min.med2 #modeRingBtn { order: 6; }
-body.ui-min.med2 :is(#modeFreeBtn, #modeRingBtn) { opacity: .4; }   /* todavía sin función */
+body.ui-min.med2 #modeFreeBtn { opacity: .4; }   /* todavía sin función */
 
 /* Acciones: íconos en filas (nueva · guardar · …), y debajo deshacer / rehacer / borrar */
 body.ui-min.med2 #actionCol {
@@ -626,7 +627,7 @@ body.ui-min.med2 #actionCol .act-btn, body.ui-min.med2 #colorToggleBtn, body.ui-
 }
 body.ui-min.med2 #actionCol button svg { width: 22px !important; height: 22px !important; flex: none; }
 body.ui-min.med2 #histRow { flex: 0 0 100%; justify-content: flex-start; gap: 2px; margin: 0; }
-body.ui-min.med2 #poiSizeRow { grid-template-columns: repeat(3, 44px) !important; gap: 2px !important; flex: none; }
+body.ui-min.med2 #poiSizeRow { grid-template-columns: repeat(3, 44px) !important; gap: 2px !important; flex: none; margin-left: auto; }
 body.ui-min.med2 #poiSizeRow button { width: 44px; height: 44px !important; }
 /* los tres pines conservan tamaños distintos (chico, medio, grande) como los POI del mapa */
 body.ui-min.med2 #poiSizeRow [data-poi-size="s"] svg { width: 12px !important; height: 19px !important; }
@@ -644,3 +645,31 @@ body.ui-min #toastContainer {
   position: fixed; left: 12px; right: 12px; bottom: calc(var(--strip-bottom, 12px) + 312px);
   width: auto; margin: 0;
 }
+
+/* ===== Anillos por radio ===== */
+#mainControls[data-mode="ring"] #panelTitle::before { content: 'Anillo por radio'; }
+#mainControls[data-mode="ring"] #histRow, #mainControls[data-mode="ring"] #poiSizeRow { display: none !important; }
+#modeRingBtn[aria-pressed="true"] { background: #0891b2 !important; color: #fff !important; border-color: transparent !important; opacity: 1 !important; }
+.ringbtn { display: none; align-items: center; justify-content: center; border: 1px solid; font-weight: 600; }
+.ringbtn:disabled { cursor: default; }
+.ring-new { background: #06b6d4; color: #083344; border-color: #22d3ee; }
+.ring-save { background: rgba(16,185,129,.25); color: #6ee7b7; border-color: rgba(16,185,129,.5); }
+.ring-clear { background: rgba(239,68,68,.15); color: #fca5a5; border-color: rgba(239,68,68,.35); }
+#mainControls[data-mode="ring"] #ringRow { display: flex !important; flex: 0 0 100%; max-width: 100%; min-width: 0; box-sizing: border-box; align-items: center; gap: 4px; margin-top: 4px; }
+#mainControls[data-mode="ring"] #ringRow.off { display: none !important; }
+#ringRow label { flex: none; font-size: 12px; color: #d9c8a4; margin-right: 2px; }
+#ringRow input { flex: 1 1 0; width: 0; min-width: 0; box-sizing: border-box; height: 40px; border-radius: 9px; border: 1px solid #6b5a3a; background: #12100c; color: #fff; padding: 0 10px; font-size: 16px; }
+#ringRow button { flex: none; width: 44px; height: 40px; border-radius: 9px; border: 1px solid #d97706; background: transparent; color: #fbbf24; font-size: 14px; font-weight: 700; display: grid; place-items: center; }
+#ringRow #ringApply { background: rgba(217,119,6,.3); }
+.ring-label span { position: absolute; transform: translate(-50%, -135%); white-space: nowrap; font: 700 13px/1 system-ui, sans-serif; text-shadow: 0 0 3px #000, 0 0 3px #000, 0 0 6px #000; }
+#ringList { position: fixed; left: 66px; right: 10px; bottom: var(--strip-bottom, 12px); z-index: 26; max-height: 55vh; overflow-y: auto; padding: 8px;
+  background: rgba(15,23,42,.95); border: 1.5px solid #d97706; border-radius: 14px; color: #f5e6c8; }
+#ringList.hidden { display: none; }
+#ringList .ring-head { display: flex; align-items: center; justify-content: space-between; font-size: 13px; color: #d9c8a4; letter-spacing: .04em; margin-bottom: 4px; }
+#ringList .ring-head button, #ringList .ring-ic { width: 40px; height: 40px; border: 0; background: transparent; color: #fbbf24; font-size: 16px; }
+#ringList .ring-row { display: flex; align-items: center; gap: 6px; min-height: 48px; border-top: 1px solid #3a3224; }
+#ringList .ring-dot { width: 14px; height: 14px; border-radius: 50%; flex: none; margin-left: 4px; }
+#ringList .ring-nm { flex: 1; min-width: 0; font-size: 15px; line-height: 1.2; }
+#ringList .ring-nm small { display: block; font-size: 11px; color: #d9c8a4; }
+#ringList .ring-go { height: 36px; padding: 0 12px; border: 1px solid #d97706; border-radius: 18px; background: transparent; color: #fbbf24; font-size: 14px; }
+#ringList .ring-empty { margin: 8px 4px; font-size: 14px; color: #d9c8a4; }

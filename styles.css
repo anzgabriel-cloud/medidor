@@ -2,7 +2,7 @@
    Separado del HTML para mejor mantenimiento
 */
 
-:root { --app-version: "2026.11.20-v2-20"; }
+:root { --app-version: "2026.11.20-v2-21"; }
 
 .leaflet-control-attribution { font-size: 9px !important; background: rgba(15,23,42,0.7) !important; color: #94a3b8 !important; }
 .leaflet-control-attribution a { color: #94a3b8 !important; }
@@ -705,3 +705,15 @@ body.ui-min #toastContainer {
 #compassCaption .cap-rec .cap-n.on { font-size: 11px; }
 .nav-label small.nav-rec { color: #94a3b8; font-size: 10px; font-weight: 700; }
 .nav-label small.nav-rec i { font-style: normal; margin-left: 5px; }
+
+/* Navegación: rumbos juntos con los colores de la brújula, recíproco algo más chico, distancia y velocidad abajo */
+.nav-label b { color: #00ff66; }
+.nav-label .cap-n { color: #00ff66; }
+.nav-label .cap-n.on { color: #fbbf24; font-size: 16px; }
+.nav-label small.nav-rec { color: #00ff66; font-size: 12px; font-weight: 700; }
+.nav-label small.nav-rec .cap-n.on { font-size: 13px; }
+#compassCaption .cap-rec { font-size: 12px; }
+#compassCaption .cap-rec .cap-n.on { font-size: 13px; }
+.nav-label b .cap-n { font-size: 13px; font-weight: 800; }
+.nav-label b .cap-n.on { font-size: 16px; }
+.nav-label small.nav-rec .cap-n { font-size: 12px; font-weight: 700; }

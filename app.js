@@ -1705,7 +1705,7 @@ function updateMetrics(areaM2, distM) {
   liveArea = areaM2; liveDist = distM;
   updateLiveBadge();
 }
-const APP_VERSION = '2026.11.20-v2-20';
+const APP_VERSION = '2026.11.20-v2-21';
 let liveSelfIntersect = false; // el polígono se cruza a sí mismo (los marcadores rojos ya lo señalan)
 function updateSelfIntersectWarning(show) {
   const v = !!show;
@@ -3430,10 +3430,11 @@ function updateNavLabel() {
   const p = visibleMidpoint(map.latLngToContainerPoint(from), map.latLngToContainerPoint(to), rect);
   const at = map.containerPointToLatLng([p.x, p.y]);
   const mag = magneticBearing(brg, magneticDeclination(from.lat, from.lng));
-  const rumbo = `${brg0(brg)}° V<i>${brg0(mag)}° M</i><u>${bearingCardinal(brg)}</u>`;
+  const nv = compassNorth === 'V' ? ' on' : '', nm = compassNorth === 'M' ? ' on' : '';   // mismos colores que la brújula
+  const rumbo = `<span class="cap-n${nv}">${brg0(brg)}° V</span> - <span class="cap-n${nm}">${brg0(mag)}° M</span> - ${bearingCardinal(brg)}`;
   const dist = escapeHtml(fmtLenShort(from.distanceTo(to)));
   if (!navLabel) {
-    const html = `<div class="nav-label"><div class="nav-txt"><b></b><span></span><small class="nav-rec"></small></div><button type="button" class="nav-stop" aria-label="Dejar de navegar"><i></i></button></div>`;
+    const html = `<div class="nav-label"><div class="nav-txt"><b></b><small class="nav-rec"></small><span></span></div><button type="button" class="nav-stop" aria-label="Dejar de navegar"><i></i></button></div>`;
     const icon = L.divIcon({ className: 'nav-label-wrap', html, iconSize: [0, 0] });
     navLabel = L.marker(at, { icon, interactive: false, keyboard: false, zIndexOffset: 900 }).addTo(map);
     const stop = navLabel.getElement().querySelector('.nav-stop');
@@ -3449,7 +3450,7 @@ function updateNavLabel() {
   el.querySelector('.nav-label').style.borderColor = color;
   const bEl = el.querySelector('.nav-txt b'), sEl = el.querySelector('.nav-txt span');
   if (bEl.dataset.v !== rumbo) { bEl.innerHTML = rumbo; bEl.dataset.v = rumbo; }
-  const rec = `↩ ${brg0(wrap360(brg + 180))}° V<i>${brg0(wrap360(mag + 180))}° M</i>`;   // rumbo recíproco: del destino hacia vos
+  const rec = `↩ <span class="cap-n${nv}">${brg0(wrap360(brg + 180))}° V</span> - <span class="cap-n${nm}">${brg0(wrap360(mag + 180))}° M</span>`;   // rumbo recíproco: del destino hacia vos
   const rEl = el.querySelector('.nav-txt small');
   if (rEl && rEl.dataset.v !== rec) { rEl.innerHTML = rec; rEl.dataset.v = rec; }
   const dsp = `${dist}<em>${escapeHtml(fmtSpeed(navSpeed()))}</em>`;

@@ -2,7 +2,7 @@
    Separado del HTML para mejor mantenimiento
 */
 
-:root { --app-version: "2026.11.19-v2-15"; }
+:root { --app-version: "2026.11.20-v2-16"; }
 
 .leaflet-control-attribution { font-size: 9px !important; background: rgba(15,23,42,0.7) !important; color: #94a3b8 !important; }
 .leaflet-control-attribution a { color: #94a3b8 !important; }
@@ -644,8 +644,8 @@ body.ui-min #toastContainer {
   width: auto; margin: 0;
 }
 
-/* ===== Anillos por radio ===== */
-#mainControls[data-mode="ring"] #panelTitle::before { content: 'Anillo por radio'; }
+/* ===== Anillos con radio ===== */
+#mainControls[data-mode="ring"] #panelTitle::before { content: 'Anillo con radio'; }
 #mainControls[data-mode="ring"] #histRow, #mainControls[data-mode="ring"] #poiSizeRow { display: none !important; }
 #modeRingBtn[aria-pressed="true"] { background: #0891b2 !important; color: #fff !important; border-color: transparent !important; opacity: 1 !important; }
 .ringbtn { display: none; align-items: center; justify-content: center; border: 1px solid; font-weight: 600; }
@@ -690,3 +690,6 @@ body.ui-min #toastContainer {
 .free-save:not(:disabled) { background: #7c3aed; color: #fff; border-color: #a78bfa; }
 #mainControls[data-mode="free"] #freeHist { display: flex !important; flex: 0 0 100%; gap: 2px; justify-content: flex-start; }
 #freeHist .ringbtn { display: inline-flex; }
+
+#mainControls[data-mode="ring"] #ringHist { display: flex !important; flex: 0 0 100%; gap: 2px; justify-content: flex-start; }
+#ringHist .ringbtn { display: inline-flex; }

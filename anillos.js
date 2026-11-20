@@ -1,4 +1,4 @@
-/* Anillos por radio: círculo alrededor de un punto (1 m a 100 km o más), solo visual.
+/* Anillos con radio: círculo alrededor de un punto (1 m a 100 km o más), solo visual.
    Flujo: herramienta anillo → mira en el centro del mapa → [+] deja caer el anillo → se escribe el radio → [guardar].
    Se guarda aparte (localStorage 'medidor_anillos'); la lista está en Guardados > Anillos. */
 (function () {
@@ -14,6 +14,8 @@
   var savedLayers = {};        // id -> L.layerGroup
   var rings = load();
   var unit = 'km';
+  var sessionIds = [];         // anillos guardados en esta sesión del modo (para deshacer)
+  var redoStack = [];          // { kind:'draft', d } | { kind:'saved', r }
 
   function load() { try { var a = JSON.parse(localStorage.getItem(KEY) || '[]'); return Array.isArray(a) ? a : []; } catch (e) { return []; } }
   function persist() { try { localStorage.setItem(KEY, JSON.stringify(rings)); } catch (e) {} }
@@ -119,6 +121,8 @@
     var ok = !!(draft && draft.r > 0);
     var s = $('ringSaveBtn'); if (s) { s.disabled = !ok; s.style.opacity = ok ? '' : '.35'; }
     var t = $('ringClearBtn'); if (t) { t.disabled = !draft; t.style.opacity = draft ? '' : '.35'; }
+    var u = $('ringUndoBtn'), uo = !!(draft || sessionIds.length); if (u) { u.disabled = !uo; u.style.opacity = uo ? '' : '.35'; }
+    var rd = $('ringRedoBtn'), ro = redoStack.length > 0; if (rd) { rd.disabled = !ro; rd.style.opacity = ro ? '' : '.35'; }
     var n = $('ringNewBtn'); if (n) n.title = draft ? 'Nuevo anillo (descarta el actual)' : 'Dejar caer el anillo en la mira';
   }
   function startAiming() {
@@ -132,7 +136,7 @@
     if (typeof gpsWatchId !== 'undefined' && gpsWatchId !== null && typeof stopGpsTracking === 'function') stopGpsTracking();
     else if (typeof trackMode !== 'undefined' && trackMode) { trackMode = false; if (typeof setGpsBtnState === 'function') setGpsBtnState(false); if (typeof refreshTrackBar === 'function') refreshTrackBar(); }
     if (typeof setDrawingActive === 'function') setDrawingActive(false);   // los toques en el mapa no agregan vértices
-    ringMode = true;
+    ringMode = true; sessionIds = []; redoStack = [];
     var off = 'w-full flex items-center gap-2 py-2 px-2 rounded-lg text-xs font-bold text-slate-300 bg-slate-800/70 border border-slate-600/50 min-h-[36px]';
     ['modePolyBtn', 'modeLineBtn', 'modeTrackBtn', 'modePoiBtn'].forEach(function (id) { var b = $(id); if (b) b.className = off; });
     $('modeRingBtn').setAttribute('aria-pressed', 'true');
@@ -141,7 +145,7 @@
   }
   function exit() {
     if (!ringMode) return;
-    ringMode = false; draft = null; clearDraftLayer(); setCross(false); showRow(false);
+    ringMode = false; draft = null; sessionIds = []; redoStack = []; clearDraftLayer(); setCross(false); showRow(false);
     $('modeRingBtn').setAttribute('aria-pressed', 'false');
     if (typeof setMode === 'function') { try { setMode(mode); } catch (e) {} }
     else if (typeof updateModeTheme === 'function') updateModeTheme();
@@ -158,7 +162,8 @@
   // --- Acciones ---
   $('ringNewBtn').onclick = function () {
     if (!ringMode) return;
-    if (draft || !aiming) { startAiming(); return; }   // con un anillo caído: vuelve a apuntar
+    if (draft || !aiming) { redoStack = []; startAiming(); return; }   // con un anillo caído: vuelve a apuntar
+    redoStack = [];
     var m = getMap(); if (!m) return;
     var c = m.getCenter();
     draft = { lat: c.lat, lng: c.lng, r: 1000, color: curColor() };
@@ -185,10 +190,31 @@
   $('ringRadius').addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); applyRadius(true); this.blur(); } });
   $('ringApply').onclick = function () { applyRadius(true); $('ringRadius').blur(); };
   $('ringUnit').onclick = function () { unit = unit === 'km' ? 'm' : 'km'; this.textContent = unit; applyRadius(false); };
-  $('ringClearBtn').onclick = function () { if (draft) startAiming(); };
+  function setRadiusInput(r) {
+    var inp = $('ringRadius'); if (!inp) return;
+    unit = r >= 1000 ? 'km' : 'm'; $('ringUnit').textContent = unit;
+    var v = unit === 'km' ? r / 1000 : r;
+    inp.value = String(Math.round(v * 1000) / 1000).replace('.', ',');
+  }
+  $('ringClearBtn').onclick = function () { if (draft) { redoStack = []; startAiming(); } };
+  $('ringUndoBtn').onclick = function () {
+    if (!ringMode) return;
+    if (draft) { redoStack.push({ kind: 'draft', d: draft }); startAiming(); return; }
+    var id = sessionIds.pop(); if (!id) return;
+    var r = rings.filter(function (x) { return x.id === id; })[0];
+    if (r) { redoStack.push({ kind: 'saved', r: r }); rings = rings.filter(function (x) { return x.id !== id; }); persist(); renderSaved(); }
+    syncButtons();
+  };
+  $('ringRedoBtn').onclick = function () {
+    if (!ringMode) return;
+    var it = redoStack.pop(); if (!it) return;
+    if (it.kind === 'saved') { rings.push(it.r); sessionIds.push(it.r.id); persist(); renderSaved(); syncButtons(); return; }
+    draft = it.d; setCross(false); drawDraft(); showRow(true); setRadiusInput(draft.r); syncButtons();
+  };
   $('ringSaveBtn').onclick = function () {
     if (!draft || !(draft.r > 0)) return;
-    rings.push({ id: 'r' + Date.now().toString(36), lat: draft.lat, lng: draft.lng, r: draft.r, color: draft.color, hidden: false, ts: Date.now() });
+    var nr = { id: 'r' + Date.now().toString(36) + Math.random().toString(16).slice(2, 5), lat: draft.lat, lng: draft.lng, r: draft.r, color: draft.color, hidden: false, ts: Date.now() };
+    rings.push(nr); sessionIds.push(nr.id); redoStack = [];
     persist(); renderSaved();
     var r = draft.r;
     startAiming();

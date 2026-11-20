@@ -165,7 +165,7 @@
     if (draft || !aiming) { redoStack = []; startAiming(); return; }   // con un anillo caído: vuelve a apuntar
     redoStack = [];
     var m = getMap(); if (!m) return;
-    var c = m.getCenter();
+    var c; try { c = (typeof poiAimLatLng === 'function') ? poiAimLatLng() : m.getCenter(); } catch (e) { c = m.getCenter(); }   // donde apunta la mira
     draft = { lat: c.lat, lng: c.lng, r: 1000, color: curColor() };
     setCross(false); drawDraft(); showRow(true); syncButtons();
     var inp = $('ringRadius');
@@ -187,8 +187,10 @@
     if (fit) { var m = getMap(); if (m && draftLayer) { try { m.fitBounds(L.latLng(draft.lat, draft.lng).toBounds(draft.r * 2), { padding: [30, 30], animate: true }); } catch (e) {} } }
   }
   $('ringRadius').addEventListener('input', function () { applyRadius(false); });
-  $('ringRadius').addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); applyRadius(true); this.blur(); } });
-  $('ringApply').onclick = function () { applyRadius(true); $('ringRadius').blur(); };
+  // Confirmar el radio: se ve el anillo completo y la fila de radio se cierra (queda [+] [guardar])
+  function confirmRadius() { applyRadius(true); $('ringRadius').blur(); if (draft && draft.r > 0) showRow(false); }
+  $('ringRadius').addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); confirmRadius(); } });
+  $('ringApply').onclick = confirmRadius;
   $('ringUnit').onclick = function () { unit = unit === 'km' ? 'm' : 'km'; this.textContent = unit; applyRadius(false); };
   function setRadiusInput(r) {
     var inp = $('ringRadius'); if (!inp) return;

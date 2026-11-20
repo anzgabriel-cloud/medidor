@@ -99,9 +99,50 @@
     savedLayers = {};
     saved.forEach(function (r) {
       if (r.hidden) return;
-      savedLayers[r.id] = L.polyline(r.pts, { color: safeColor(r.color), weight: 4, opacity: 0.9, dashArray: dash, lineCap: 'round', interactive: false }).addTo(m);
+      var line = L.polyline(r.pts, { color: safeColor(r.color), weight: 4, opacity: 0.9, dashArray: dash, lineCap: 'round', interactive: false });
+      // trazo ancho e invisible: facilita tocar la ruta para consultarla
+      var hit = L.polyline(r.pts, { color: '#000', weight: 26, opacity: 0.01, interactive: true });
+      hit.on('click', function (ev) { selectRoute(r, ev); });
+      savedLayers[r.id] = L.layerGroup([line, hit]).addTo(m);
     });
     var n = $('fmFreeN'); if (n) n.textContent = String(saved.length);
+  }
+  // --- Consulta: tocar la ruta en Modo vista abre la tarjeta con datos y menú ⋯ ---
+  var hlLayer = null;
+  function clearHl() { var m = getMap(); if (hlLayer && m) m.removeLayer(hlLayer); hlLayer = null; }
+  function canSelect() {
+    try { return typeof appView !== 'undefined' && appView === 'ver' && !(typeof poiMode !== 'undefined' && poiMode) && !!window.MedidorConsulta; } catch (e) { return false; }
+  }
+  function selectRoute(rt, ev) {
+    if (!canSelect()) return;
+    L.DomEvent.stopPropagation(ev);
+    var m = getMap(); if (!m) return;
+    var nf = new Intl.NumberFormat('es-AR', { maximumFractionDigits: 2 });
+    var pts = rt.pts, a = L.latLng(pts[0][0], pts[0][1]), b = L.latLng(pts[pts.length - 1][0], pts[pts.length - 1][1]);
+    var total = rt.dist || dist(pts), straight = m.distance(a, b);
+    var T = lenMain(total), S = lenMain(straight);
+    var brg = trueBearing(a, b);
+    var d = rt.ts ? new Date(rt.ts).toLocaleDateString('es-AR') : (rt.date || '');
+    clearHl();
+    hlLayer = L.polyline(pts, { color: '#fff', weight: 9, opacity: 0.5, interactive: false }).addTo(m);
+    window.MedidorConsulta.open({
+      color: rt.color, title: 'Ruta a mano alzada', meta: pts.length + ' puntos · ' + d + ' · distancia aproximada',
+      metrics: [[{ label: 'Distancia', value: '≈ ' + nf.format(T.v), unit: T.u, sub: lenSub(total), cls: 'text-violet-300' },
+                 { label: 'Recta inicio-fin', value: nf.format(S.v), unit: S.u, sub: straight > 1 ? brg0(brg) + '° V · ' + bearingCardinal(brg) : lenSub(straight) }]],
+      extra: 'Inicio: ' + fmtCoord(a.lat, a.lng) + '   Fin: ' + fmtCoord(b.lat, b.lng),
+      rows: [
+        { icon: 'crosshair', label: 'Ir', cls: 'text-slate-200', run: function () { try { m.fitBounds(L.latLngBounds(pts), { padding: [30, 30] }); } catch (e) {} } },
+        { icon: 'copy', label: 'Copiar coordenadas', cls: 'text-sky-300', run: function () { copyToClipboard(pts.map(function (p) { return p[0].toFixed(6) + ', ' + p[1].toFixed(6); }).join('\n'), null); } },
+        { icon: 'eye-off', label: 'Ocultar', cls: 'text-slate-200', run: function () { rt.hidden = true; persist(); renderSaved(); window.MedidorConsulta.close(); } },
+        { icon: 'trash-2', label: 'Eliminar', cls: 'text-red-400', run: function () {
+          confirmToast({ title: '¿Eliminar esta ruta de ≈ ' + fmtKm(total) + '?', message: 'No se puede deshacer.', confirmLabel: 'Eliminar', danger: true }).then(function (ok) {
+            if (!ok) return;
+            saved = saved.filter(function (x) { return x.id !== rt.id; }); persist(); renderSaved(); window.MedidorConsulta.close();
+          });
+        } }
+      ],
+      onClose: clearHl
+    });
   }
   var tries = 0;
   (function waitMap() {

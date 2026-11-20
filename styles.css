@@ -2,7 +2,7 @@
    Separado del HTML para mejor mantenimiento
 */
 
-:root { --app-version: "2026.11.19-v2-14"; }
+:root { --app-version: "2026.11.19-v2-15"; }
 
 .leaflet-control-attribution { font-size: 9px !important; background: rgba(15,23,42,0.7) !important; color: #94a3b8 !important; }
 .leaflet-control-attribution a { color: #94a3b8 !important; }
@@ -686,6 +686,7 @@ body.ui-min #toastContainer {
 /* ===== Ruta: nuevo / guardar (violeta) y fila deshacer-rehacer-borrar ===== */
 .free-new { background: #7c3aed; color: #fff; border-color: #a78bfa; }
 .free-new[aria-pressed="true"] { background: #6d28d9; box-shadow: 0 0 0 2px #c4b5fd; }
-.free-save { background: rgba(124,58,237,.25); color: #c4b5fd; border-color: rgba(167,139,250,.5); }
+.free-save { background: rgba(124,58,237,.18); color: #a78bfa; border-color: rgba(167,139,250,.35); }
+.free-save:not(:disabled) { background: #7c3aed; color: #fff; border-color: #a78bfa; }
 #mainControls[data-mode="free"] #freeHist { display: flex !important; flex: 0 0 100%; gap: 2px; justify-content: flex-start; }
 #freeHist .ringbtn { display: inline-flex; }

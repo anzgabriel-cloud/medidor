@@ -30,6 +30,10 @@
     var g = L.layerGroup();
     var c = L.latLng(a.lat, a.lng), col = safeColor(a.color);
     L.circle(c, { radius: a.r, color: col, weight: 3, fillColor: col, fillOpacity: 0.1, interactive: false }).addTo(g);
+    if (interactive) {   // borde ancho e invisible: se toca el aro (no el interior) para consultar el anillo
+      L.circle(c, { radius: a.r, fill: false, color: '#000', weight: 26, opacity: 0.01, interactive: true }).addTo(g)
+        .on('click', function (ev) { selectRing(a, ev); });
+    }
     var dLng = a.r / (111320 * Math.max(0.05, Math.cos(a.lat * Math.PI / 180)));
     var e = L.latLng(a.lat, a.lng + dLng);
     L.polyline([c, e], { color: col, weight: 2, dashArray: '6,5', interactive: false }).addTo(g);
@@ -51,8 +55,43 @@
     var m = getMap(); if (!m || !ui) return;
     Object.keys(savedLayers).forEach(function (k) { m.removeLayer(savedLayers[k]); });
     savedLayers = {};
-    rings.forEach(function (a) { if (!a.hidden) savedLayers[a.id] = build(m, a); });
+    rings.forEach(function (a) { if (!a.hidden) savedLayers[a.id] = build(m, a, true); });
     var n = $('fmRingN'); if (n) n.textContent = String(rings.length);
+  }
+  // --- Consulta: tocar el aro en Modo vista abre la tarjeta con datos y menú ⋯ ---
+  var hlLayer = null;
+  function clearHl() { var m = getMap(); if (hlLayer && m) m.removeLayer(hlLayer); hlLayer = null; }
+  function canSelect() {
+    try { return typeof appView !== 'undefined' && appView === 'ver' && !(typeof poiMode !== 'undefined' && poiMode) && !!window.MedidorConsulta; } catch (e) { return false; }
+  }
+  function selectRing(a, ev) {
+    if (!canSelect()) return;
+    L.DomEvent.stopPropagation(ev);
+    var m = getMap(); if (!m) return;
+    var nf = new Intl.NumberFormat('es-AR', { maximumFractionDigits: 2 });
+    var r = a.r, R = lenMain(r), Di = lenMain(2 * r), Ci = lenMain(2 * Math.PI * r), area = Math.PI * r * r, A = areaMain(area);
+    var d = a.ts ? new Date(a.ts).toLocaleDateString('es-AR') : '';
+    var go = function () { try { m.fitBounds(L.latLng(a.lat, a.lng).toBounds(r * 2), { padding: [30, 30] }); } catch (e) {} };
+    clearHl();
+    hlLayer = L.circle([a.lat, a.lng], { radius: r, fill: false, color: '#fff', weight: 8, opacity: 0.55, interactive: false }).addTo(m);
+    window.MedidorConsulta.open({
+      color: a.color, title: 'Anillo ' + fmt(r), meta: 'Radio desde un punto · ' + d,
+      metrics: [[{ label: 'Radio', value: nf.format(R.v), unit: R.u, sub: lenSub(r), cls: 'text-cyan-300' }, { label: 'Diámetro', value: nf.format(Di.v), unit: Di.u, sub: lenSub(2 * r) }],
+                [{ label: 'Circunferencia', value: nf.format(Ci.v), unit: Ci.u, sub: lenSub(2 * Math.PI * r) }, { label: 'Superficie', value: nf.format(A.v), unit: A.u, sub: areaSub(area), cls: 'text-emerald-400' }]],
+      extra: 'Centro: ' + fmtCoord(a.lat, a.lng),
+      rows: [
+        { icon: 'crosshair', label: 'Ir', cls: 'text-slate-200', run: go },
+        { icon: 'copy', label: 'Copiar centro', cls: 'text-sky-300', run: function () { copyToClipboard(a.lat.toFixed(6) + ', ' + a.lng.toFixed(6), null); } },
+        { icon: 'eye-off', label: 'Ocultar', cls: 'text-slate-200', run: function () { a.hidden = true; persist(); renderSaved(); window.MedidorConsulta.close(); } },
+        { icon: 'trash-2', label: 'Eliminar', cls: 'text-red-400', run: function () {
+          confirmToast({ title: '¿Eliminar el anillo de ' + fmt(r) + '?', message: 'No se puede deshacer.', confirmLabel: 'Eliminar', danger: true }).then(function (ok) {
+            if (!ok) return;
+            rings = rings.filter(function (x) { return x.id !== a.id; }); persist(); renderSaved(); window.MedidorConsulta.close();
+          });
+        } }
+      ],
+      onClose: clearHl
+    });
   }
   var sig = function (x) { return x.lat.toFixed(6) + ',' + x.lng.toFixed(6) + ',' + Math.round(x.r); };
   window.MedidorAnillos = {

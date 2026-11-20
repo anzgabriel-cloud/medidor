@@ -1705,7 +1705,7 @@ function updateMetrics(areaM2, distM) {
   liveArea = areaM2; liveDist = distM;
   updateLiveBadge();
 }
-const APP_VERSION = '2026.11.20-v2-19';
+const APP_VERSION = '2026.11.20-v2-20';
 let liveSelfIntersect = false; // el polígono se cruza a sí mismo (los marcadores rojos ya lo señalan)
 function updateSelfIntersectWarning(show) {
   const v = !!show;
@@ -1928,7 +1928,9 @@ function renderCompass() {
     rose.setAttribute('transform', `rotate(${(-compassShown).toFixed(1)} 32 32)`);
     const v = `<span class="cap-n${compassNorth === 'V' ? ' on' : ''}">${brg0(p.h)}° V</span>`;
     const m = `<span class="cap-n${compassNorth === 'M' ? ' on' : ''}">${brg0(mag)}° M</span>`;
-    txt = `${v} - ${m} - ${bearingCardinal(p.h)}${p.src === 'GPS' ? ' - GPS' : ''}`;
+    const rv = wrap360(p.h + 180), rm = wrap360(mag + 180);   // rumbo recíproco (opuesto)
+    const rec = `<span class="cap-rec">↩ <span class="cap-n${compassNorth === 'V' ? ' on' : ''}">${brg0(rv)}° V</span> - <span class="cap-n${compassNorth === 'M' ? ' on' : ''}">${brg0(rm)}° M</span></span>`;
+    txt = `${v} - ${m} - ${bearingCardinal(p.h)}${p.src === 'GPS' ? ' - GPS' : ''}<br>${rec}`;
   } else txt = compassNeedsTap() ? 'Tocá la brújula' : 'Sin rumbo…';
   if (txt !== compassLastTxt) { cap.innerHTML = txt; compassLastTxt = txt; }
 }
@@ -3431,7 +3433,7 @@ function updateNavLabel() {
   const rumbo = `${brg0(brg)}° V<i>${brg0(mag)}° M</i><u>${bearingCardinal(brg)}</u>`;
   const dist = escapeHtml(fmtLenShort(from.distanceTo(to)));
   if (!navLabel) {
-    const html = `<div class="nav-label"><div class="nav-txt"><b></b><span></span></div><button type="button" class="nav-stop" aria-label="Dejar de navegar"><i></i></button></div>`;
+    const html = `<div class="nav-label"><div class="nav-txt"><b></b><span></span><small class="nav-rec"></small></div><button type="button" class="nav-stop" aria-label="Dejar de navegar"><i></i></button></div>`;
     const icon = L.divIcon({ className: 'nav-label-wrap', html, iconSize: [0, 0] });
     navLabel = L.marker(at, { icon, interactive: false, keyboard: false, zIndexOffset: 900 }).addTo(map);
     const stop = navLabel.getElement().querySelector('.nav-stop');
@@ -3447,6 +3449,9 @@ function updateNavLabel() {
   el.querySelector('.nav-label').style.borderColor = color;
   const bEl = el.querySelector('.nav-txt b'), sEl = el.querySelector('.nav-txt span');
   if (bEl.dataset.v !== rumbo) { bEl.innerHTML = rumbo; bEl.dataset.v = rumbo; }
+  const rec = `↩ ${brg0(wrap360(brg + 180))}° V<i>${brg0(wrap360(mag + 180))}° M</i>`;   // rumbo recíproco: del destino hacia vos
+  const rEl = el.querySelector('.nav-txt small');
+  if (rEl && rEl.dataset.v !== rec) { rEl.innerHTML = rec; rEl.dataset.v = rec; }
   const dsp = `${dist}<em>${escapeHtml(fmtSpeed(navSpeed()))}</em>`;
   if (sEl.dataset.v !== dsp) { sEl.innerHTML = dsp; sEl.dataset.v = dsp; }
 }

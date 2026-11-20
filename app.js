@@ -1705,7 +1705,7 @@ function updateMetrics(areaM2, distM) {
   liveArea = areaM2; liveDist = distM;
   updateLiveBadge();
 }
-const APP_VERSION = '2026.11.20-v2-23';
+const APP_VERSION = '2026.11.20-v2-24';
 let liveSelfIntersect = false; // el polígono se cruza a sí mismo (los marcadores rojos ya lo señalan)
 function updateSelfIntersectWarning(show) {
   const v = !!show;
@@ -3420,14 +3420,14 @@ function capGrid(v, m, third, rv, rm) {
   return `<span class="cap-grid"><span class="cap-ar">↑</span><span class="cap-n${nv}">${v}</span><span class="cap-n${nm}">${m}</span><span class="cap-c">${third}</span>` +
     `<span class="cap-ar">↓</span><span class="cap-n${nv}">${rv}</span><span class="cap-n${nm}">${rm}</span><span class="cap-c"></span></span>`;
 }
-/** Flecha de rumbo alrededor del punto azul del GPS: apunta hacia donde mirás; se pone verde al alinearse con la cuerda */
+/** Flecha de rumbo alrededor del punto azul del GPS: apunta hacia donde mirás; es roja y se pone azul (como el punto GPS) al alinearse con la cuerda */
 let navArrow = null, navBrg = null;
 function updateNavArrow() {
   if (!navPoi || !userLocMarker || navBrg === null) { if (navArrow) { map.removeLayer(navArrow); navArrow = null; } return; }
   const p = pickHeading();
   if (!p) { if (navArrow) navArrow.getElement() && (navArrow.getElement().style.display = 'none'); return; }
   if (!navArrow) {
-    const icon = L.divIcon({ className: 'nav-arrow-wrap', iconSize: [0, 0], html: '<div class="nav-arrow"><svg viewBox="0 0 64 64" width="64" height="64"><polygon points="32,3 41,19 32,15 23,19" stroke="#0b1220" stroke-width="1.5" stroke-linejoin="round"/></svg></div>' });
+    const icon = L.divIcon({ className: 'nav-arrow-wrap', iconSize: [0, 0], html: '<div class="nav-arrow"><svg viewBox="0 0 64 64" width="64" height="64"><polygon points="32,5 41,22 32,18 23,22" stroke="#fff" stroke-width="1.5" stroke-linejoin="round"/></svg></div>' });
     navArrow = L.marker(userLocMarker.getLatLng(), { icon, interactive: false, keyboard: false, zIndexOffset: 850 }).addTo(map);
   } else navArrow.setLatLng(userLocMarker.getLatLng());
   const el = navArrow.getElement(); if (!el) return;

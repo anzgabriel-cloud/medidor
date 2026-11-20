@@ -2,7 +2,7 @@
    Separado del HTML para mejor mantenimiento
 */
 
-:root { --app-version: "2026.11.20-v2-22"; }
+:root { --app-version: "2026.11.20-v2-23"; }
 
 .leaflet-control-attribution { font-size: 9px !important; background: rgba(15,23,42,0.7) !important; color: #94a3b8 !important; }
 .leaflet-control-attribution a { color: #94a3b8 !important; }
@@ -729,3 +729,21 @@ body.ui-min #toastContainer {
 #navBox .nav-body { display: flex; flex-direction: column; align-items: center; }
 #navBox .nav-dist { color: #fde68a; font-size: 15px; font-weight: 800; margin-top: 1px; }
 #navBox .nav-dist em { font-style: normal; color: #a7f3d0; font-size: 12px; font-weight: 700; margin-left: 9px; }
+
+/* v2-23: flechas ↑↓, mismo ancho en brújula y navegación, pie "Navegación" con el botón de detener, flecha de rumbo en el punto GPS */
+.cap-grid { grid-template-columns: auto auto auto auto; }
+.cap-grid .cap-ar { color: #ef4444; font-size: 15px; font-weight: 900; line-height: 1; }
+#fixedCompass { align-items: stretch !important; }
+#fixedCompass > div:first-child { justify-content: flex-end; }
+#compassCaption { display: flex; justify-content: center; }
+#navBox { flex-direction: column; align-items: stretch; gap: 2px; padding: 3px 9px; align-self: stretch; }
+#navBox .nav-body { align-items: center; }
+#navBox .nav-body .cap-grid { align-self: center; }
+#navBox .nav-dist { display: flex; justify-content: center; align-items: baseline; gap: 14px; margin-top: 1px; color: #fff; }
+#navBox .nav-dist em { margin-left: 0; }
+#navBox .nav-foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+#navBox .nav-foot span { color: #38bdf8; font-size: 13px; font-weight: 800; }
+.nav-arrow-wrap { background: none; border: 0; }
+.nav-arrow { position: absolute; left: 0; top: 0; width: 64px; height: 64px; pointer-events: none; }
+.nav-arrow svg { display: block; fill: #38bdf8; filter: drop-shadow(0 1px 2px rgba(0,0,0,.7)); }
+.nav-arrow.aligned svg { fill: #00ff66; }

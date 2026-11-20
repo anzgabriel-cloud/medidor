@@ -1705,7 +1705,7 @@ function updateMetrics(areaM2, distM) {
   liveArea = areaM2; liveDist = distM;
   updateLiveBadge();
 }
-const APP_VERSION = '2026.11.20-v2-22';
+const APP_VERSION = '2026.11.20-v2-23';
 let liveSelfIntersect = false; // el polígono se cruza a sí mismo (los marcadores rojos ya lo señalan)
 function updateSelfIntersectWarning(show) {
   const v = !!show;
@@ -1927,9 +1927,10 @@ function renderCompass() {
     compassShown = wrap360(compassShown + shortDiff(compassShown, target) * 0.3);   // suaviza el temblor
     rose.setAttribute('transform', `rotate(${(-compassShown).toFixed(1)} 32 32)`);
     const rv = wrap360(p.h + 180), rm = wrap360(mag + 180);   // rumbo recíproco (opuesto)
-    txt = capGrid(`${brg0(p.h)}° V`, `${brg0(mag)}° M`, bearingCardinal(p.h) + (p.src === 'GPS' ? ' GPS' : ''), `${brg0(rv)}° V`, `${brg0(rm)}° M`, '↩');
+    txt = capGrid(`${brg0(p.h)}° V`, `${brg0(mag)}° M`, bearingCardinal(p.h) + (p.src === 'GPS' ? ' GPS' : ''), `${brg0(rv)}° V`, `${brg0(rm)}° M`);
   } else txt = compassNeedsTap() ? 'Tocá la brújula' : 'Sin rumbo…';
   if (txt !== compassLastTxt) { cap.innerHTML = txt; compassLastTxt = txt; }
+  if (navBrg !== null) updateNavArrow();
 }
 /** Enciende o apaga el sensor y el refresco (solo mientras la brújula está en modo rumbo y a la vista) */
 function compassActive(on) {
@@ -3413,10 +3414,28 @@ function standingOnPoi(p) {
   return !!ll && ll.distanceTo(L.latLng(p.lat, p.lng)) < NAV_ARRIVE_M;
 }
 /** Cuadro de navegación bajo la brújula: rumbos (V, M, cardinal), recíprocos, distancia y velocidad */
-function capGrid(v, m, third, rv, rm, rthird) {
+function capGrid(v, m, third, rv, rm) {
   const nv = compassNorth === 'V' ? ' on' : '', nm = compassNorth === 'M' ? ' on' : '';
-  return `<span class="cap-grid"><span class="cap-n${nv}">${v}</span><span class="cap-n${nm}">${m}</span><span class="cap-c">${third}</span>` +
-    `<span class="cap-n${nv}">${rv}</span><span class="cap-n${nm}">${rm}</span><span class="cap-c">${rthird}</span></span>`;
+  // dos flechas contrapuestas: ↑ rumbo, ↓ rumbo recíproco
+  return `<span class="cap-grid"><span class="cap-ar">↑</span><span class="cap-n${nv}">${v}</span><span class="cap-n${nm}">${m}</span><span class="cap-c">${third}</span>` +
+    `<span class="cap-ar">↓</span><span class="cap-n${nv}">${rv}</span><span class="cap-n${nm}">${rm}</span><span class="cap-c"></span></span>`;
+}
+/** Flecha de rumbo alrededor del punto azul del GPS: apunta hacia donde mirás; se pone verde al alinearse con la cuerda */
+let navArrow = null, navBrg = null;
+function updateNavArrow() {
+  if (!navPoi || !userLocMarker || navBrg === null) { if (navArrow) { map.removeLayer(navArrow); navArrow = null; } return; }
+  const p = pickHeading();
+  if (!p) { if (navArrow) navArrow.getElement() && (navArrow.getElement().style.display = 'none'); return; }
+  if (!navArrow) {
+    const icon = L.divIcon({ className: 'nav-arrow-wrap', iconSize: [0, 0], html: '<div class="nav-arrow"><svg viewBox="0 0 64 64" width="64" height="64"><polygon points="32,3 41,19 32,15 23,19" stroke="#0b1220" stroke-width="1.5" stroke-linejoin="round"/></svg></div>' });
+    navArrow = L.marker(userLocMarker.getLatLng(), { icon, interactive: false, keyboard: false, zIndexOffset: 850 }).addTo(map);
+  } else navArrow.setLatLng(userLocMarker.getLatLng());
+  const el = navArrow.getElement(); if (!el) return;
+  el.style.display = '';
+  const box = el.querySelector('.nav-arrow');
+  box.style.transform = `translate(-50%,-50%) rotate(${p.h.toFixed(1)}deg)`;
+  const aligned = Math.abs(shortDiff(p.h, navBrg)) <= 10;
+  box.classList.toggle('aligned', aligned);
 }
 function updateNavLabel() {
   const box = document.getElementById('navBox');
@@ -3427,15 +3446,15 @@ function updateNavLabel() {
   const brg = trueBearing(from, to);
   const mag = magneticBearing(brg, magneticDeclination(from.lat, from.lng));
   const html = capGrid(`${brg0(brg)}° V`, `${brg0(mag)}° M`, bearingCardinal(brg),
-    `${brg0(wrap360(brg + 180))}° V`, `${brg0(wrap360(mag + 180))}° M`, '↩') +
+    `${brg0(wrap360(brg + 180))}° V`, `${brg0(wrap360(mag + 180))}° M`) +
     `<span class="nav-dist">${escapeHtml(fmtLenShort(from.distanceTo(to)))}<em>${escapeHtml(fmtSpeed(navSpeed()))}</em></span>`;
   const body = box.querySelector('.nav-body');
   if (body.dataset.v !== html) { body.innerHTML = html; body.dataset.v = html; }
   box.style.borderColor = safeColor(navPoi.color, '#38bdf8');
   if (box.classList.contains('hidden')) box.classList.remove('hidden');
-  navLabel = true;
+  navLabel = true; navBrg = brg; updateNavArrow();
 }
-function removeNavLabel() { navLabel = null; const b = document.getElementById('navBox'); if (b) b.classList.add('hidden'); }
+function removeNavLabel() { navLabel = null; navBrg = null; updateNavArrow(); const b = document.getElementById('navBox'); if (b) b.classList.add('hidden'); }
 (function () {
   const b = document.getElementById('navStopBtn');
   if (!b) return;

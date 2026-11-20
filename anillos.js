@@ -24,6 +24,12 @@
     if (Math.round(r) >= 1000) { var k = r / 1000; return (k >= 10 ? Math.round(k * 10) / 10 : Math.round(k * 100) / 100).toString().replace('.', ',') + ' km'; }
     return Math.round(r).toString() + ' m';
   }
+  var ANGS = [90, 135, 45, 180, 0, 225, 315, 270];
+  function pickAng(lat, lng) {
+    var n = 0;
+    rings.forEach(function (x) { if (Math.abs(x.lat - lat) < 0.0004 && Math.abs(x.lng - lng) < 0.0004) n++; });   // ~40 m: mismo centro
+    return ANGS[n % ANGS.length];
+  }
   function safeColor(c) { return /^#[0-9a-f]{6}$/i.test(c || '') ? c : '#00ff66'; }
   function curColor() { try { return safeColor(themeColor); } catch (e) { return '#00ff66'; } }
 
@@ -36,11 +42,11 @@
       L.circle(c, { radius: a.r, fill: false, color: '#000', weight: 26, opacity: 0.01, interactive: true }).addTo(g)
         .on('click', function (ev) { selectRing(a, ev); });
     }
-    var dLng = a.r / (111320 * Math.max(0.05, Math.cos(a.lat * Math.PI / 180)));
-    var e = L.latLng(a.lat, a.lng + dLng);
+    var b = (a.ang == null ? 90 : a.ang) * Math.PI / 180;   // rumbo del radio: cada anillo concéntrico gira el suyo para no pisar las etiquetas
+    var e = L.latLng(a.lat + a.r * Math.cos(b) / 111320, a.lng + a.r * Math.sin(b) / (111320 * Math.max(0.05, Math.cos(a.lat * Math.PI / 180))));
     L.polyline([c, e], { color: col, weight: 2, dashArray: '6,5', interactive: false }).addTo(g);
     L.circleMarker(c, { radius: 5, color: '#fff', weight: 2, fillColor: col, fillOpacity: 1, interactive: false }).addTo(g);
-    var mid = L.latLng(a.lat, a.lng + dLng / 2);
+    var mid = L.latLng((a.lat + e.lat) / 2, (a.lng + e.lng) / 2);
     L.marker(mid, { interactive: false, keyboard: false, icon: L.divIcon({
       className: 'ring-label', html: '<span style="color:' + col + '">' + fmt(a.r) + '</span>', iconSize: [0, 0]
     }) }).addTo(g);
@@ -97,11 +103,11 @@
   }
   var sig = function (x) { return x.lat.toFixed(6) + ',' + x.lng.toFixed(6) + ',' + Math.round(x.r); };
   window.MedidorAnillos = {
-    list: function () { return rings.map(function (a) { return { lat: a.lat, lng: a.lng, r: a.r, color: a.color }; }); },
+    list: function () { return rings.map(function (a) { return { lat: a.lat, lng: a.lng, r: a.r, color: a.color, ang: a.ang }; }); },
     add: function (items) {
       var n = 0, d = 0, have = {}; rings.forEach(function (a) { have[sig(a)] = 1; });
       items.forEach(function (it) {
-        var x = { id: 'r' + Date.now().toString(36) + Math.random().toString(16).slice(2, 6), lat: it.lat, lng: it.lng, r: it.r, color: safeColor(it.color), hidden: false, ts: Date.now() };
+        var x = { id: 'r' + Date.now().toString(36) + Math.random().toString(16).slice(2, 6), lat: it.lat, lng: it.lng, r: it.r, color: safeColor(it.color), ang: it.ang != null ? it.ang : pickAng(it.lat, it.lng), hidden: false, ts: Date.now() };
         if (have[sig(x)]) { d++; return; }
         have[sig(x)] = 1; rings.push(x); n++;
       });
@@ -166,7 +172,7 @@
     redoStack = [];
     var m = getMap(); if (!m) return;
     var c; try { c = (typeof poiAimLatLng === 'function') ? poiAimLatLng() : m.getCenter(); } catch (e) { c = m.getCenter(); }   // donde apunta la mira
-    draft = { lat: c.lat, lng: c.lng, r: 1000, color: curColor() };
+    draft = { lat: c.lat, lng: c.lng, r: 1000, color: curColor(), ang: pickAng(c.lat, c.lng) };
     setCross(false); drawDraft(); showRow(true); syncButtons();
     var inp = $('ringRadius');
     unit = 'km'; $('ringUnit').textContent = 'km'; inp.value = '1';
@@ -215,7 +221,7 @@
   };
   $('ringSaveBtn').onclick = function () {
     if (!draft || !(draft.r > 0)) return;
-    var nr = { id: 'r' + Date.now().toString(36) + Math.random().toString(16).slice(2, 5), lat: draft.lat, lng: draft.lng, r: draft.r, color: draft.color, hidden: false, ts: Date.now() };
+    var nr = { id: 'r' + Date.now().toString(36) + Math.random().toString(16).slice(2, 5), lat: draft.lat, lng: draft.lng, r: draft.r, color: draft.color, ang: draft.ang, hidden: false, ts: Date.now() };
     rings.push(nr); sessionIds.push(nr.id); redoStack = [];
     persist(); renderSaved();
     var r = draft.r;

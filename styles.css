@@ -2,7 +2,7 @@
    Separado del HTML para mejor mantenimiento
 */
 
-:root { --app-version: "2026.11.20-v2-18"; }
+:root { --app-version: "2026.11.20-v2-19"; }
 
 .leaflet-control-attribution { font-size: 9px !important; background: rgba(15,23,42,0.7) !important; color: #94a3b8 !important; }
 .leaflet-control-attribution a { color: #94a3b8 !important; }
@@ -693,3 +693,8 @@ body.ui-min #toastContainer {
 
 #mainControls[data-mode="ring"] #ringHist { display: flex !important; flex: 0 0 100%; gap: 2px; justify-content: flex-start; }
 #ringHist .ringbtn { display: inline-flex; }
+
+/* Norte de la brújula: selector en Ajustes y rumbo activo en la etiqueta */
+.north-pick { background: #1e293b; border-color: #475569; color: #cbd5e1; }
+.north-pick[aria-pressed="true"] { background: rgba(245,158,11,.2); border-color: #f59e0b; color: #fbbf24; }
+#compassCaption .cap-n.on { color: #fbbf24; font-size: 14px; }

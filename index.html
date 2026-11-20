@@ -14,7 +14,7 @@
   <meta name="apple-mobile-web-app-title" content="Medidor">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <!-- Versión: debe coincidir con APP_VERSION (app.js) y --app-version (styles.css) -->
-  <meta name="app-version" content="2026.11.20-v2-18">
+  <meta name="app-version" content="2026.11.20-v2-19">
 
   <!-- Librerías locales (en este mismo repo) + Tailwind por CDN -->
   <link rel="stylesheet" href="leaflet.css" />
@@ -554,6 +554,14 @@
       <div class="text-[11px] text-slate-500 mb-0">Menos error máximo = recorrido más fiel, pero necesita mejor señal. Distancias largas (20 m a 1.000 m) sirven para recorridos extensos en ruta o desde un vehículo: ahorran batería y dejan el trazado más limpio.</div>
 
       <div class="set-rule"></div>
+      <label class="text-[10px] uppercase tracking-wide text-slate-500">Norte de la brújula</label>
+      <div class="grid grid-cols-2 gap-2 mt-1 mb-1">
+        <button type="button" data-north="V" class="north-pick py-2 rounded-xl text-xs font-bold border" aria-pressed="true">Norte verdadero</button>
+        <button type="button" data-north="M" class="north-pick py-2 rounded-xl text-xs font-bold border" aria-pressed="false">Norte magnético</button>
+      </div>
+      <div class="text-[11px] text-slate-500 mb-0">Define hacia qué norte apunta la rosa de la brújula. En la etiqueta, el rumbo del norte elegido se ve en ámbar y más grande (V = verdadero, M = magnético).</div>
+
+      <div class="set-rule"></div>
       <label class="text-[10px] uppercase tracking-wide text-slate-500">Zoom máximo de la imagen satelital</label>
       <select id="setSatZoom" class="cg-input mt-1 mb-1">
         <option value="auto">Automático (detecta el cartel gris)</option>
@@ -565,7 +573,7 @@
       <div id="setSatStatus" class="text-[11px] text-sky-400 mt-1 mb-0"></div>
 
       <div class="set-rule"></div>
-      <label class="text-[10px] uppercase tracking-wide text-slate-500">Copia de seguridad (mediciones y POI)</label>
+      <label class="text-[10px] uppercase tracking-wide text-slate-500">Copia de seguridad (mediciones, POI, anillos y rutas)</label>
       <div class="grid grid-cols-3 gap-2 mt-1 mb-1">
         <button type="button" data-fmt="geojson" class="bk-fmt py-2 rounded-xl text-xs font-bold border">GeoJSON</button>
         <button type="button" data-fmt="kml" class="bk-fmt py-2 rounded-xl text-xs font-bold border">KML</button>
@@ -574,10 +582,10 @@
       <div id="bkHelp" class="text-[11px] text-slate-500 mb-2"></div>
       <div class="flex gap-2 mb-1">
         <button id="exportBtn" type="button" class="flex-1 bg-slate-800 border border-slate-600 text-xs font-semibold py-2.5 px-3 rounded-xl flex items-center justify-center gap-1.5">
-          <i data-lucide="download" class="w-3.5 h-3.5 text-sky-400"></i> Exportar
+          <i data-lucide="upload" class="w-3.5 h-3.5 text-sky-400"></i> Exportar
         </button>
         <label class="flex-1 bg-slate-800 border border-slate-600 text-xs font-semibold py-2.5 px-3 rounded-xl flex items-center justify-center gap-1.5 cursor-pointer">
-          <i data-lucide="upload" class="w-3.5 h-3.5 text-emerald-400"></i> Importar
+          <i data-lucide="download" class="w-3.5 h-3.5 text-emerald-400"></i> Importar
           <input type="file" id="importInput" accept=".json,.geojson,.kml,.gpx" class="hidden">
         </label>
       </div>

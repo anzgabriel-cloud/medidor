@@ -865,6 +865,8 @@ document.getElementById('closePoiBtn').onclick = (e) => { e.preventDefault(); e.
   document.getElementById('exportBtn').onclick = exportBackup;
   document.getElementById('importInput').onchange = importBackup;
   document.querySelectorAll('.bk-fmt').forEach(b => b.onclick = () => setBackupFmt(b.dataset.fmt));
+  document.querySelectorAll('.north-pick').forEach(b => b.onclick = () => setCompassNorth(b.dataset.north));
+  syncNorthUI();
   document.getElementById('tileClearBtn').onclick = clearTileCache;
   document.getElementById('dataResetBtn').onclick = resetAllData;
 
@@ -1703,7 +1705,7 @@ function updateMetrics(areaM2, distM) {
   liveArea = areaM2; liveDist = distM;
   updateLiveBadge();
 }
-const APP_VERSION = '2026.11.20-v2-18';
+const APP_VERSION = '2026.11.20-v2-19';
 let liveSelfIntersect = false; // el polígono se cruza a sí mismo (los marcadores rojos ya lo señalan)
 function updateSelfIntersectWarning(show) {
   const v = !!show;
@@ -1854,6 +1856,16 @@ function syncFixedCompass() {
 // La flecha verde, su línea y la etiqueta quedan fijas (hacia donde mirás); la rosa de los vientos gira debajo para
 // mostrar dónde está el norte. El mapa no rota. Fuente: sensor del teléfono (corregido por declinación) y, si te movés
 // rápido, el rumbo del GPS. Etiqueta: rumbo verdadero (V) · magnético (M) · punto cardinal.
+let compassNorth = 'V';   // norte al que apunta la rosa: 'V' verdadero | 'M' magnético
+try { if (localStorage.getItem('medidor_norte') === 'M') compassNorth = 'M'; } catch (e) {}
+function setCompassNorth(n) {
+  compassNorth = n === 'M' ? 'M' : 'V';
+  try { localStorage.setItem('medidor_norte', compassNorth); } catch (e) {}
+  syncNorthUI(); compassLastTxt = ''; renderCompass();
+}
+function syncNorthUI() {
+  document.querySelectorAll('.north-pick').forEach(b => b.setAttribute('aria-pressed', b.dataset.north === compassNorth ? 'true' : 'false'));
+}
 let compassSensor = { h: null, t: 0 };     // rumbo verdadero según el sensor
 let compassGps = { h: null, speed: 0, t: 0 };
 let compassShown = 0, compassSeeded = false, compassTimer = null, compassOn = false, compassLastTxt = '';
@@ -1909,13 +1921,16 @@ function renderCompass() {
   const p = pickHeading();
   if (p) {
     if (!compassSeeded) { compassShown = p.h; compassSeeded = true; }   // la primera vez, directo al rumbo (sin giro de arranque)
-    compassShown = wrap360(compassShown + shortDiff(compassShown, p.h) * 0.3);   // suaviza el temblor
-    rose.setAttribute('transform', `rotate(${(-compassShown).toFixed(1)} 32 32)`);
     const ll = userLL() || (map && map.getCenter ? map.getCenter() : { lat: -34.6, lng: -58.4 });
     const mag = magneticBearing(p.h, magneticDeclination(ll.lat, ll.lng));
-    txt = `${brg0(p.h)}° V - ${brg0(mag)}° M - ${bearingCardinal(p.h)}${p.src === 'GPS' ? ' - GPS' : ''}`;
+    const target = compassNorth === 'M' ? mag : p.h;   // la rosa gira según el norte elegido
+    compassShown = wrap360(compassShown + shortDiff(compassShown, target) * 0.3);   // suaviza el temblor
+    rose.setAttribute('transform', `rotate(${(-compassShown).toFixed(1)} 32 32)`);
+    const v = `<span class="cap-n${compassNorth === 'V' ? ' on' : ''}">${brg0(p.h)}° V</span>`;
+    const m = `<span class="cap-n${compassNorth === 'M' ? ' on' : ''}">${brg0(mag)}° M</span>`;
+    txt = `${v} - ${m} - ${bearingCardinal(p.h)}${p.src === 'GPS' ? ' - GPS' : ''}`;
   } else txt = compassNeedsTap() ? 'Tocá la brújula' : 'Sin rumbo…';
-  if (txt !== compassLastTxt) { cap.textContent = txt; compassLastTxt = txt; }
+  if (txt !== compassLastTxt) { cap.innerHTML = txt; compassLastTxt = txt; }
 }
 /** Enciende o apaga el sensor y el refresco (solo mientras la brújula está en modo rumbo y a la vista) */
 function compassActive(on) {

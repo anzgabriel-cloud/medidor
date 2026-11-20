@@ -1705,7 +1705,7 @@ function updateMetrics(areaM2, distM) {
   liveArea = areaM2; liveDist = distM;
   updateLiveBadge();
 }
-const APP_VERSION = '2026.11.20-v2-21';
+const APP_VERSION = '2026.11.20-v2-22';
 let liveSelfIntersect = false; // el polígono se cruza a sí mismo (los marcadores rojos ya lo señalan)
 function updateSelfIntersectWarning(show) {
   const v = !!show;
@@ -1926,11 +1926,8 @@ function renderCompass() {
     const target = compassNorth === 'M' ? mag : p.h;   // la rosa gira según el norte elegido
     compassShown = wrap360(compassShown + shortDiff(compassShown, target) * 0.3);   // suaviza el temblor
     rose.setAttribute('transform', `rotate(${(-compassShown).toFixed(1)} 32 32)`);
-    const v = `<span class="cap-n${compassNorth === 'V' ? ' on' : ''}">${brg0(p.h)}° V</span>`;
-    const m = `<span class="cap-n${compassNorth === 'M' ? ' on' : ''}">${brg0(mag)}° M</span>`;
     const rv = wrap360(p.h + 180), rm = wrap360(mag + 180);   // rumbo recíproco (opuesto)
-    const rec = `<span class="cap-rec">↩ <span class="cap-n${compassNorth === 'V' ? ' on' : ''}">${brg0(rv)}° V</span> - <span class="cap-n${compassNorth === 'M' ? ' on' : ''}">${brg0(rm)}° M</span></span>`;
-    txt = `${v} - ${m} - ${bearingCardinal(p.h)}${p.src === 'GPS' ? ' - GPS' : ''}<br>${rec}`;
+    txt = capGrid(`${brg0(p.h)}° V`, `${brg0(mag)}° M`, bearingCardinal(p.h) + (p.src === 'GPS' ? ' GPS' : ''), `${brg0(rv)}° V`, `${brg0(rm)}° M`, '↩');
   } else txt = compassNeedsTap() ? 'Tocá la brújula' : 'Sin rumbo…';
   if (txt !== compassLastTxt) { cap.innerHTML = txt; compassLastTxt = txt; }
 }
@@ -3415,48 +3412,37 @@ function standingOnPoi(p) {
   const ll = userLL();
   return !!ll && ll.distanceTo(L.latLng(p.lat, p.lng)) < NAV_ARRIVE_M;
 }
-/** Etiqueta de rumbo y distancia pegada a la cuerda, siempre dentro de la pantalla */
+/** Cuadro de navegación bajo la brújula: rumbos (V, M, cardinal), recíprocos, distancia y velocidad */
+function capGrid(v, m, third, rv, rm, rthird) {
+  const nv = compassNorth === 'V' ? ' on' : '', nm = compassNorth === 'M' ? ' on' : '';
+  return `<span class="cap-grid"><span class="cap-n${nv}">${v}</span><span class="cap-n${nm}">${m}</span><span class="cap-c">${third}</span>` +
+    `<span class="cap-n${nv}">${rv}</span><span class="cap-n${nm}">${rm}</span><span class="cap-c">${rthird}</span></span>`;
+}
 function updateNavLabel() {
+  const box = document.getElementById('navBox');
+  if (!box) return;
   if (!navPoi || !userLocMarker || !navLine) { removeNavLabel(); return; }
   const from = userLocMarker.getLatLng();
   const to = L.latLng(navPoi.lat, navPoi.lng);
   const brg = trueBearing(from, to);
-  const color = safeColor(navPoi.color, '#38bdf8');
-  const size = map.getSize();
-  // zona libre: debajo de la barra superior y por encima de los botones de abajo
-  const header = document.querySelector('header');
-  const top = (header ? header.getBoundingClientRect().bottom : 0) + 34;
-  const rect = { left: 56, right: size.x - 56, top, bottom: Math.max(top + 10, size.y - 150) };
-  const p = visibleMidpoint(map.latLngToContainerPoint(from), map.latLngToContainerPoint(to), rect);
-  const at = map.containerPointToLatLng([p.x, p.y]);
   const mag = magneticBearing(brg, magneticDeclination(from.lat, from.lng));
-  const nv = compassNorth === 'V' ? ' on' : '', nm = compassNorth === 'M' ? ' on' : '';   // mismos colores que la brújula
-  const rumbo = `<span class="cap-n${nv}">${brg0(brg)}° V</span> - <span class="cap-n${nm}">${brg0(mag)}° M</span> - ${bearingCardinal(brg)}`;
-  const dist = escapeHtml(fmtLenShort(from.distanceTo(to)));
-  if (!navLabel) {
-    const html = `<div class="nav-label"><div class="nav-txt"><b></b><small class="nav-rec"></small><span></span></div><button type="button" class="nav-stop" aria-label="Dejar de navegar"><i></i></button></div>`;
-    const icon = L.divIcon({ className: 'nav-label-wrap', html, iconSize: [0, 0] });
-    navLabel = L.marker(at, { icon, interactive: false, keyboard: false, zIndexOffset: 900 }).addTo(map);
-    const stop = navLabel.getElement().querySelector('.nav-stop');
-    const halt = (e) => { e.stopPropagation(); e.preventDefault(); stopNav(); renderPoiList(); toast({ type: 'info', title: 'Navegación cancelada', duration: 1400 }); };
-    stop.addEventListener('click', halt);
-    stop.addEventListener('touchstart', (e) => e.stopPropagation(), { passive: true });
-    stop.addEventListener('pointerdown', (e) => e.stopPropagation());
-    stop.addEventListener('dblclick', (e) => e.stopPropagation());
-  } else navLabel.setLatLng(at);
-  const el = navLabel.getElement();
-  if (!el) return;
-  // se actualiza el texto en el lugar (sin recrear el botón) para que un toque nunca se pierda
-  el.querySelector('.nav-label').style.borderColor = color;
-  const bEl = el.querySelector('.nav-txt b'), sEl = el.querySelector('.nav-txt span');
-  if (bEl.dataset.v !== rumbo) { bEl.innerHTML = rumbo; bEl.dataset.v = rumbo; }
-  const rec = `↩ <span class="cap-n${nv}">${brg0(wrap360(brg + 180))}° V</span> - <span class="cap-n${nm}">${brg0(wrap360(mag + 180))}° M</span>`;   // rumbo recíproco: del destino hacia vos
-  const rEl = el.querySelector('.nav-txt small');
-  if (rEl && rEl.dataset.v !== rec) { rEl.innerHTML = rec; rEl.dataset.v = rec; }
-  const dsp = `${dist}<em>${escapeHtml(fmtSpeed(navSpeed()))}</em>`;
-  if (sEl.dataset.v !== dsp) { sEl.innerHTML = dsp; sEl.dataset.v = dsp; }
+  const html = capGrid(`${brg0(brg)}° V`, `${brg0(mag)}° M`, bearingCardinal(brg),
+    `${brg0(wrap360(brg + 180))}° V`, `${brg0(wrap360(mag + 180))}° M`, '↩') +
+    `<span class="nav-dist">${escapeHtml(fmtLenShort(from.distanceTo(to)))}<em>${escapeHtml(fmtSpeed(navSpeed()))}</em></span>`;
+  const body = box.querySelector('.nav-body');
+  if (body.dataset.v !== html) { body.innerHTML = html; body.dataset.v = html; }
+  box.style.borderColor = safeColor(navPoi.color, '#38bdf8');
+  if (box.classList.contains('hidden')) box.classList.remove('hidden');
+  navLabel = true;
 }
-function removeNavLabel() { if (navLabel) { map.removeLayer(navLabel); navLabel = null; } }
+function removeNavLabel() { navLabel = null; const b = document.getElementById('navBox'); if (b) b.classList.add('hidden'); }
+(function () {
+  const b = document.getElementById('navStopBtn');
+  if (!b) return;
+  const halt = (e) => { e.stopPropagation(); e.preventDefault(); stopNav(); renderPoiList(); toast({ type: 'info', title: 'Navegación cancelada', duration: 1400 }); };
+  b.addEventListener('click', halt);
+  b.addEventListener('pointerdown', (e) => e.stopPropagation());
+})();
 /** En el POI donde estás parado: "Navegar" queda desactivado (gris) e "Ir" dice "Ud está aquí" */
 const BTN_BASE = 'text-[11px] font-semibold py-1.5 leading-tight rounded-lg border ';
 const GO_BTN_CLS = 'flex-1 ' + BTN_BASE + 'bg-slate-800 text-slate-300 border-slate-700';

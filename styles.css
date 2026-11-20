@@ -2,7 +2,7 @@
    Separado del HTML para mejor mantenimiento
 */
 
-:root { --app-version: "2026.11.20-v2-21"; }
+:root { --app-version: "2026.11.20-v2-22"; }
 
 .leaflet-control-attribution { font-size: 9px !important; background: rgba(15,23,42,0.7) !important; color: #94a3b8 !important; }
 .leaflet-control-attribution a { color: #94a3b8 !important; }
@@ -717,3 +717,15 @@ body.ui-min #toastContainer {
 .nav-label b .cap-n { font-size: 13px; font-weight: 800; }
 .nav-label b .cap-n.on { font-size: 16px; }
 .nav-label small.nav-rec .cap-n { font-size: 12px; font-weight: 700; }
+
+/* v2-22: rumbos en cuadrícula (brújula y navegación); la navegación va bajo la brújula */
+.cap-grid { display: inline-grid; grid-template-columns: auto auto auto; column-gap: 9px; row-gap: 1px; align-items: baseline; justify-items: center; line-height: 1.25; }
+.cap-grid .cap-n { color: #00ff66; font-size: 12px; font-weight: 800; }
+.cap-grid .cap-n.on { color: #fbbf24; font-size: 14px; }
+.cap-grid .cap-c { color: #00ff66; font-size: 12px; font-weight: 800; }
+#compassCaption { text-align: center; }
+#navBox { position: relative; margin-top: 4px; padding: 3px 9px 3px 9px; border-radius: 9px; background: rgba(2,6,23,.92); border: 2px solid #38bdf8; box-shadow: 0 2px 8px rgba(0,0,0,.6); white-space: nowrap; align-self: flex-end; display: flex; align-items: center; gap: 8px; padding-right: 5px; }
+#navBox.hidden { display: none; }
+#navBox .nav-body { display: flex; flex-direction: column; align-items: center; }
+#navBox .nav-dist { color: #fde68a; font-size: 15px; font-weight: 800; margin-top: 1px; }
+#navBox .nav-dist em { font-style: normal; color: #a7f3d0; font-size: 12px; font-weight: 700; margin-left: 9px; }

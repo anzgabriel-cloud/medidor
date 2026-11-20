@@ -2,7 +2,7 @@
    Separado del HTML para mejor mantenimiento
 */
 
-:root { --app-version: "2026.11.20-v2-25"; }
+:root { --app-version: "2026.11.20-v2-27"; }
 
 .leaflet-control-attribution { font-size: 9px !important; background: rgba(15,23,42,0.7) !important; color: #94a3b8 !important; }
 .leaflet-control-attribution a { color: #94a3b8 !important; }
@@ -759,3 +759,20 @@ body.ui-min #toastContainer {
 #infoActions .poi-act-go svg, #infoActions .poi-act-go i { color: #22c55e; }
 #infoActions .poi-act-del svg, #infoActions .poi-act-del i { color: #ef4444; }
 #infoActions .poi-act.off { opacity: .4; }
+
+/* v2-26: colores oscuros (negro) visibles: contorno blanco en selectores y en el pin de la Consulta */
+button.poi-color { border-color: rgba(255,255,255,.4); }
+#infoTypeIcon { filter: drop-shadow(0 0 1px #fff) drop-shadow(0 0 1px #fff); }
+.color-swatch[data-color="#111827"], button.poi-color[data-color="#0f172a"] { border-color: rgba(255,255,255,.85); }
+.color-swatch[data-color="#111827"].active { border-color: #fff; }
+
+/* v2-27: Consulta de mediciones: acciones a la vista y fila de "mostrar" compacta */
+#infoActions { margin-top: 4px; }
+.info-tgrow { display: grid; grid-template-columns: repeat(4, 1fr); background: rgba(2,6,23,.8); border: 1px solid #1e293b; border-radius: 12px; overflow: hidden; }
+.info-tg { display: flex; align-items: center; justify-content: center; gap: 4px; padding: 9px 2px; font-size: 11px; font-weight: 700; color: #94a3b8; background: none; border: 0; -webkit-tap-highlight-color: transparent; touch-action: manipulation; }
+.info-tg + .info-tg { border-left: 2px solid #334155; }
+.info-tg:disabled { opacity: .35; }
+.info-tg.tg-segs { color: #6ee7b7; background: rgba(16,185,129,.15); }
+.info-tg.tg-brg { color: #fda4af; background: rgba(244,63,94,.15); }
+.info-tg.tg-ang { color: #fcd34d; background: rgba(245,158,11,.15); }
+.info-tg.tg-crd { color: #7dd3fc; background: rgba(14,165,233,.15); }

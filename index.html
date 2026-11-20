@@ -14,7 +14,7 @@
   <meta name="apple-mobile-web-app-title" content="Medidor">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <!-- Versión: debe coincidir con APP_VERSION (app.js) y --app-version (styles.css) -->
-  <meta name="app-version" content="2026.11.20-v2-25">
+  <meta name="app-version" content="2026.11.20-v2-27">
 
   <!-- Librerías locales (en este mismo repo) + Tailwind por CDN -->
   <link rel="stylesheet" href="leaflet.css" />
@@ -371,7 +371,7 @@
           <div class="min-w-0">
             <p id="infoKicker" class="text-[10px] font-bold uppercase tracking-wider text-amber-400 mb-0.5">Consulta</p>
             <div class="flex items-center gap-2">
-              <i id="infoPinIcon" data-lucide="map-pin" class="w-5 h-5 flex-shrink-0 hidden"></i>
+              <span id="infoTypeIcon" class="flex-shrink-0 hidden"></span>
               <span id="infoColorDot" class="w-2.5 h-2.5 rounded-full flex-shrink-0 ring-2 ring-white/20"></span>
               <h3 id="infoName" class="font-bold text-sm text-slate-50 truncate">—</h3>
             </div>
@@ -387,7 +387,6 @@
           </div>
         </div>
         <div id="infoMetrics" class="grid grid-cols-2 gap-1.5 mb-1.5"></div>
-        <div id="infoActions" class="hidden" role="group" aria-label="Acciones"></div>
         <div id="infoDeclination" class="hidden mb-2 px-2.5 py-2 rounded-xl bg-slate-950/80 border border-slate-800 text-[11px] text-slate-300 flex items-center justify-between gap-2">
           <span class="flex items-center gap-1.5 text-slate-400">
             <i data-lucide="compass" class="w-3.5 h-3.5 text-rose-300"></i>
@@ -396,25 +395,17 @@
           <span id="infoDeclinationValue" class="font-bold text-rose-300">—</span>
         </div>
         <div id="infoToggles">
-        <div class="flex items-center justify-between gap-2 mb-1">
-          <div class="text-[10px] font-semibold uppercase tracking-wide text-slate-400">Mostrar en mediciones:</div>
-          <button id="infoCopyCoordsBtn" type="button" class="hidden items-center gap-1 -my-1 px-2 py-1 rounded-md border border-slate-600 bg-slate-800 text-sky-300 text-[10px] font-semibold active:bg-slate-700" aria-label="Copiar coordenadas de los puntos" title="Copiar coordenadas de los puntos"><i data-lucide="copy" class="w-3.5 h-3.5"></i> Copiar</button>
+        <div class="info-tgrow">
+          <button id="infoToggleSegs" type="button" class="info-tg"><i data-lucide="ruler" class="w-4 h-4"></i><span>Dist.</span></button>
+          <button id="infoToggleBearings" type="button" class="info-tg"><i data-lucide="compass" class="w-4 h-4"></i><span>Rumbos</span></button>
+          <button id="infoToggleAngles" type="button" class="info-tg"><i data-lucide="triangle" class="w-4 h-4"></i><span>Ángulos</span></button>
+          <button id="infoToggleCoords" type="button" class="info-tg"><i data-lucide="map-pin" class="w-4 h-4"></i><span>Coord.</span></button>
         </div>
-        <div class="flex gap-1 flex-wrap">
-          <button id="infoToggleSegs" class="flex-1 min-w-[22%] text-[10px] font-semibold py-2 rounded-lg border bg-emerald-500/15 text-emerald-300 border-emerald-500/40 flex items-center justify-center gap-1">
-            <i data-lucide="ruler" class="w-3 h-3"></i> Distancias
-          </button>
-          <button id="infoToggleBearings" class="flex-1 min-w-[22%] text-[10px] font-semibold py-2 rounded-lg border bg-slate-800 text-slate-300 border-slate-700 flex items-center justify-center gap-1">
-            <i data-lucide="compass" class="w-3 h-3"></i> Rumbos
-          </button>
-          <button id="infoToggleAngles" class="flex-1 min-w-[22%] text-[10px] font-semibold py-2 rounded-lg border bg-slate-800 text-slate-300 border-slate-700 flex items-center justify-center gap-1">
-            <i data-lucide="triangle" class="w-3 h-3"></i> Ángulos
-          </button>
-          <button id="infoToggleCoords" class="flex-1 min-w-[22%] text-[10px] font-semibold py-2 rounded-lg border bg-slate-800 text-slate-300 border-slate-700 flex items-center justify-center gap-1">
-            <i data-lucide="map-pin" class="w-3 h-3"></i> Coordenadas
-          </button>
+        <div class="flex justify-end">
+          <button id="infoCopyCoordsBtn" type="button" class="hidden mt-1.5 items-center gap-1 -my-1 px-2 py-1 rounded-md border border-slate-600 bg-slate-800 text-sky-300 text-[10px] font-semibold active:bg-slate-700" aria-label="Copiar coordenadas de los puntos" title="Copiar coordenadas de los puntos"><i data-lucide="copy" class="w-3.5 h-3.5"></i> Copiar</button>
         </div>
         </div>
+        <div id="infoActions" class="hidden" role="group" aria-label="Acciones"></div>
       </div>
     </div>
   </div>

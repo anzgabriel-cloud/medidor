@@ -809,7 +809,7 @@ document.getElementById('closePoiBtn').onclick = (e) => { e.preventDefault(); e.
   document.querySelectorAll('.poi-color').forEach(btn => {
     btn.onclick = () => {
       poiColor = btn.dataset.color;
-      document.querySelectorAll('.poi-color').forEach(b => b.style.borderColor = b === btn ? '#fff' : 'transparent');
+      document.querySelectorAll('.poi-color').forEach(b => b.style.borderColor = b === btn ? '#fff' : 'rgba(255,255,255,.4)');
     };
   });
   document.getElementById('confirmPoiBtn').onclick = confirmPoi;
@@ -1705,7 +1705,7 @@ function updateMetrics(areaM2, distM) {
   liveArea = areaM2; liveDist = distM;
   updateLiveBadge();
 }
-const APP_VERSION = '2026.11.20-v2-25';
+const APP_VERSION = '2026.11.20-v2-27';
 let liveSelfIntersect = false; // el polígono se cruza a sí mismo (los marcadores rojos ya lo señalan)
 function updateSelfIntersectWarning(show) {
   const v = !!show;
@@ -2102,8 +2102,6 @@ function refreshInspectOverlays() {
 }
 
 function updateInfoToggleUI() {
-  const baseOn = 'flex-1 min-w-[22%] text-[10px] font-semibold py-2 rounded-lg border flex items-center justify-center gap-1';
-  const baseOff = baseOn + ' bg-slate-800 text-slate-300 border-slate-700';
   const segBtn = document.getElementById('infoToggleSegs');
   const brgBtn = document.getElementById('infoToggleBearings');
   const angBtn = document.getElementById('infoToggleAngles');
@@ -2112,10 +2110,10 @@ function updateInfoToggleUI() {
   if (copyBtn) copyBtn.classList.toggle('hidden', !(inspectShowCoords && inspectItem));
   if (inspectStraight && inspectShowAngles) { inspectShowAngles = false; inspectShowSegs = true; }   // sin ángulos en una recta
   if (angBtn) { angBtn.disabled = inspectStraight; angBtn.title = inspectStraight ? 'Una distancia recta no tiene ángulos' : ''; }
-  if (segBtn) segBtn.className = inspectShowSegs ? baseOn + ' bg-emerald-500/15 text-emerald-300 border-emerald-500/40' : baseOff;
-  if (brgBtn) brgBtn.className = inspectShowBearings ? baseOn + ' bg-rose-500/15 text-rose-300 border-rose-500/40' : baseOff;
-  if (angBtn) angBtn.className = inspectShowAngles ? baseOn + ' bg-amber-500/15 text-amber-300 border-amber-500/40' : baseOff;
-  if (coordBtn) coordBtn.className = inspectShowCoords ? baseOn + ' bg-sky-500/15 text-sky-300 border-sky-500/40' : baseOff;
+  if (segBtn) segBtn.className = 'info-tg' + (inspectShowSegs ? ' on tg-segs' : '');
+  if (brgBtn) brgBtn.className = 'info-tg' + (inspectShowBearings ? ' on tg-brg' : '');
+  if (angBtn) angBtn.className = 'info-tg' + (inspectShowAngles ? ' on tg-ang' : '');
+  if (coordBtn) coordBtn.className = 'info-tg' + (inspectShowCoords ? ' on tg-crd' : '');
 
   // Declinación solo visible al consultar rumbos
   const declBox = document.getElementById('infoDeclination');
@@ -2151,10 +2149,10 @@ function showMeasurementInfo(item) {
   const fmt = new Intl.NumberFormat('es-AR', { maximumFractionDigits: 2 });
   const fmt0 = new Intl.NumberFormat('es-AR', { maximumFractionDigits: 0 });
   const color = item.color || '#00ff66';
-  setInfoActions(null);
+  setInfoActions(null, item);
   document.getElementById('infoColorDot').style.background = color;
   document.getElementById('infoName').textContent = item.name || 'Medición';
-  document.getElementById('infoMeta').textContent = `${stats.latlngs.length} puntos · ${item.mode === 'polygon' ? 'Superficie' : 'Distancia'} · ${item.date || ''}`;
+  document.getElementById('infoMeta').textContent = `${stats.latlngs.length} puntos`;
   const metrics = document.getElementById('infoMetrics');
   let topHtml = '';
   if (stats.isPoly) {
@@ -2192,13 +2190,12 @@ function showMeasurementInfo(item) {
       bearingHtml = `
         <div class="flex-1 min-w-0 pl-3 border-l-2 border-slate-700">
           <div class="text-[10px] text-slate-400 uppercase">Rumbo</div>
-          <div class="text-base font-bold text-amber-300">${brg0(brg)}° <span class="text-xs font-normal">V</span></div>
-          <div class="text-[11px] text-slate-500">${brg0(mag)}° M · ${bearingCardinal(brg)}</div>
+          ${capGrid(`${brg0(brg)}° V`, `${brg0(mag)}° M`, bearingCardinal(brg), `${brg0(wrap360(brg + 180))}° V`, `${brg0(wrap360(mag + 180))}° M`)}
         </div>`;
     }
     topHtml = `
       <div class="flex-1 min-w-0">
-        <div class="text-[10px] text-slate-400 uppercase">Distancia total</div>
+        <div class="text-[10px] text-slate-400 uppercase">Distancia</div>
         <div class="text-base font-bold text-sky-400">${fmt.format(lenMain(stats.total).v)} <span class="text-xs font-normal">${lenMain(stats.total).u}</span></div>
         <div class="text-[11px] text-slate-500">${lenSub(stats.total)}</div>
       </div>${bearingHtml}`;
@@ -2250,10 +2247,9 @@ function showPoiInfo(p) {
   syncFixedCompass();
   const color = safeColor(p.color, '#f59e0b');
   document.getElementById('infoColorDot').style.background = color;
-  document.getElementById('infoPinIcon').style.color = color;
   document.getElementById('infoName').textContent = p.name || 'POI';
   document.getElementById('infoMeta').textContent = 'Punto de interés';
-  setInfoActions(p);
+  setInfoActions(p, null);
   let distHtml = '<div class="text-[11px] text-slate-500">Sin ubicación</div>';
   if (userLocMarker) {
     const from = userLocMarker.getLatLng();
@@ -3162,7 +3158,7 @@ function openPoiModal(latlng, existing) {
     if (input) input.value = existing.name || '';
     if (note) note.value = existing.note || '';
     poiColor = existing.color || poiColor;
-    document.querySelectorAll('.poi-color').forEach(b => b.style.borderColor = b.dataset.color === poiColor ? '#fff' : 'transparent');
+    document.querySelectorAll('.poi-color').forEach(b => b.style.borderColor = b.dataset.color === poiColor ? '#fff' : 'rgba(255,255,255,.4)');
     document.getElementById('poiColorLabel')?.classList.remove('hidden');
     document.getElementById('poiColorPicker')?.classList.remove('hidden');
     document.getElementById('poiColorPicker')?.classList.add('flex');
@@ -3758,6 +3754,16 @@ function infoActionRows(item, poi) {
       ? { key: 'nav', icon: 'navigation', label: 'Navegar', cls: 'text-slate-500', off: true, run: () => {} }
       : { key: 'nav', icon: 'navigation', label: navigating ? 'Dejar de navegar' : 'Navegar', short: navigating ? 'Detener' : 'Navegar', cls: navigating ? 'text-rose-300' : 'text-sky-300', run: () => { hideMeasurementInfo(); toggleNavPoi(poi); } });
   }
+  if (!poi && item) {
+    const tgt = navTargetForItem(item);
+    if (tgt) {
+      const navigating = navPoi && navPoi.id === tgt.id;
+      const here = !navigating && standingOnPoi(tgt);
+      rows.push(here
+        ? { key: 'nav', icon: 'navigation', label: 'Navegar', cls: 'text-slate-500', off: true, run: () => {} }
+        : { key: 'nav', icon: 'navigation', label: navigating ? 'Dejar de navegar' : 'Navegar', short: navigating ? 'Detener' : 'Navegar', cls: navigating ? 'text-rose-300' : 'text-sky-300', run: () => { hideMeasurementInfo(); toggleNavPoi(tgt); } });
+    }
+  }
   const hereGo = poi ? standingOnPoi(poi) : savedInView(item);
   rows.push(hereGo
     ? { key: 'go', icon: 'crosshair', label: 'Ud está aquí', short: 'Ir', cls: 'text-slate-500', off: true, run: () => {} }
@@ -3765,21 +3771,32 @@ function infoActionRows(item, poi) {
   rows.push({ key: 'del', icon: 'trash-2', label: 'Eliminar', short: 'Borrar', cls: 'text-red-400', run: () => { if (poi) confirmDeletePoi(poi); else deleteSavedItem(item); } });
   return rows;
 }
-/** Consulta de POI: acciones a la vista (Editar | Navegar | Ir | Borrar); en mediciones, el menú ⋯ */
-function setInfoActions(poi) {
+/** Consulta (POI y mediciones): encabezado con ícono y acciones a la vista (Editar | Navegar | Ir | Borrar) */
+function setInfoActions(poi, item) {
   const box = document.getElementById('infoActions');
   const menuBtn = document.getElementById('infoMenuBtn');
-  const isPoi = !!poi;
-  box.classList.toggle('hidden', !isPoi);
-  if (menuBtn) menuBtn.classList.toggle('hidden', isPoi);
-  document.getElementById('infoKicker').classList.toggle('hidden', isPoi);
-  document.getElementById('infoMeta').classList.toggle('hidden', isPoi);
-  document.getElementById('infoPinIcon').classList.toggle('hidden', !isPoi);
-  document.getElementById('infoColorDot').classList.toggle('hidden', isPoi);
-  if (!isPoi) { box.innerHTML = ''; return; }
-  const rows = infoActionRows(null, poi);
+  if (menuBtn) menuBtn.classList.add('hidden');
+  document.getElementById('infoKicker').classList.add('hidden');
+  document.getElementById('infoColorDot').classList.add('hidden');
+  document.getElementById('infoMeta').classList.toggle('hidden', !!poi || !(item && item.mode === 'polygon'));
+  const ic = document.getElementById('infoTypeIcon');
+  const icon = poi ? 'map-pin' : (item && item.mode === 'polygon' ? 'pentagon' : 'ruler');
+  ic.innerHTML = `<i data-lucide="${icon}" class="w-5 h-5"></i>`;
+  ic.style.color = poi ? safeColor(poi.color, '#f59e0b') : safeColor(item && item.color, '#00ff66');
+  ic.classList.remove('hidden');
+  box.classList.remove('hidden');
+  const rows = infoActionRows(item || null, poi || null);
   box.innerHTML = rows.map((r, i) => `<button type="button" data-i="${i}" class="poi-act poi-act-${r.key}${r.off ? ' off' : ''}"${r.off ? ' aria-disabled="true"' : ''}><span>${escapeHtml(r.short || r.label)}</span><i data-lucide="${r.icon}" class="w-4 h-4"></i></button>`).join('');
   box.querySelectorAll('button').forEach(b => b.onclick = () => { const r = rows[+b.dataset.i]; if (r && !r.off) r.run(); });
+}
+/** Destino de "Navegar" para una medición: su punto más cercano a vos (o el primero si aún no hay GPS) */
+function navTargetForItem(item) {
+  const pts = (item && item.points) || [];
+  if (!pts.length) return null;
+  const ll = userLL();
+  let best = pts[0];
+  if (ll) { let d = Infinity; pts.forEach(p => { const x = ll.distanceTo(L.latLng(p.lat, p.lng)); if (x < d) { d = x; best = p; } }); }
+  return { id: 'm:' + item.id, name: item.name || 'Medición', lat: best.lat, lng: best.lng, color: item.color || '#38bdf8' };
 }
 function openInfoMenu() {
   if (document.getElementById('infoMenu')) return closeInfoMenu();
@@ -3873,6 +3890,7 @@ async function deleteSavedItem(item) {
   });
   if (!ok) return;
   removeLockedLayer(item.id);
+  if (navPoi && navPoi.id === 'm:' + item.id) stopNav();
   if (inspectItem && inspectItem.id === item.id) hideMeasurementInfo();
   saved = saved.filter(s => s.id !== item.id);
   if (editingId === item.id) editingId = null;

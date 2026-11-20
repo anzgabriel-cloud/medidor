@@ -40,7 +40,22 @@
     closeAll();
     var medirOn = $('viewMedirBtn').getAttribute('aria-pressed') === 'true';
     click(medirOn ? 'viewVerBtn' : 'viewMedirBtn');
+    if (!medirOn) openLastTool();
   };
+
+  // --- Herramienta seleccionada al abrir Medir: POI la primera vez, después la última que se usó ---
+  var TOOL_KEY = 'medidor_herramienta';
+  var TOOLS = { poi: 'modePoiBtn', polygon: 'modePolyBtn', line: 'modeLineBtn', track: 'modeTrackBtn', free: 'modeFreeBtn', ring: 'modeRingBtn' };
+  Object.keys(TOOLS).forEach(function (k) {
+    var b = $(TOOLS[k]);
+    if (b) b.addEventListener('click', function () { try { localStorage.setItem(TOOL_KEY, k); } catch (e) {} });
+  });
+  function openLastTool() {
+    if (typeof hasPendingWork === 'function' && hasPendingWork()) return;    // hay una medición o grabación en curso: no se pisa
+    var k = 'poi'; try { k = localStorage.getItem(TOOL_KEY) || 'poi'; } catch (e) {}
+    if (!TOOLS[k]) k = 'poi';
+    click(TOOLS[k]);
+  }
   function syncMeasure() {
     $('tpMeasure').setAttribute('aria-pressed', $('viewMedirBtn').getAttribute('aria-pressed') === 'true' ? 'true' : 'false');
   }
@@ -67,6 +82,34 @@
   document.addEventListener('pointerdown', function (e) {
     if (!$('folderMenu').classList.contains('hidden') && !e.target.closest('#folderMenu, #tpFolder')) closeFolder();
   }, true);
+
+  // --- Selector de colores: solo colores completos (sin el último cortado) y flechas si hay más para deslizar ---
+  (function () {
+    var pal = $('colorPalette'), row = $('colorRow'), less = $('colorLess'), more = $('colorMore');
+    if (!pal || !row || !less || !more) return;
+    var PITCH = 32;                                          // 24 px de color + 8 px de separación
+    function arrows() {
+      var max = pal.scrollWidth - pal.clientWidth;
+      less.classList.toggle('off', max <= 2 || pal.scrollLeft <= 2);
+      more.classList.toggle('off', max <= 2 || pal.scrollLeft >= max - 2);
+    }
+    function fit() {
+      var w = row.clientWidth; if (!w) return;
+      var total = pal.querySelectorAll('.color-swatch').length;
+      var n = Math.max(3, Math.min(total, Math.floor((w - 36) / PITCH)));
+      pal.style.width = (n * PITCH) + 'px';
+      var a = pal.querySelector('.color-swatch.active');
+      if (a && (a.offsetLeft < pal.scrollLeft || a.offsetLeft + a.offsetWidth > pal.scrollLeft + pal.clientWidth)) pal.scrollLeft = Math.max(0, a.offsetLeft - 4);
+      arrows();
+    }
+    function page(dir) { pal.scrollBy({ left: dir * Math.max(1, Math.round(pal.clientWidth / PITCH) - 1) * PITCH, behavior: 'smooth' }); }
+    less.onclick = function () { page(-1); };
+    more.onclick = function () { page(1); };
+    pal.addEventListener('scroll', arrows, { passive: true });
+    if (window.ResizeObserver) new ResizeObserver(fit).observe(row);
+    window.addEventListener('resize', fit);
+    fit();
+  })();
 
   // --- Brújula permanente: si algo la oculta con la interfaz mínima activa (por ejemplo un app.js viejo en el caché), vuelve a mostrarse ---
   var cmp = $('fixedCompass');

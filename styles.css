@@ -2,7 +2,7 @@
    Separado del HTML para mejor mantenimiento
 */
 
-:root { --app-version: "2026.11.19-v2-13"; }
+:root { --app-version: "2026.11.19-v2-14"; }
 
 .leaflet-control-attribution { font-size: 9px !important; background: rgba(15,23,42,0.7) !important; color: #94a3b8 !important; }
 .leaflet-control-attribution a { color: #94a3b8 !important; }
@@ -581,13 +581,17 @@ body.ui-min.med2 #panelTitle {
 
 /* Colores: una fila de círculos que se desliza hacia el costado ("…" del boceto) */
 body.ui-min.med2 #colorRow { margin: 0 0 6px; }
-body.ui-min.med2 #colorRow > :not(#colorPalette) { display: none; }
+body.ui-min.med2 #colorRow > :not(#colorPalette):not(.color-arrow) { display: none; }
+body.ui-min.med2 #colorRow { gap: 0; }
 body.ui-min.med2 #colorPalette {
   flex-wrap: nowrap; overflow-x: auto; gap: 8px; padding: 4px; margin: -4px;
   scrollbar-width: none; -webkit-overflow-scrolling: touch; touch-action: pan-x;
 }
 body.ui-min.med2 #colorPalette::-webkit-scrollbar { display: none; }
-body.ui-min.med2 #colorPalette .color-swatch { flex: none; width: 24px; height: 24px; }
+body.ui-min.med2 #colorPalette .color-swatch { flex: none; width: 24px; height: 24px; scroll-snap-align: start; }
+body.ui-min.med2 #colorPalette { position: relative; box-sizing: border-box; scroll-snap-type: x mandatory; scroll-padding-left: 4px; flex: none; }   /* el ancho lo ajusta tiras.js para mostrar solo colores completos */
+.color-arrow { flex: none; width: 22px; height: 32px; display: grid; place-items: center; border: 0; background: transparent; color: #fbbf24; padding: 0; }
+.color-arrow.off { visibility: hidden; }
 
 /* Herramientas: columna vertical de 6 lugares, pegada a la tira (misma altura que las dos cajas apiladas) */
 body.ui-min.med2 #modeCol {
@@ -678,3 +682,10 @@ body.ui-min #toastContainer {
 #freeNum.on { display: block; }
 #freeNum span { display: block; font: 600 28px/1.1 system-ui, -apple-system, sans-serif; }
 #freeNum small { display: block; font: 500 11px/1.2 system-ui, sans-serif; color: #e2e8f0; text-shadow: 0 0 4px #000; }
+
+/* ===== Ruta: nuevo / guardar (violeta) y fila deshacer-rehacer-borrar ===== */
+.free-new { background: #7c3aed; color: #fff; border-color: #a78bfa; }
+.free-new[aria-pressed="true"] { background: #6d28d9; box-shadow: 0 0 0 2px #c4b5fd; }
+.free-save { background: rgba(124,58,237,.25); color: #c4b5fd; border-color: rgba(167,139,250,.5); }
+#mainControls[data-mode="free"] #freeHist { display: flex !important; flex: 0 0 100%; gap: 2px; justify-content: flex-start; }
+#freeHist .ringbtn { display: inline-flex; }

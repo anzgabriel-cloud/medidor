@@ -14,7 +14,7 @@
   <meta name="apple-mobile-web-app-title" content="Medidor">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <!-- Versión: debe coincidir con APP_VERSION (app.js) y --app-version (styles.css) -->
-  <meta name="app-version" content="2026.11.19-v2-13">
+  <meta name="app-version" content="2026.11.19-v2-14">
 
   <!-- Librerías locales (en este mismo repo) + Tailwind por CDN -->
   <link rel="stylesheet" href="leaflet.css" />
@@ -234,6 +234,7 @@
         <div id="colorRow" class="flex items-center gap-2 mb-2">
           <i data-lucide="palette" class="w-4 h-4 text-slate-400 flex-shrink-0"></i>
           <span class="text-[11px] font-semibold text-slate-400">Color</span>
+          <button type="button" id="colorLess" class="color-arrow off" aria-label="Ver colores anteriores"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg></button>
           <div class="flex items-center gap-1.5 flex-wrap" id="colorPalette">
             <button class="color-swatch active" data-color="#00ff66" style="background:#00ff66" aria-label="Verde"></button>
             <button class="color-swatch" data-color="#ffe600" style="background:#ffe600" aria-label="Amarillo"></button>
@@ -247,6 +248,7 @@
             <button class="color-swatch" data-color="#111827" style="background:#111827" aria-label="Negro"></button>
             <button class="color-swatch" data-color="#8b5a2b" style="background:#8b5a2b" aria-label="Marrón"></button>
           </div>
+          <button type="button" id="colorMore" class="color-arrow off" aria-label="Ver más colores"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7"/></svg></button>
         </div>
         <div class="flex gap-2">
           <div id="modeCol" class="flex-1 flex flex-col gap-1 min-w-0">
@@ -298,10 +300,13 @@
               <button id="ringUnit" type="button" aria-label="Cambiar unidad entre metros y kilómetros">km</button>
               <button id="ringApply" type="button" aria-label="Aplicar radio y ver el anillo completo"><i data-lucide="check" class="w-4 h-4"></i></button>
             </div>
-                        <button id="freeUndoBtn" type="button" class="act-btn act-free ringbtn ring-neutral" aria-label="Deshacer último tramo" title="Deshacer último tramo" disabled><i data-lucide="undo-2" class="w-3.5 h-3.5"></i></button>
-            <button id="freeRedoBtn" type="button" class="act-btn act-free ringbtn ring-neutral" aria-label="Rehacer tramo" title="Rehacer tramo" disabled><i data-lucide="redo-2" class="w-3.5 h-3.5"></i></button>
-            <button id="freeSaveBtn" type="button" class="act-btn act-free ringbtn ring-save" aria-label="Guardar ruta" title="Guardar ruta" disabled><i data-lucide="save" class="w-3.5 h-3.5"></i></button>
-            <button id="freeClearBtn" type="button" class="act-btn act-free ringbtn ring-clear" aria-label="Descartar ruta" title="Descartar ruta" disabled><i data-lucide="trash-2" class="w-3.5 h-3.5"></i></button>
+            <button id="freeNewBtn" type="button" class="act-btn act-free ringbtn free-new" aria-label="Empezar a dibujar una ruta" title="Empezar a dibujar" aria-pressed="false"><i data-lucide="plus" class="w-3.5 h-3.5"></i></button>
+            <button id="freeSaveBtn" type="button" class="act-btn act-free ringbtn free-save" aria-label="Guardar ruta" title="Guardar ruta y terminar" disabled><i data-lucide="save" class="w-3.5 h-3.5"></i></button>
+            <div id="freeHist" class="act-free" role="group" aria-label="Deshacer, rehacer y borrar">
+              <button id="freeUndoBtn" type="button" class="act-btn ringbtn ring-neutral" aria-label="Deshacer último tramo" title="Deshacer último tramo" disabled><i data-lucide="undo-2" class="w-3.5 h-3.5"></i></button>
+              <button id="freeRedoBtn" type="button" class="act-btn ringbtn ring-neutral" aria-label="Rehacer tramo" title="Rehacer tramo" disabled><i data-lucide="redo-2" class="w-3.5 h-3.5"></i></button>
+              <button id="freeClearBtn" type="button" class="act-btn ringbtn ring-clear" aria-label="Descartar ruta" title="Descartar ruta" disabled><i data-lucide="trash-2" class="w-3.5 h-3.5"></i></button>
+            </div>
             <div id="poiSizeRow" class="grid grid-cols-3 gap-1" role="group" aria-label="Tamaño de los POI">
               <button type="button" data-poi-size="s" aria-label="POI chico"><svg width="10" height="16" viewBox="0 0 22 34" aria-hidden="true"><path d="M11 33.2C11 33.2 1.4 20.2 1.4 12.4 1.4 6.4 5.6 1.6 11 1.6S20.6 6.4 20.6 12.4C20.6 20.2 11 33.2 11 33.2Z" fill="currentColor" stroke="rgba(0,0,0,.55)" stroke-width="1.6" stroke-linejoin="round"/><ellipse cx="7.3" cy="9.6" rx="2.1" ry="3.9" fill="#fff" opacity=".32" transform="rotate(-16 7.3 9.6)"/><circle class="pin-dot" cx="11" cy="12.2" r="3.4"/></svg></button>
               <button type="button" data-poi-size="m" aria-label="POI medio"><svg width="14" height="22" viewBox="0 0 22 34" aria-hidden="true"><path d="M11 33.2C11 33.2 1.4 20.2 1.4 12.4 1.4 6.4 5.6 1.6 11 1.6S20.6 6.4 20.6 12.4C20.6 20.2 11 33.2 11 33.2Z" fill="currentColor" stroke="rgba(0,0,0,.55)" stroke-width="1.6" stroke-linejoin="round"/><ellipse cx="7.3" cy="9.6" rx="2.1" ry="3.9" fill="#fff" opacity=".32" transform="rotate(-16 7.3 9.6)"/><circle class="pin-dot" cx="11" cy="12.2" r="3.4"/></svg></button>

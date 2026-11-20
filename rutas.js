@@ -9,7 +9,7 @@
   var body = document.body;
   var ui = !!$('modeFreeBtn') && !!$('freeSaveBtn');
 
-  var active = false;
+  var active = false, drawing = false;   // active: modo ruta abierto; drawing: sesión de dibujo iniciada con [+]
   var strokes = [], redo = [];          // tramos: cada uno es [[lat,lng],...] (el primero ya incluye el punto de unión)
   var draftLine = null, liveLine = null, endMark = null, startMark = null;
   var saved = load(), savedLayers = {};
@@ -162,7 +162,7 @@
     drawDraft();
   }
   function onDown(e) {
-    if (!active || !inMap(e)) return;
+    if (!active || !drawing || !inMap(e)) return;
     pointers[e.pointerId] = 1; nPtr++;
     if (nPtr > 1) {                                          // segundo dedo: es mover/zoom, se corta el trazo
       multi = true;
@@ -195,7 +195,7 @@
   document.addEventListener('pointercancel', onUp, true);
   // El toque que cierra un trazo no debe abrir POI ni mediciones debajo
   ['click', 'dblclick'].forEach(function (t) {
-    document.addEventListener(t, function (e) { if (active && inMap(e)) { e.stopPropagation(); e.preventDefault(); } }, true);
+    document.addEventListener(t, function (e) { if (active && drawing && inMap(e)) { e.stopPropagation(); e.preventDefault(); } }, true);
   });
 
   // --- Modo ---
@@ -213,16 +213,23 @@
     ['modePolyBtn', 'modeLineBtn', 'modeTrackBtn', 'modePoiBtn'].forEach(function (id) { var b = $(id); if (b) b.className = off; });
     $('modeFreeBtn').setAttribute('aria-pressed', 'true');
     wasDragging = m.dragging.enabled(); wasDbl = m.doubleClickZoom.enabled();
-    m.dragging.disable(); m.doubleClickZoom.disable();
-    m.getContainer().classList.add('free-draw');
     forceMode(); drawDraft();
+    setDrawing(strokes.length > 0);      // con un borrador pendiente se retoma dibujando; si no, se espera al botón [+]
+  }
+  // El mapa solo dibuja durante una sesión iniciada con [+] (un dedo dibuja, dos mueven); fuera de ella se mueve normal
+  function setDrawing(on) {
+    var m = getMap(); if (!m) return;
+    if (!on && cur) finishStroke(true);
+    drawing = !!on;
+    if (on) { m.dragging.disable(); m.doubleClickZoom.disable(); }
+    else { if (wasDragging) m.dragging.enable(); if (wasDbl) m.doubleClickZoom.enable(); }
+    m.getContainer().classList.toggle('free-draw', drawing);
+    var nb = $('freeNewBtn'); if (nb) { nb.setAttribute('aria-pressed', drawing ? 'true' : 'false'); nb.title = drawing ? 'Pausar el dibujo (mover el mapa con un dedo)' : 'Empezar a dibujar'; }
   }
   function exit() {
     if (!active) return;
+    setDrawing(false);
     active = false;
-    if (cur) finishStroke(true);
-    var m = getMap();
-    if (m) { if (wasDragging) m.dragging.enable(); if (wasDbl) m.doubleClickZoom.enable(); m.getContainer().classList.remove('free-draw'); }
     $('modeFreeBtn').setAttribute('aria-pressed', 'false');
     $('freeNum').classList.remove('on');
     if (typeof setMode === 'function') { try { setMode(mode); } catch (e) {} }
@@ -237,18 +244,19 @@
   if (mc) new MutationObserver(function () { forceMode(); }).observe(mc, { attributes: true, attributeFilter: ['data-mode'] });
 
   // --- Acciones ---
+  $('freeNewBtn').onclick = function () { if (active) setDrawing(!drawing); };
   $('freeUndoBtn').onclick = function () { if (!strokes.length) return; redo.push(strokes.pop()); drawDraft(); };
   $('freeRedoBtn').onclick = function () { if (!redo.length) return; strokes.push(redo.pop()); drawDraft(); };
   $('freeClearBtn').onclick = function () {
     if (!strokes.length && !redo.length) return;
     if (allPts().length > 20 && !window.confirm('¿Descartar toda la ruta sin guardar?')) return;
-    strokes = []; redo = []; drawDraft();
+    strokes = []; redo = []; drawDraft(); setDrawing(false);
   };
   $('freeSaveBtn').onclick = function () {
     var pts = allPts(); if (pts.length < 2) return;
     var d = dist(pts);
     saved.push({ id: 'g' + Date.now().toString(36), pts: pts, color: curColor(), dist: d, hidden: false, ts: Date.now() });
-    persist(); strokes = []; redo = []; renderSaved(); drawDraft();
+    persist(); strokes = []; redo = []; renderSaved(); drawDraft(); setDrawing(false);   // fin de la sesión
     if (typeof toast === 'function') toast({ type: 'success', title: 'Ruta guardada', message: '≈ ' + fmtKm(d) + '. La ves en Guardados > Rutas.', duration: 2500 });
   };
   var pal = $('colorPalette');

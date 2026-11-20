@@ -1705,7 +1705,7 @@ function updateMetrics(areaM2, distM) {
   liveArea = areaM2; liveDist = distM;
   updateLiveBadge();
 }
-const APP_VERSION = '2026.11.20-v2-24';
+const APP_VERSION = '2026.11.20-v2-25';
 let liveSelfIntersect = false; // el polígono se cruza a sí mismo (los marcadores rojos ya lo señalan)
 function updateSelfIntersectWarning(show) {
   const v = !!show;
@@ -2151,6 +2151,7 @@ function showMeasurementInfo(item) {
   const fmt = new Intl.NumberFormat('es-AR', { maximumFractionDigits: 2 });
   const fmt0 = new Intl.NumberFormat('es-AR', { maximumFractionDigits: 0 });
   const color = item.color || '#00ff66';
+  setInfoActions(null);
   document.getElementById('infoColorDot').style.background = color;
   document.getElementById('infoName').textContent = item.name || 'Medición';
   document.getElementById('infoMeta').textContent = `${stats.latlngs.length} puntos · ${item.mode === 'polygon' ? 'Superficie' : 'Distancia'} · ${item.date || ''}`;
@@ -2249,8 +2250,10 @@ function showPoiInfo(p) {
   syncFixedCompass();
   const color = safeColor(p.color, '#f59e0b');
   document.getElementById('infoColorDot').style.background = color;
+  document.getElementById('infoPinIcon').style.color = color;
   document.getElementById('infoName').textContent = p.name || 'POI';
   document.getElementById('infoMeta').textContent = 'Punto de interés';
+  setInfoActions(p);
   let distHtml = '<div class="text-[11px] text-slate-500">Sin ubicación</div>';
   if (userLocMarker) {
     const from = userLocMarker.getLatLng();
@@ -3744,24 +3747,45 @@ function onInfoMenuOutside(e) {
   const b = document.getElementById('infoMenuBtn');
   if (m && !m.contains(e.target) && !(b && b.contains(e.target))) closeInfoMenu();
 }
-function openInfoMenu() {
-  if (document.getElementById('infoMenu')) return closeInfoMenu();
-  const item = inspectItem, poi = inspectPoi;
-  if (!item && !poi) return;
+/** Acciones de la Consulta (las usa el menú ⋯ de las mediciones y los botones a la vista de los POI) */
+function infoActionRows(item, poi) {
   const rows = [];
-  rows.push({ icon: 'pencil', label: 'Editar', cls: 'text-sky-300', run: () => { if (poi) { hideMeasurementInfo(); openPoiModal(L.latLng(poi.lat, poi.lng), poi); } else startEditSaved(item); } });
+  rows.push({ key: 'edit', icon: 'pencil', label: 'Editar', cls: 'text-sky-300', run: () => { if (poi) { hideMeasurementInfo(); openPoiModal(L.latLng(poi.lat, poi.lng), poi); } else startEditSaved(item); } });
   if (poi) {
     const navigating = navPoi && navPoi.id === poi.id;
     const here = !navigating && standingOnPoi(poi);
     rows.push(here
-      ? { icon: 'navigation', label: 'Navegar', cls: 'text-slate-500', run: () => {} }
-      : { icon: 'navigation', label: navigating ? 'Dejar de navegar' : 'Navegar', cls: navigating ? 'text-rose-300' : 'text-sky-300', run: () => { hideMeasurementInfo(); toggleNavPoi(poi); } });
+      ? { key: 'nav', icon: 'navigation', label: 'Navegar', cls: 'text-slate-500', off: true, run: () => {} }
+      : { key: 'nav', icon: 'navigation', label: navigating ? 'Dejar de navegar' : 'Navegar', short: navigating ? 'Detener' : 'Navegar', cls: navigating ? 'text-rose-300' : 'text-sky-300', run: () => { hideMeasurementInfo(); toggleNavPoi(poi); } });
   }
   const hereGo = poi ? standingOnPoi(poi) : savedInView(item);
   rows.push(hereGo
-    ? { icon: 'crosshair', label: 'Ud está aquí', cls: 'text-slate-500', run: () => {} }
-    : { icon: 'crosshair', label: 'Ir', cls: 'text-slate-200', run: () => { if (poi) goToPoi(poi); else focusSaved(item); } });
-  rows.push({ icon: 'trash-2', label: 'Eliminar', cls: 'text-red-400', run: () => { if (poi) confirmDeletePoi(poi); else deleteSavedItem(item); } });
+    ? { key: 'go', icon: 'crosshair', label: 'Ud está aquí', short: 'Ir', cls: 'text-slate-500', off: true, run: () => {} }
+    : { key: 'go', icon: 'crosshair', label: 'Ir', cls: 'text-slate-200', run: () => { if (poi) goToPoi(poi); else focusSaved(item); } });
+  rows.push({ key: 'del', icon: 'trash-2', label: 'Eliminar', short: 'Borrar', cls: 'text-red-400', run: () => { if (poi) confirmDeletePoi(poi); else deleteSavedItem(item); } });
+  return rows;
+}
+/** Consulta de POI: acciones a la vista (Editar | Navegar | Ir | Borrar); en mediciones, el menú ⋯ */
+function setInfoActions(poi) {
+  const box = document.getElementById('infoActions');
+  const menuBtn = document.getElementById('infoMenuBtn');
+  const isPoi = !!poi;
+  box.classList.toggle('hidden', !isPoi);
+  if (menuBtn) menuBtn.classList.toggle('hidden', isPoi);
+  document.getElementById('infoKicker').classList.toggle('hidden', isPoi);
+  document.getElementById('infoMeta').classList.toggle('hidden', isPoi);
+  document.getElementById('infoPinIcon').classList.toggle('hidden', !isPoi);
+  document.getElementById('infoColorDot').classList.toggle('hidden', isPoi);
+  if (!isPoi) { box.innerHTML = ''; return; }
+  const rows = infoActionRows(null, poi);
+  box.innerHTML = rows.map((r, i) => `<button type="button" data-i="${i}" class="poi-act poi-act-${r.key}${r.off ? ' off' : ''}"${r.off ? ' aria-disabled="true"' : ''}><span>${escapeHtml(r.short || r.label)}</span><i data-lucide="${r.icon}" class="w-4 h-4"></i></button>`).join('');
+  box.querySelectorAll('button').forEach(b => b.onclick = () => { const r = rows[+b.dataset.i]; if (r && !r.off) r.run(); });
+}
+function openInfoMenu() {
+  if (document.getElementById('infoMenu')) return closeInfoMenu();
+  const item = inspectItem, poi = inspectPoi;
+  if (!item && !poi) return;
+  const rows = infoActionRows(item, poi);
   const menu = document.createElement('div');
   menu.id = 'infoMenu';
   menu.className = 'fixed z-[60] min-w-[11rem] rounded-xl border border-slate-600 bg-slate-900 shadow-2xl py-1';

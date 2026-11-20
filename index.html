@@ -14,7 +14,7 @@
   <meta name="apple-mobile-web-app-title" content="Medidor">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <!-- Versión: debe coincidir con APP_VERSION (app.js) y --app-version (styles.css) -->
-  <meta name="app-version" content="2026.11.20-v2-24">
+  <meta name="app-version" content="2026.11.20-v2-25">
 
   <!-- Librerías locales (en este mismo repo) + Tailwind por CDN -->
   <link rel="stylesheet" href="leaflet.css" />
@@ -369,8 +369,9 @@
       <div class="p-3">
         <div class="flex items-start justify-between gap-2 mb-1.5">
           <div class="min-w-0">
-            <p class="text-[10px] font-bold uppercase tracking-wider text-amber-400 mb-0.5">Consulta</p>
+            <p id="infoKicker" class="text-[10px] font-bold uppercase tracking-wider text-amber-400 mb-0.5">Consulta</p>
             <div class="flex items-center gap-2">
+              <i id="infoPinIcon" data-lucide="map-pin" class="w-5 h-5 flex-shrink-0 hidden"></i>
               <span id="infoColorDot" class="w-2.5 h-2.5 rounded-full flex-shrink-0 ring-2 ring-white/20"></span>
               <h3 id="infoName" class="font-bold text-sm text-slate-50 truncate">—</h3>
             </div>
@@ -386,6 +387,7 @@
           </div>
         </div>
         <div id="infoMetrics" class="grid grid-cols-2 gap-1.5 mb-1.5"></div>
+        <div id="infoActions" class="hidden" role="group" aria-label="Acciones"></div>
         <div id="infoDeclination" class="hidden mb-2 px-2.5 py-2 rounded-xl bg-slate-950/80 border border-slate-800 text-[11px] text-slate-300 flex items-center justify-between gap-2">
           <span class="flex items-center gap-1.5 text-slate-400">
             <i data-lucide="compass" class="w-3.5 h-3.5 text-rose-300"></i>

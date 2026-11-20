@@ -2,7 +2,7 @@
    Separado del HTML para mejor mantenimiento
 */
 
-:root { --app-version: "2026.11.20-v2-24"; }
+:root { --app-version: "2026.11.20-v2-25"; }
 
 .leaflet-control-attribution { font-size: 9px !important; background: rgba(15,23,42,0.7) !important; color: #94a3b8 !important; }
 .leaflet-control-attribution a { color: #94a3b8 !important; }
@@ -747,3 +747,15 @@ body.ui-min #toastContainer {
 .nav-arrow { position: absolute; left: 0; top: 0; width: 64px; height: 64px; pointer-events: none; }
 .nav-arrow svg { display: block; fill: #ef4444; filter: drop-shadow(0 1px 2px rgba(0,0,0,.7)); }
 .nav-arrow.aligned svg { fill: #4285F4; }
+
+/* v2-25: Consulta de POI con las acciones a la vista */
+#infoActions { display: grid; grid-template-columns: repeat(4, 1fr); margin-top: 2px; }
+#infoActions.hidden { display: none; }
+#infoActions .poi-act { display: flex; align-items: center; justify-content: center; gap: 5px; padding: 9px 2px; background: none; border: 0; font-size: 12px; font-weight: 700; color: #e2e8f0; -webkit-tap-highlight-color: transparent; touch-action: manipulation; }
+#infoActions .poi-act + .poi-act { border-left: 2px solid #334155; }
+#infoActions .poi-act:active { background: rgba(148,163,184,.12); }
+#infoActions .poi-act-edit svg, #infoActions .poi-act-edit i { color: #fbbf24; }
+#infoActions .poi-act-nav svg, #infoActions .poi-act-nav i { color: #3b82f6; }
+#infoActions .poi-act-go svg, #infoActions .poi-act-go i { color: #22c55e; }
+#infoActions .poi-act-del svg, #infoActions .poi-act-del i { color: #ef4444; }
+#infoActions .poi-act.off { opacity: .4; }

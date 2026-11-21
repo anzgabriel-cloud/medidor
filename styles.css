@@ -2,7 +2,7 @@
    Separado del HTML para mejor mantenimiento
 */
 
-:root { --app-version: "2026.11.21-v2-40"; }
+:root { --app-version: "2026.11.21-v2-41"; }
 
 .leaflet-control-attribution { font-size: 9px !important; background: rgba(15,23,42,0.7) !important; color: #94a3b8 !important; }
 .leaflet-control-attribution a { color: #94a3b8 !important; }
@@ -819,8 +819,5 @@ body.lbl-off .dist-label, body.lbl-off .poi-label, body.lbl-off .item-name-tag {
 .dist-label-live { color: #fff; font-size: 12px; text-shadow: 0 1px 3px rgba(0,0,0,.95), 0 0 2px rgba(0,0,0,.8), 0 0 9px rgba(255,255,255,.45); }
 .dist-label-fixed { color: #94a3b8; font-weight: 700; opacity: .92; }
 
-/* Con el panel de Consulta abierto, las columnas de íconos que asoman detrás se desenfocan y se apagan */
-body:has(#infoPanel:not(.hidden)) .strip {
-  filter: blur(3px); opacity: .45; pointer-events: none;
-  transition: filter .15s ease, opacity .15s ease;
-}
+/* Con el panel de Consulta abierto, las columnas de íconos se ocultan (vuelven al cerrarlo) */
+body:has(#infoPanel:not(.hidden)) .strip { opacity: 0; visibility: hidden; pointer-events: none; }

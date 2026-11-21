@@ -602,7 +602,10 @@ function init() {
   map = L.map('map', { zoomControl: false, attributionControl: true, tapTolerance: 25, maxZoom: 22 })
     .setView([startLat, startLng], startZoom);
   map.attributionControl.setPrefix('');
-  tileLayer = makeTileLayer(tiles.esri).addTo(map);
+  // Capa de mapa: la primera vez satélite; después, la última que usaste (así no se cargan mosaicos de una capa que no usás)
+  try { const s = localStorage.getItem('medidor_capa'); if (s && tiles[s]) currentTiles = s; } catch (e) {}
+  tileLayer = makeTileLayer(tiles[currentTiles]).addTo(map);
+  { const lt = document.getElementById('layerText'); if (lt) lt.textContent = tiles[currentTiles].name; }
 
   // Ubicación del dispositivo: punto azul + centrar al iniciar
   startUserLocationWatch(true);
@@ -1705,7 +1708,7 @@ function updateMetrics(areaM2, distM) {
   liveArea = areaM2; liveDist = distM;
   updateLiveBadge();
 }
-const APP_VERSION = '2026.11.20-v2-28';
+const APP_VERSION = '2026.11.21-v2-29';
 let liveSelfIntersect = false; // el polígono se cruza a sí mismo (los marcadores rojos ya lo señalan)
 function updateSelfIntersectWarning(show) {
   const v = !!show;
@@ -2716,6 +2719,7 @@ function cycleLayer() {
   const t = tiles[currentTiles];
   tileLayer = makeTileLayer(t).addTo(map);
   document.getElementById('layerText').textContent = t.name;
+  try { localStorage.setItem('medidor_capa', currentTiles); } catch (e) {}
 }
 
 function updateUserLocation(lat, lng, accuracy) {

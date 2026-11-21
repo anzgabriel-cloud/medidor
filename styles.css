@@ -2,7 +2,7 @@
    Separado del HTML para mejor mantenimiento
 */
 
-:root { --app-version: "2026.11.21-v2-34"; }
+:root { --app-version: "2026.11.21-v2-35"; }
 
 .leaflet-control-attribution { font-size: 9px !important; background: rgba(15,23,42,0.7) !important; color: #94a3b8 !important; }
 .leaflet-control-attribution a { color: #94a3b8 !important; }
@@ -635,7 +635,7 @@ body.ui-min.med2 #poiSizeRow [data-poi-size="l"] svg { width: 21px !important; h
 
 /* Tarjeta de medidas en vivo: arriba a la izquierda, sin tapar la brújula (que queda arriba a la derecha) */
 body.ui-min #measureCard {
-  top: auto !important; left: 12px; bottom: 200px;      /* la posición real la fija positionMeasureCard(): arriba del panel de acción */
+  top: auto !important; left: auto; right: 12px; bottom: 200px;      /* la posición real la fija positionMeasureCard(): arriba del panel de acción */
   flex-wrap: nowrap;
 }
 body.ui-min #measureCard .mc-cell { padding: 4px 9px; }

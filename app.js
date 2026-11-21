@@ -1666,8 +1666,9 @@ function renderMeasureCard() {
   el.innerHTML = html;
   el.classList.add('on');
   positionMeasureCard();
+  setTimeout(positionMeasureCard, 300);   // el panel puede estar todavía acomodándose
 }
-/** La tarjeta de medidas va pegada arriba del panel de acción (alineada a su borde izquierdo y sin pasarse de su ancho) */
+/** La tarjeta de medidas va pegada arriba del panel de acción (alineada a su borde derecho y sin pasarse de su ancho) */
 function positionMeasureCard() {
   const el = document.getElementById('measureCard');
   const tb = document.getElementById('bottomToolbar');
@@ -1676,7 +1677,8 @@ function positionMeasureCard() {
   if (!r.width) return;
   el.style.top = 'auto';
   el.style.bottom = Math.round(window.innerHeight - r.top + 6) + 'px';
-  el.style.left = Math.round(r.left) + 'px';
+  el.style.left = 'auto';
+  el.style.right = Math.round(document.documentElement.clientWidth - r.right) + 'px';   // pegada al borde derecho del panel
   el.style.maxWidth = Math.round(r.width) + 'px';
 }
 (function watchMeasureCardAnchor() {
@@ -1738,7 +1740,7 @@ function updateMetrics(areaM2, distM) {
   liveArea = areaM2; liveDist = distM;
   updateLiveBadge();
 }
-const APP_VERSION = '2026.11.21-v2-34';
+const APP_VERSION = '2026.11.21-v2-35';
 let liveSelfIntersect = false; // el polígono se cruza a sí mismo (los marcadores rojos ya lo señalan)
 function updateSelfIntersectWarning(show) {
   const v = !!show;

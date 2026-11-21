@@ -1708,7 +1708,7 @@ function updateMetrics(areaM2, distM) {
   liveArea = areaM2; liveDist = distM;
   updateLiveBadge();
 }
-const APP_VERSION = '2026.11.21-v2-31';
+const APP_VERSION = '2026.11.21-v2-32';
 let liveSelfIntersect = false; // el polígono se cruza a sí mismo (los marcadores rojos ya lo señalan)
 function updateSelfIntersectWarning(show) {
   const v = !!show;
@@ -3237,7 +3237,7 @@ function openPoiModal(latlng, existing) {
     document.getElementById('poiColorLabel')?.classList.remove('hidden');
     document.getElementById('poiColorPicker')?.classList.remove('hidden');
     document.getElementById('poiColorPicker')?.classList.add('flex');
-    if (delBtn) delBtn.classList.remove('hidden');
+    if (delBtn) delBtn.classList.add('hidden');   // borrar se hace desde la consulta
     if (confirmBtn) confirmBtn.textContent = 'Guardar cambios';
   } else {
     if (title) title.textContent = 'Nuevo POI';
@@ -3250,9 +3250,8 @@ function openPoiModal(latlng, existing) {
     if (delBtn) delBtn.classList.add('hidden');
     if (confirmBtn) confirmBtn.textContent = 'Guardar POI';
   }
-  if (coordsBox && !existing) coordsBox.classList.add('hidden');   // POI nuevo: sin coordenadas (se ven al consultarlo)
+  if (coordsBox) coordsBox.classList.add('hidden');   // sin coordenadas al crear/editar (se ven al consultar)
   if (coordsBox && coordsText && latlng) {
-    if (existing) coordsBox.classList.remove('hidden');
     coordsText.textContent = fmtCoord(latlng.lat, latlng.lng);
     coordsText.dataset.dec = `${latlng.lat.toFixed(6)}, ${latlng.lng.toFixed(6)}`;
   }
@@ -3841,13 +3840,13 @@ function infoActionRows(item, poi) {
     }
   }
   const hereGo = poi ? standingOnPoi(poi) : savedInView(item);
-  rows.push(hereGo
+  if (!poi) rows.push(hereGo
     ? { key: 'go', icon: 'crosshair', label: 'Ud está aquí', short: 'Ir', cls: 'text-slate-500', off: true, run: () => {} }
     : { key: 'go', icon: 'crosshair', label: 'Ir', cls: 'text-slate-200', run: () => { if (poi) goToPoi(poi); else focusSaved(item); } });
   rows.push({ key: 'del', icon: 'trash-2', label: 'Eliminar', short: 'Borrar', cls: 'text-red-400', run: () => { if (poi) confirmDeletePoi(poi); else deleteSavedItem(item); } });
   return rows;
 }
-/** Consulta (POI y mediciones): encabezado con ícono y acciones a la vista (Editar | Navegar | Ir | Borrar) */
+/** Consulta (POI y mediciones): encabezado con ícono y acciones a la vista (Editar | Navegar | Borrar (POI) · + Ir (mediciones)) */
 function setInfoActions(poi, item) {
   const box = document.getElementById('infoActions');
   const menuBtn = document.getElementById('infoMenuBtn');

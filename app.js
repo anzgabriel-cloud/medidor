@@ -1745,7 +1745,7 @@ function updateMetrics(areaM2, distM) {
   liveArea = areaM2; liveDist = distM;
   updateLiveBadge();
 }
-const APP_VERSION = '2026.11.21-v2-36';
+const APP_VERSION = '2026.11.21-v2-37';
 let liveSelfIntersect = false; // el polígono se cruza a sí mismo (los marcadores rojos ya lo señalan)
 function updateSelfIntersectWarning(show) {
   const v = !!show;
@@ -2195,6 +2195,7 @@ function updateInfoToggleUI() {
   if (isPolyItem && inspectShowBearings) { inspectShowBearings = false; inspectShowPoints = true; }   // las superficies ya no muestran rumbos
   if (ptsBtn) { ptsBtn.style.display = isPolyItem ? '' : 'none'; ptsBtn.className = 'info-tg' + (inspectShowPoints ? ' on tg-pts' : ''); }
   if (brgBtn) brgBtn.style.display = isPolyItem ? 'none' : '';
+  const segLbl = document.getElementById('infoSegsLabel'); if (segLbl) segLbl.textContent = isPolyItem ? 'Lados' : 'Dist.';
   const copyBtn = document.getElementById('infoCopyCoordsBtn');
   if (copyBtn) copyBtn.classList.toggle('hidden', !(inspectShowCoords && inspectItem));
   if (inspectStraight && inspectShowAngles) { inspectShowAngles = false; inspectShowSegs = true; }   // sin ángulos en una recta

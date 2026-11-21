@@ -2,7 +2,7 @@
    Separado del HTML para mejor mantenimiento
 */
 
-:root { --app-version: "2026.11.21-v2-32"; }
+:root { --app-version: "2026.11.21-v2-33"; }
 
 .leaflet-control-attribution { font-size: 9px !important; background: rgba(15,23,42,0.7) !important; color: #94a3b8 !important; }
 .leaflet-control-attribution a { color: #94a3b8 !important; }
@@ -784,3 +784,16 @@ button.poi-color { border-color: rgba(255,255,255,.4); }
 
 /* v2-31: en Modo POI el POI se guarda al dejarlo caer; no hace falta "Guardar POI" en la línea de acción */
 body.ui-min.med2 #mainControls #poiDoneBtn { display: none !important; }
+
+/* Etiquetas en el mapa: Ver | Translúcido | Ocultar (Ajustes). No afecta a Consulta ni a la medición en curso. */
+.lbl-pick { background: #1e293b; border-color: #475569; color: #cbd5e1; }
+.lbl-pick[aria-pressed="true"] { background: rgba(245,158,11,.2); border-color: #f59e0b; color: #fbbf24; }
+body.lbl-ghost .dist-label,
+body.lbl-ghost .poi-label,
+body.lbl-ghost .item-name-tag > div {
+  background: none !important; border-color: transparent !important; box-shadow: none !important;
+  backdrop-filter: none !important; opacity: .9;
+  text-shadow: 0 0 2px #000, 0 0 3px #000, 1px 0 0 #000, -1px 0 0 #000, 0 1px 0 #000, 0 -1px 0 #000 !important;
+}
+body.lbl-ghost .poi-label::before, body.lbl-ghost .poi-label::after { display: none !important; }
+body.lbl-off .dist-label, body.lbl-off .poi-label, body.lbl-off .item-name-tag { display: none !important; }

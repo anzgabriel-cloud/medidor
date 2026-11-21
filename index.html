@@ -14,7 +14,7 @@
   <meta name="apple-mobile-web-app-title" content="Medidor">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <!-- Versión: debe coincidir con APP_VERSION (app.js) y --app-version (styles.css) -->
-  <meta name="app-version" content="2026.11.21-v2-32">
+  <meta name="app-version" content="2026.11.21-v2-33">
 
   <!-- Librerías locales (en este mismo repo) + Tailwind por CDN -->
   <link rel="stylesheet" href="leaflet.css" />
@@ -556,6 +556,15 @@
         </div>
       </div>
       <div class="text-[11px] text-slate-500 mb-0">Menos error máximo = recorrido más fiel, pero necesita mejor señal. Distancias largas (20 m a 1.000 m) sirven para recorridos extensos en ruta o desde un vehículo: ahorran batería y dejan el trazado más limpio.</div>
+
+      <div class="set-rule"></div>
+      <label class="text-[10px] uppercase tracking-wide text-slate-500">Etiquetas en el mapa</label>
+      <div class="grid grid-cols-3 gap-2 mt-1 mb-1">
+        <button type="button" data-lbl="on" class="lbl-pick py-2 rounded-xl text-xs font-bold border" aria-pressed="true">Ver</button>
+        <button type="button" data-lbl="ghost" class="lbl-pick py-2 rounded-xl text-xs font-bold border" aria-pressed="false">Translúcido</button>
+        <button type="button" data-lbl="off" class="lbl-pick py-2 rounded-xl text-xs font-bold border" aria-pressed="false">Ocultar</button>
+      </div>
+      <div class="text-[11px] text-slate-500 mb-0">Nombres de POI y distancias de las mediciones. Translúcido deja solo el texto con un borde fino, sin fondo, para ver el mapa debajo. Las etiquetas de Consulta y las de la medición en curso siempre se ven.</div>
 
       <div class="set-rule"></div>
       <label class="text-[10px] uppercase tracking-wide text-slate-500">Norte de la brújula</label>

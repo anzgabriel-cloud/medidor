@@ -870,6 +870,8 @@ document.getElementById('closePoiBtn').onclick = (e) => { e.preventDefault(); e.
   document.querySelectorAll('.bk-fmt').forEach(b => b.onclick = () => setBackupFmt(b.dataset.fmt));
   document.querySelectorAll('.north-pick').forEach(b => b.onclick = () => setCompassNorth(b.dataset.north));
   syncNorthUI();
+  document.querySelectorAll('.lbl-pick').forEach(b => b.onclick = () => setLabelMode(b.dataset.lbl));
+  syncLabelUI();
   document.getElementById('tileClearBtn').onclick = clearTileCache;
   document.getElementById('dataResetBtn').onclick = resetAllData;
 
@@ -1708,7 +1710,7 @@ function updateMetrics(areaM2, distM) {
   liveArea = areaM2; liveDist = distM;
   updateLiveBadge();
 }
-const APP_VERSION = '2026.11.21-v2-32';
+const APP_VERSION = '2026.11.21-v2-33';
 let liveSelfIntersect = false; // el polígono se cruza a sí mismo (los marcadores rojos ya lo señalan)
 function updateSelfIntersectWarning(show) {
   const v = !!show;
@@ -1865,6 +1867,19 @@ function setCompassNorth(n) {
   compassNorth = n === 'M' ? 'M' : 'V';
   try { localStorage.setItem('medidor_norte', compassNorth); } catch (e) {}
   syncNorthUI(); compassLastTxt = ''; renderCompass();
+}
+// Etiquetas en el mapa: 'on' | 'ghost' (translúcido) | 'off'
+let labelMode = 'on';
+try { const v = localStorage.getItem('medidor_etiquetas'); if (v === 'ghost' || v === 'off') labelMode = v; } catch (e) {}
+function setLabelMode(m) {
+  labelMode = (m === 'ghost' || m === 'off') ? m : 'on';
+  try { localStorage.setItem('medidor_etiquetas', labelMode); } catch (e) {}
+  syncLabelUI();
+}
+function syncLabelUI() {
+  document.body.classList.toggle('lbl-ghost', labelMode === 'ghost');
+  document.body.classList.toggle('lbl-off', labelMode === 'off');
+  document.querySelectorAll('.lbl-pick').forEach(b => b.setAttribute('aria-pressed', b.dataset.lbl === labelMode ? 'true' : 'false'));
 }
 function syncNorthUI() {
   document.querySelectorAll('.north-pick').forEach(b => b.setAttribute('aria-pressed', b.dataset.north === compassNorth ? 'true' : 'false'));
@@ -2358,7 +2373,7 @@ function addLockedLayer(item) {
     const tagW = Math.min(220, Math.max(36, textW + padX));
     const tagH = 20;
     const nameIcon = L.divIcon({
-      className: '',
+      className: 'item-name-tag',
       html: `<div style="background:rgba(15,23,42,0.9);border:1px solid ${color === '#111827' ? '#94a3b8' : color};color:${labelTextColor(color)};font-size:10px;font-weight:700;padding:2px 6px;border-radius:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:${tagW}px;box-shadow:0 2px 8px rgba(0,0,0,0.5);pointer-events:auto;cursor:pointer;line-height:14px;">${escapeHtml(nameText)}</div>`,
       iconSize: [tagW, tagH],
       iconAnchor: [Math.round(tagW / 2), Math.round(tagH / 2)]

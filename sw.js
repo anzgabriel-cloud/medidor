@@ -7,6 +7,8 @@ const TILE_CACHE = VERSION + '-tiles';
 const MAX_TILES = 4000;
 const TILE_HOSTS = ['server.arcgisonline.com', 'tile.openstreetmap.org'];
 const LIB_HOSTS = ['cdn.tailwindcss.com'];
+// OpenStreetMap reparte los mosaicos en subdominios (a., b., c.tile.openstreetmap.org): hay que aceptar también esos
+const isTileHost = (h) => TILE_HOSTS.some(t => h === t || h.endsWith('.' + t));
 
 // Se guarda TODO al instalar (primera visita), así la app abre sin conexión desde el principio.
 const CORE_FILES = ['./', 'index.html', 'styles.css', 'app.js', 'tiras.js', 'anillos.js', 'rutas.js', 'tarjetas.js', 'backup.js', 'wmm.js', 'manifest.webmanifest',
@@ -103,7 +105,7 @@ self.addEventListener('fetch', (e) => {
   if (req.method !== 'GET') return;
   const url = new URL(req.url);
   if (url.hostname === 'nominatim.openstreetmap.org') return; // búsqueda: siempre en línea
-  if (TILE_HOSTS.includes(url.hostname)) {
+  if (isTileHost(url.hostname)) {
     e.respondWith(cacheFirst(req, TILE_CACHE, true));
   } else if (LIB_HOSTS.includes(url.hostname)) {
     e.respondWith(cacheFirst(req, APP_CACHE));

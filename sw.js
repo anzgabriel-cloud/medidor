@@ -79,14 +79,26 @@ async function networkFirst(req, cacheName, evt) {
 // Mosaicos: se pide en modo CORS para poder ver el estado HTTP y NO guardar errores
 // (una respuesta opaca no deja ver si fue un 404/500 y quedaría rota para siempre).
 // Si el servidor no admite CORS, se usa el pedido normal como respaldo.
+// Con tope de tiempo: un mosaico colgado (mala señal o servidor lento) no debe dejar el mapa "cargando" para siempre;
+// al vencer devuelve error y el mapa lo reintenta.
+const TILE_TIMEOUT_MS = 9000;
 async function fetchTile(req) {
+  const ctl = new AbortController();
+  const timer = setTimeout(() => ctl.abort(), TILE_TIMEOUT_MS);
   try {
-    const res = await fetch(req.url, { mode: 'cors', credentials: 'omit' });
-    return res;
+    try {
+      return await fetch(req.url, { mode: 'cors', credentials: 'omit', signal: ctl.signal });
+    } catch (e) {
+      if (ctl.signal.aborted) return Response.error();   // se agotó el tiempo
+      return await fetch(req.url, { mode: 'no-cors', credentials: 'omit', signal: ctl.signal });   // el servidor no admite CORS: respaldo
+    }
   } catch (e) {
-    return fetch(req);
-  }
+    return Response.error();
+  } finally { clearTimeout(timer); }
 }
+
+// Recortar el caché de mosaicos recorre todas las claves: se hace cada tanto, no con cada mosaico nuevo
+let putsSinceTrim = 0;
 
 async function cacheFirst(req, cacheName, limit) {
   const cache = await caches.open(cacheName);
@@ -95,7 +107,7 @@ async function cacheFirst(req, cacheName, limit) {
   const res = limit ? await fetchTile(req) : await fetch(req);
   if (res && (res.ok || res.type === 'opaque')) {
     cache.put(req, res.clone());
-    if (limit) trim(cache);
+    if (limit && ++putsSinceTrim >= 100) { putsSinceTrim = 0; trim(cache); }
   }
   return res;
 }

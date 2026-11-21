@@ -1708,7 +1708,7 @@ function updateMetrics(areaM2, distM) {
   liveArea = areaM2; liveDist = distM;
   updateLiveBadge();
 }
-const APP_VERSION = '2026.11.21-v2-29';
+const APP_VERSION = '2026.11.21-v2-30';
 let liveSelfIntersect = false; // el polígono se cruza a sí mismo (los marcadores rojos ya lo señalan)
 function updateSelfIntersectWarning(show) {
   const v = !!show;
@@ -2661,8 +2661,19 @@ let SmartTileLayer = null;
 function makeTileLayer(t) { return watchTileLayer(makeTileLayerRaw(t)); }
 function makeTileLayerRaw(t) {
   const native = (t.smart && settings.satZoom !== 'auto') ? +settings.satZoom : t.nativeZoom;   // hasta qué zoom pedir imagen real (más allá se amplía)
-  const opts = { maxZoom: t.maxZoom, maxNativeZoom: native, attribution: t.attr };
-  if (!t.smart) return L.tileLayer(t.url, opts);
+  const opts = { maxZoom: t.maxZoom, maxNativeZoom: native, attribution: t.attr, updateWhenZooming: false };   // updateWhenZooming:false: en vuelos largos (buscar un lugar lejano) no se piden mosaicos de los zoom intermedios
+  if (!t.smart) {
+    const lyr = L.tileLayer(t.url, opts);
+    // mosaico fallido (red floja o servidor ocupado): hasta 2 reintentos con espera creciente
+    lyr.on('tileerror', (e) => {
+      const tile = e.tile; if (!tile) return;
+      tile._retries = (tile._retries || 0) + 1;
+      if (tile._retries > 2) return;
+      const url = lyr.getTileUrl(e.coords);
+      setTimeout(() => { if (tile.parentNode) tile.src = url; }, 1500 * tile._retries);
+    });
+    return lyr;
+  }
   if (!SmartTileLayer) {
     SmartTileLayer = L.TileLayer.extend({
       createTile(coords, done) {

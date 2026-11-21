@@ -1708,7 +1708,7 @@ function updateMetrics(areaM2, distM) {
   liveArea = areaM2; liveDist = distM;
   updateLiveBadge();
 }
-const APP_VERSION = '2026.11.21-v2-30';
+const APP_VERSION = '2026.11.21-v2-31';
 let liveSelfIntersect = false; // el polígono se cruza a sí mismo (los marcadores rojos ya lo señalan)
 function updateSelfIntersectWarning(show) {
   const v = !!show;
@@ -3229,7 +3229,7 @@ function openPoiModal(latlng, existing) {
   const confirmBtn = document.getElementById('confirmPoiBtn');
   if (existing) {
     if (title) title.textContent = 'Editar POI';
-    if (hint) hint.textContent = 'Cambiá el nombre, el color o la nota.';
+    if (hint) { hint.textContent = 'Cambiá el nombre, el color o la nota.'; hint.classList.remove('hidden'); }
     if (input) input.value = existing.name || '';
     if (note) note.value = existing.note || '';
     poiColor = existing.color || poiColor;
@@ -3241,7 +3241,7 @@ function openPoiModal(latlng, existing) {
     if (confirmBtn) confirmBtn.textContent = 'Guardar cambios';
   } else {
     if (title) title.textContent = 'Nuevo POI';
-    if (hint) hint.textContent = 'Punto de interés. Complementa las mediciones: no forma parte del polígono ni de la línea.';
+    if (hint) { hint.textContent = ''; hint.classList.add('hidden'); }   // POI nuevo: solo nombre y nota
     if (input) input.value = `POI ${pois.length + 1}`;
     if (note) note.value = '';
     document.getElementById('poiColorLabel')?.classList.add('hidden');
@@ -3250,8 +3250,9 @@ function openPoiModal(latlng, existing) {
     if (delBtn) delBtn.classList.add('hidden');
     if (confirmBtn) confirmBtn.textContent = 'Guardar POI';
   }
+  if (coordsBox && !existing) coordsBox.classList.add('hidden');   // POI nuevo: sin coordenadas (se ven al consultarlo)
   if (coordsBox && coordsText && latlng) {
-    coordsBox.classList.remove('hidden');
+    if (existing) coordsBox.classList.remove('hidden');
     coordsText.textContent = fmtCoord(latlng.lat, latlng.lng);
     coordsText.dataset.dec = `${latlng.lat.toFixed(6)}, ${latlng.lng.toFixed(6)}`;
   }

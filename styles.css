@@ -2,7 +2,7 @@
    Separado del HTML para mejor mantenimiento
 */
 
-:root { --app-version: "2026.11.21-v2-30"; }
+:root { --app-version: "2026.11.21-v2-31"; }
 
 .leaflet-control-attribution { font-size: 9px !important; background: rgba(15,23,42,0.7) !important; color: #94a3b8 !important; }
 .leaflet-control-attribution a { color: #94a3b8 !important; }
@@ -575,6 +575,7 @@ body.ui-min.med2 #panelTitle {
   background: rgba(245, 158, 11, .3); color: #fde68a; font: 700 13px/1.5 system-ui, -apple-system, sans-serif;
 }
 #mainControls[data-mode="poi"] #panelTitle::before { content: 'Ubicar POI'; }
+#mainControls[data-mode="poi"] #panelTitle::after { content: '(Marca o Pin)'; margin-left: 8px; font-weight: 600; opacity: .75; }
 #mainControls[data-mode="polygon"] #panelTitle::before { content: 'Medir superficie'; }
 #mainControls[data-mode="line"] #panelTitle::before { content: 'Medir distancia'; }
 #mainControls[data-mode="track"] #panelTitle::before { content: 'Medir / Grabar recorrido'; }
@@ -780,3 +781,6 @@ button.poi-color { border-color: rgba(255,255,255,.4); }
 /* v2-28: campo general de coordenadas */
 .cg-or { display: flex; align-items: center; gap: 8px; margin: 14px 0 2px; font-size: 10px; text-transform: uppercase; letter-spacing: .05em; color: #64748b; }
 .cg-or::before, .cg-or::after { content: ''; flex: 1; height: 1px; background: #334155; }
+
+/* v2-31: en Modo POI el POI se guarda al dejarlo caer; no hace falta "Guardar POI" en la línea de acción */
+body.ui-min.med2 #mainControls #poiDoneBtn { display: none !important; }

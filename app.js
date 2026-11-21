@@ -1173,6 +1173,22 @@ function updateLiveSegmentLabels() {
     if (dragIndex > 0) segments.push([dragIndex - 1, dragIndex]);
     if (dragIndex < n - 1) segments.push([dragIndex, dragIndex + 1]);
   }
+  // Lados que no cambian: referencia en gris para comparar con los lados vivos
+  const segCount = closed ? n : n - 1;
+  for (let i = 0; i < segCount; i++) {
+    const j = (i + 1) % n;
+    if (i === dragIndex || j === dragIndex) continue;
+    const a = points[i], b = points[j];
+    const aPx = map.latLngToContainerPoint(a), bPx = map.latLngToContainerPoint(b);
+    const dx = bPx.x - aPx.x, dy = bPx.y - aPx.y;
+    const len = Math.sqrt(dx * dx + dy * dy);
+    if (len < 46) continue;      // lado demasiado corto en pantalla: la etiqueta no entra
+    const labelPx = L.point((aPx.x + bPx.x) / 2 + (-dy / len) * 16, (aPx.y + bPx.y) / 2 + (dx / len) * 16);
+    liveLabels.push(L.marker(map.containerPointToLatLng(labelPx), {
+      icon: L.divIcon({ className: 'dist-label-fixed', html: fmtLenShort(a.distanceTo(b)), iconSize: [64, 20], iconAnchor: [32, 10] }),
+      interactive: false, zIndexOffset: 900
+    }).addTo(map));
+  }
   segments.forEach(([i, j]) => {
     const a = points[i], b = points[j];
     const dist = a.distanceTo(b);
@@ -1649,13 +1665,25 @@ function renderMeasureCard() {
   if (poly && liveSelfIntersect) html += cell('Atención', 'Se cruza', 'mc-warn');
   el.innerHTML = html;
   el.classList.add('on');
-  const header = document.querySelector('header');
-  if (header) {
-    const r = header.getBoundingClientRect();
-    el.style.top = Math.round(r.bottom + 8) + 'px';
-    el.style.left = Math.round(r.left) + 'px';
-  }
+  positionMeasureCard();
 }
+/** La tarjeta de medidas va pegada arriba del panel de acción (alineada a su borde izquierdo y sin pasarse de su ancho) */
+function positionMeasureCard() {
+  const el = document.getElementById('measureCard');
+  const tb = document.getElementById('bottomToolbar');
+  if (!el || !tb) return;
+  const r = tb.getBoundingClientRect();
+  if (!r.width) return;
+  el.style.top = 'auto';
+  el.style.bottom = Math.round(window.innerHeight - r.top + 6) + 'px';
+  el.style.left = Math.round(r.left) + 'px';
+  el.style.maxWidth = Math.round(r.width) + 'px';
+}
+(function watchMeasureCardAnchor() {
+  const tb = document.getElementById('bottomToolbar');
+  if (tb && window.ResizeObserver) new ResizeObserver(() => positionMeasureCard()).observe(tb);
+  window.addEventListener('resize', positionMeasureCard);
+})();
 
 function updateLiveBadge() {
   const el = document.getElementById('liveReadout');
@@ -1710,7 +1738,7 @@ function updateMetrics(areaM2, distM) {
   liveArea = areaM2; liveDist = distM;
   updateLiveBadge();
 }
-const APP_VERSION = '2026.11.21-v2-33';
+const APP_VERSION = '2026.11.21-v2-34';
 let liveSelfIntersect = false; // el polígono se cruza a sí mismo (los marcadores rojos ya lo señalan)
 function updateSelfIntersectWarning(show) {
   const v = !!show;

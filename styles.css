@@ -2,7 +2,7 @@
    Separado del HTML para mejor mantenimiento
 */
 
-:root { --app-version: "2026.11.21-v2-33"; }
+:root { --app-version: "2026.11.21-v2-34"; }
 
 .leaflet-control-attribution { font-size: 9px !important; background: rgba(15,23,42,0.7) !important; color: #94a3b8 !important; }
 .leaflet-control-attribution a { color: #94a3b8 !important; }
@@ -635,9 +635,10 @@ body.ui-min.med2 #poiSizeRow [data-poi-size="l"] svg { width: 21px !important; h
 
 /* Tarjeta de medidas en vivo: arriba a la izquierda, sin tapar la brújula (que queda arriba a la derecha) */
 body.ui-min #measureCard {
-  top: max(12px, env(safe-area-inset-top, 12px)) !important; left: 12px !important;
-  max-width: calc(100vw - var(--compass-w, 120px) - 6px); flex-wrap: wrap;
+  top: auto !important; left: 12px; bottom: 200px;      /* la posición real la fija positionMeasureCard(): arriba del panel de acción */
+  flex-wrap: nowrap;
 }
+body.ui-min #measureCard .mc-cell { padding: 4px 9px; }
 
 /* Avisos (toasts): flotan por encima de la pila de tiras, para no tapar el panel ni las herramientas */
 body.ui-min #toastContainer {
@@ -797,3 +798,12 @@ body.lbl-ghost .item-name-tag > div {
 }
 body.lbl-ghost .poi-label::before, body.lbl-ghost .poi-label::after { display: none !important; }
 body.lbl-off .dist-label, body.lbl-off .poi-label, body.lbl-off .item-name-tag { display: none !important; }
+
+/* Lados que no cambian mientras arrastrás un punto: gris (los vivos son blancos y los ángulos amarillos) */
+.dist-label-fixed {
+  display: flex; align-items: center; justify-content: center; text-align: center;
+  color: #cbd5e1; font-size: 10.5px; font-weight: 800; white-space: nowrap;
+  pointer-events: none; transform: translate(-50%, -50%);
+  background: radial-gradient(closest-side at center, rgba(15,23,42,.6) 0%, rgba(15,23,42,.3) 60%, transparent 100%);
+  text-shadow: 0 1px 3px rgba(0,0,0,.95), 0 0 2px rgba(0,0,0,.8);
+}

@@ -14,7 +14,7 @@
   <meta name="apple-mobile-web-app-title" content="Medidor">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <!-- Versión: debe coincidir con APP_VERSION (app.js) y --app-version (styles.css) -->
-  <meta name="app-version" content="2026.11.20-v2-27">
+  <meta name="app-version" content="2026.11.20-v2-28">
 
   <!-- Librerías locales (en este mismo repo) + Tailwind por CDN -->
   <link rel="stylesheet" href="leaflet.css" />
@@ -92,7 +92,14 @@
         <button id="viewHintOk" type="button" class="w-full py-1.5 rounded-lg text-xs font-bold bg-amber-500 text-slate-950">Entendido</button>
       </div>
       <div id="coordPanel" class="hidden absolute top-full left-0 right-0 mt-1 bg-slate-900/95 backdrop-blur-md border border-slate-700 rounded-xl shadow-2xl px-4 pb-4 pt-1 z-30" style="max-height:62vh;overflow-y:auto">
-      <span class="cg-label">Tipo de coordenadas</span>
+      <span class="cg-label" style="margin-top:10px">Pegá o escribí coordenadas</span>
+      <div class="flex gap-2">
+        <input id="cgFree" class="cg-input" type="text" inputmode="text" autocapitalize="off" autocorrect="off" spellcheck="false" autocomplete="off" placeholder="-25,2733, -57,5693   ó   25°16'24&quot;S 57°34'09&quot;O">
+        <button id="cgPaste" type="button" class="flex-none px-3 rounded-xl border border-slate-600 bg-slate-800 text-sky-300 text-xs font-bold" style="margin-top:0" aria-label="Pegar del portapapeles" title="Pegar"><i data-lucide="clipboard-paste" class="w-4 h-4"></i></button>
+      </div>
+      <div class="text-[11px] text-slate-500 mt-1">Decimales o grados, minutos y segundos (N/S/E/O o con signo).</div>
+      <div class="cg-or">o cargalas por formato (UTM, Gauss-Krüger…)</div>
+      <span class="cg-label" style="margin-top:6px">Tipo de coordenadas</span>
       <select id="cgFormat" class="cg-input">
         <option value="dec">Grados decimales</option>
         <option value="dms">Grados, minutos, segundos</option>
@@ -135,7 +142,7 @@
       </div>
 
       <div id="cgError" class="text-[11px] mt-3" style="color:#fca5a5;min-height:16px"></div>
-      <div id="cgPreview" class="text-[11px] font-mono text-slate-400 mt-1" style="min-height:16px"></div>
+      <div id="cgPreview" class="text-[11px] font-mono text-slate-400 mt-1" style="min-height:16px;white-space:pre-line"></div>
 
       <div class="flex gap-2 mt-3">
         <button id="cgPoi" type="button" class="flex-1 py-2.5 rounded-xl text-xs font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40">Crear POI aquí</button>

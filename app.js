@@ -1705,7 +1705,7 @@ function updateMetrics(areaM2, distM) {
   liveArea = areaM2; liveDist = distM;
   updateLiveBadge();
 }
-const APP_VERSION = '2026.11.20-v2-27';
+const APP_VERSION = '2026.11.20-v2-28';
 let liveSelfIntersect = false; // el polígono se cruza a sí mismo (los marcadores rojos ya lo señalan)
 function updateSelfIntersectWarning(show) {
   const v = !!show;
@@ -2955,6 +2955,54 @@ function askGotoPoi(auto) {
   });
 }
 
+// ----- Campo general de coordenadas: acepta decimales y grados/minutos/segundos pegados o escritos -----
+/** Devuelve { lat, lng } | { error } | { empty }. No adivina: si algo es dudoso, avisa. */
+function parseCoordText(raw) {
+  let t = String(raw == null ? '' : raw).trim();
+  if (!t) return { empty: true };
+  t = t.replace(/[−–—]/g, '-').replace(/[º˚]/g, '°').replace(/[′’‘`´]/g, "'").replace(/[″“”]/g, '"').replace(/''/g, '"')
+       .replace(/[()\[\]]/g, ' ').replace(/\b(norte)\b/gi, 'N').replace(/\b(sur)\b/gi, 'S').replace(/\b(este)\b/gi, 'E').replace(/\b(oeste)\b/gi, 'O').trim();
+  const num = (s) => parseFloat(String(s).replace(',', '.'));
+  const letterFirst = /^[NSEOW]/i.test(t);
+  const hemi = (c) => { c = (c || '').toUpperCase(); return c === 'N' || c === 'S' ? 'lat' : (c ? 'lng' : null); };
+  const neg = (c, sign) => sign === '-' || /^[SOW]$/i.test(c || '');
+  const items = [];
+  if (/[°'"]/.test(t)) {
+    // grados, minutos, segundos (minutos y segundos opcionales)
+    const body = "(-)?\\s*(\\d+(?:[.,]\\d+)?)\\s*°\\s*(?:(\\d+(?:[.,]\\d+)?)\\s*'\\s*)?(?:(\\d+(?:[.,]\\d+)?)\\s*\"\\s*)?";
+    const re = letterFirst ? new RegExp('([NSEOW])?\\s*' + body, 'gi') : new RegExp(body + '([NSEOW])?', 'gi');
+    let m;
+    while ((m = re.exec(t))) {
+      const L = letterFirst ? m[1] : m[5], sign = letterFirst ? m[2] : m[1];
+      const d = num(m[letterFirst ? 3 : 2]), mi = m[letterFirst ? 4 : 3] != null ? num(m[letterFirst ? 4 : 3]) : 0, se = m[letterFirst ? 5 : 4] != null ? num(m[letterFirst ? 5 : 4]) : 0;
+      if (mi >= 60) return { error: 'Los minutos deben ser menores que 60.' };
+      if (se >= 60) return { error: 'Los segundos deben ser menores que 60.' };
+      let v = d + mi / 60 + se / 3600;
+      if (neg(L, sign)) v = -v;
+      items.push({ v, h: hemi(L) });
+    }
+  } else {
+    // decimales: dos números, con signo o con letra de hemisferio
+    const body = '([+-])?\\s*(\\d+(?:[.,]\\d+)?)';
+    const re = letterFirst ? new RegExp('([NSEOW])?\\s*' + body, 'gi') : new RegExp(body + '\\s*([NSEOW])?', 'gi');
+    let m;
+    while ((m = re.exec(t))) {
+      const L = letterFirst ? m[1] : m[3], sign = letterFirst ? m[2] : m[1];
+      let v = num(m[letterFirst ? 3 : 2]);
+      if (neg(L, sign)) v = -v;
+      items.push({ v, h: hemi(L) });
+    }
+  }
+  if (items.length !== 2) return { error: 'No lo reconozco. Escribí latitud y longitud (decimales o grados, minutos y segundos). Para UTM o Gauss-Krüger usá el formato de abajo.' };
+  let [A, B] = items;
+  if (A.h && B.h) { if (A.h === B.h) return { error: 'Las dos coordenadas son del mismo tipo (latitud o longitud).' }; if (A.h === 'lng') [A, B] = [B, A]; }
+  else if (A.h || B.h) return { error: 'Poné la letra N/S/E/O en las dos coordenadas, o en ninguna.' };
+  const lat = A.v, lng = B.v;
+  if (Math.abs(lat) > 90) return { error: 'La latitud debe estar entre −90 y 90 (¿están invertidas latitud y longitud?).' };
+  if (Math.abs(lng) > 180) return { error: 'La longitud debe estar entre −180 y 180.' };
+  return { lat, lng };
+}
+
 let cgLast = null;
 const cgVal = (id) => document.getElementById(id).value;
 function readCoordForm() {
@@ -2969,11 +3017,15 @@ function readCoordForm() {
 function updateCoordForm() {
   const [fmt, v] = readCoordForm();
   document.querySelectorAll('#coordPanel .cg-panel').forEach(p => p.classList.toggle('hidden', p.id !== 'cg-' + fmt));
-  const r = parseCoordForm(fmt, v);
+  const free = cgVal('cgFree');
+  const useFree = !isBlank(free);   // si hay algo en el campo general, ese manda
+  const r = useFree ? parseCoordText(free) : parseCoordForm(fmt, v);
   const ok = !r.error && !r.empty;
   cgLast = ok ? r : null;
+  document.getElementById('cgFree').classList.toggle('bad', useFree && !!r.error);
   document.getElementById('cgError').textContent = r.error || '';
-  document.getElementById('cgPreview').textContent = ok ? `→ ${r.lat.toFixed(6)}, ${r.lng.toFixed(6)}` : '';
+  document.getElementById('cgPreview').textContent = ok
+    ? (useFree ? `Interpretado: ${dmsStr(r.lat, 'N', 'S')}  ${dmsStr(r.lng, 'E', 'O')}\n→ ${r.lat.toFixed(6)}, ${r.lng.toFixed(6)}` : `→ ${r.lat.toFixed(6)}, ${r.lng.toFixed(6)}`) : '';
   ['cgGo', 'cgPoi'].forEach(id => { const b = document.getElementById(id); b.disabled = !ok; });
 }
 /** Un signo "-" en grados decimales se convierte solo en hemisferio Sur/Oeste. */
@@ -2995,6 +3047,7 @@ function prefillCoordForm() {
   ['cgDecLngH', 'cgDmsLngH'].forEach(id => document.getElementById(id).value = c.lng < 0 ? 'O' : 'E');
   document.querySelectorAll('#coordPanel input.cg-input').forEach(i => i.value = '');
   updateCoordForm();
+  if (document.getElementById('cgFree')) setTimeout(() => { try { if (searchMode === 'coords' && !('ontouchstart' in window)) document.getElementById('cgFree').focus(); } catch (e) {} }, 0);
 }
 /** Abre/cierra el panel de coordenadas; el buscador por lugar queda siempre visible */
 function setSearchMode(m) {
@@ -3023,12 +3076,19 @@ function initCoordUI() {
   si.addEventListener('blur', () => { si.placeholder = 'Buscar por lugar'; setTimeout(updateSearchLock, 0); });
   document.getElementById('modeCoordsBtn').onclick = () => setSearchMode(searchMode === 'coords' ? 'place' : 'coords');
   const modal = document.getElementById('coordPanel');
+  const freeEl = document.getElementById('cgFree');
   modal.addEventListener('input', (e) => {
+    if (e.target.id === 'cgFree') document.querySelectorAll('#coordPanel .cg-panel input.cg-input').forEach(i => i.value = '');   // el campo general manda
+    else if (freeEl.value) freeEl.value = '';                                                                             // al usar el formulario se limpia el general
     if (e.target.id === 'cgDecLat') autoSignToHemisphere('cgDecLat', 'cgDecLatH', 'S');
     if (e.target.id === 'cgDecLng') autoSignToHemisphere('cgDecLng', 'cgDecLngH', 'O');
     updateCoordForm();
   });
   modal.addEventListener('change', updateCoordForm);
+  document.getElementById('cgPaste').onclick = async () => {
+    try { const t = await navigator.clipboard.readText(); freeEl.value = (t || '').trim().slice(0, 200); freeEl.dispatchEvent(new Event('input', { bubbles: true })); }
+    catch (e) { freeEl.focus(); toast({ type: 'info', title: 'Pegá manualmente', message: 'Mantené apretado el campo y elegí Pegar.', duration: 2200 }); }
+  };
   document.getElementById('cgGo').onclick = () => {
     if (!cgLast) return;
     const { lat, lng } = cgLast;
@@ -3057,8 +3117,8 @@ async function doSearch(q) {
     box.innerHTML = '';
     const div = document.createElement('div');
     div.className = 'p-3 text-xs text-slate-200 cursor-pointer flex items-center gap-2';
-    div.innerHTML = '<i data-lucide="crosshair" class="w-4 h-4 text-amber-300 flex-shrink-0"></i><span>Eso parece una coordenada. Tocá para abrir el formulario de coordenadas.</span>';
-    div.onclick = () => { box.classList.add('hidden'); openCoordModal(); };
+    div.innerHTML = '<i data-lucide="crosshair" class="w-4 h-4 text-amber-300 flex-shrink-0"></i><span>Eso parece una coordenada. Tocá para buscarla como coordenadas.</span>';
+    div.onclick = () => { box.classList.add('hidden'); openCoordModal(); const f = document.getElementById('cgFree'); if (f) { f.value = q; f.dispatchEvent(new Event('input', { bubbles: true })); } };
     box.appendChild(div);
     lucide.createIcons();
     box.classList.remove('hidden');

@@ -2,7 +2,7 @@
    Separado del HTML para mejor mantenimiento
 */
 
-:root { --app-version: "2026.11.20-v2-27"; }
+:root { --app-version: "2026.11.20-v2-28"; }
 
 .leaflet-control-attribution { font-size: 9px !important; background: rgba(15,23,42,0.7) !important; color: #94a3b8 !important; }
 .leaflet-control-attribution a { color: #94a3b8 !important; }
@@ -776,3 +776,7 @@ button.poi-color { border-color: rgba(255,255,255,.4); }
 .info-tg.tg-brg { color: #fda4af; background: rgba(244,63,94,.15); }
 .info-tg.tg-ang { color: #fcd34d; background: rgba(245,158,11,.15); }
 .info-tg.tg-crd { color: #7dd3fc; background: rgba(14,165,233,.15); }
+
+/* v2-28: campo general de coordenadas */
+.cg-or { display: flex; align-items: center; gap: 8px; margin: 14px 0 2px; font-size: 10px; text-transform: uppercase; letter-spacing: .05em; color: #64748b; }
+.cg-or::before, .cg-or::after { content: ''; flex: 1; height: 1px; background: #334155; }

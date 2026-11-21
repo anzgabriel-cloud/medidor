@@ -65,6 +65,7 @@ let inspectLayers = [];
 let inspectItem = null;
 let inspectShowSegs = true;
 let inspectShowBearings = false;
+let inspectShowPoints = false;     // superficies: puntos numerados P1, P2… (vista por defecto al consultar)
 let inspectShowAngles = false;
 let inspectStraight = false;   // distancia recta: no tiene ángulos que mostrar
 let inspectShowCoords = false;
@@ -246,9 +247,9 @@ function applySettings() {
   try { if (!document.getElementById('poiDrawer').classList.contains('hidden')) renderPoiList(); } catch (e) {}
   try {
     if (inspectItem) {
-      const f = [inspectShowSegs, inspectShowBearings, inspectShowAngles, inspectShowCoords];
+      const f = [inspectShowSegs, inspectShowBearings, inspectShowAngles, inspectShowCoords, inspectShowPoints];
       showMeasurementInfo(inspectItem);
-      [inspectShowSegs, inspectShowBearings, inspectShowAngles, inspectShowCoords] = f;
+      [inspectShowSegs, inspectShowBearings, inspectShowAngles, inspectShowCoords, inspectShowPoints] = f;
       updateInfoToggleUI();
       refreshInspectOverlays();
     }
@@ -844,20 +845,24 @@ document.getElementById('closePoiBtn').onclick = (e) => { e.preventDefault(); e.
   document.getElementById('infoMenuBtn').onclick = openInfoMenu;
   document.getElementById('infoBackdrop').onclick = hideMeasurementInfo;
   document.getElementById('infoToggleSegs').onclick = () => {
-    inspectShowSegs = true; inspectShowBearings = false; inspectShowAngles = false; inspectShowCoords = false;
+    inspectShowSegs = true; inspectShowBearings = false; inspectShowAngles = false; inspectShowCoords = false; inspectShowPoints = false;
     updateInfoToggleUI(); refreshInspectOverlays();
   };
   document.getElementById('infoToggleBearings').onclick = () => {
-    inspectShowSegs = false; inspectShowBearings = true; inspectShowAngles = false; inspectShowCoords = false;
+    inspectShowSegs = false; inspectShowBearings = true; inspectShowAngles = false; inspectShowCoords = false; inspectShowPoints = false;
+    updateInfoToggleUI(); refreshInspectOverlays();
+  };
+  document.getElementById('infoTogglePoints').onclick = () => {
+    inspectShowSegs = false; inspectShowBearings = false; inspectShowAngles = false; inspectShowCoords = false; inspectShowPoints = true;
     updateInfoToggleUI(); refreshInspectOverlays();
   };
   document.getElementById('infoToggleAngles').onclick = () => {
     if (inspectStraight) return;
-    inspectShowSegs = false; inspectShowBearings = false; inspectShowAngles = true; inspectShowCoords = false;
+    inspectShowSegs = false; inspectShowBearings = false; inspectShowAngles = true; inspectShowCoords = false; inspectShowPoints = false;
     updateInfoToggleUI(); refreshInspectOverlays();
   };
   document.getElementById('infoToggleCoords').onclick = () => {
-    inspectShowSegs = false; inspectShowBearings = false; inspectShowAngles = false; inspectShowCoords = true;
+    inspectShowSegs = false; inspectShowBearings = false; inspectShowAngles = false; inspectShowCoords = true; inspectShowPoints = false;
     updateInfoToggleUI(); refreshInspectOverlays();
   };
   const copyCoordsBtn = document.getElementById('infoCopyCoordsBtn');
@@ -1740,7 +1745,7 @@ function updateMetrics(areaM2, distM) {
   liveArea = areaM2; liveDist = distM;
   updateLiveBadge();
 }
-const APP_VERSION = '2026.11.21-v2-35';
+const APP_VERSION = '2026.11.21-v2-36';
 let liveSelfIntersect = false; // el polígono se cruza a sí mismo (los marcadores rojos ya lo señalan)
 function updateSelfIntersectWarning(show) {
   const v = !!show;
@@ -2046,6 +2051,11 @@ function refreshInspectOverlays() {
         html = `<span style="font-size:${fontPx}px;line-height:1.2;text-align:center">${brg0(brg)}° V<br><span style="font-size:${Math.max(8, fontPx * 0.85)}px;opacity:0.95">${brg0(mag)}° M</span></span>`;
         iconW = Math.round(fontPx * 5.5);
         iconH = Math.round(fontPx * 2.7);
+      } else if (stats.isPoly) {
+        // superficie: el lado indica entre qué puntos está (P1–P2)
+        html = `<span style="font-size:${fontPx}px;line-height:1.15;display:block;text-align:center">${formatDist(stats.segs[i])}<br><span style="font-size:${Math.max(7, fontPx * 0.8)}px;opacity:.85">P${i + 1}–P${((i + 1) % n) + 1}</span></span>`;
+        iconW = Math.round(fontPx * 4.6);
+        iconH = Math.round(fontPx * 2.5);
       } else {
         html = `<span style="font-size:${fontPx}px">${formatDist(stats.segs[i])}</span>`;
         iconW = Math.round(fontPx * 4.2);
@@ -2102,14 +2112,38 @@ function refreshInspectOverlays() {
       const lab = L.marker(labelLL, {
         icon: L.divIcon({
           className: 'inspect-angle-text',
-          html: `<span style="font-size:${fontPx}px">${ang.toFixed(1)}°</span>`,
-          iconSize: [Math.round(fontPx * 3.6), Math.round(fontPx * 1.5)],
-          iconAnchor: [Math.round(fontPx * 1.8), Math.round(fontPx * 0.75)]
+          html: closed ? `<span style="font-size:${fontPx}px">P${i + 1} · ${ang.toFixed(1)}°</span>` : `<span style="font-size:${fontPx}px">${ang.toFixed(1)}°</span>`,
+          iconSize: closed ? [Math.round(fontPx * 6), Math.round(fontPx * 1.5)] : [Math.round(fontPx * 3.6), Math.round(fontPx * 1.5)],
+          iconAnchor: closed ? [Math.round(fontPx * 3), Math.round(fontPx * 0.75)] : [Math.round(fontPx * 1.8), Math.round(fontPx * 0.75)]
         }),
         interactive: false, zIndexOffset: 2000
       }).addTo(map);
       inspectLayers.push(lab);
     }
+  }
+
+  if (inspectShowPoints && stats.isPoly) {
+    // Puntos numerados en el orden en que se crearon, hacia afuera de la superficie
+    const z = map.getZoom();
+    const scale = Math.pow(1.18, z - 15);
+    const fontPx = Math.max(10, Math.min(15, 11 * scale));
+    let cPx = null;
+    try {
+      const coords = latlngs.map(p => [p.lng, p.lat]); coords.push(coords[0]);
+      const c = turf.centroid(turf.polygon([coords]));
+      cPx = map.latLngToContainerPoint(L.latLng(c.geometry.coordinates[1], c.geometry.coordinates[0]));
+    } catch (e) {}
+    latlngs.forEach((ll, vi) => {
+      const vPx = map.latLngToContainerPoint(ll);
+      let dx = 0, dy = -1;
+      if (cPx) { dx = vPx.x - cPx.x; dy = vPx.y - cPx.y; const l = Math.sqrt(dx * dx + dy * dy) || 1; dx /= l; dy /= l; }
+      const off = 20 + fontPx * 0.4;
+      const w = Math.round(fontPx * 2.6), hh = Math.round(fontPx * 1.7);
+      inspectLayers.push(L.marker(map.containerPointToLatLng(L.point(vPx.x + dx * off, vPx.y + dy * off)), {
+        icon: L.divIcon({ className: 'inspect-pt-label', html: `<span style="font-size:${fontPx}px">P${vi + 1}</span>`, iconSize: [w, hh], iconAnchor: [Math.round(w / 2), Math.round(hh / 2)] }),
+        interactive: false, zIndexOffset: 2000
+      }).addTo(map));
+    });
   }
 
   if (inspectShowCoords) {
@@ -2125,7 +2159,7 @@ function refreshInspectOverlays() {
         centroidPx = map.latLngToContainerPoint(L.latLng(c.geometry.coordinates[1], c.geometry.coordinates[0]));
       } catch (e) {}
     }
-    latlngs.forEach((ll) => {
+    latlngs.forEach((ll, vi) => {
       const vPx = map.latLngToContainerPoint(ll);
       let labelPx = L.point(vPx.x, vPx.y - 14 * scale);
       if (centroidPx) {
@@ -2134,13 +2168,14 @@ function refreshInspectOverlays() {
         const inset = Math.min(22 * scale, vlen * 0.2);
         labelPx = L.point(vPx.x + (vx / vlen) * inset, vPx.y + (vy / vlen) * inset);
       }
-      const html = `<span style="font-size:${fontPx}px;line-height:1.25;display:block;text-align:center">${fmtCoordLines(ll.lat, ll.lng).join('<br>')}</span>`;
+      const ptTag = stats.isPoly ? `<b style="opacity:.9">P${vi + 1}</b><br>` : '';
+      const html = `<span style="font-size:${fontPx}px;line-height:1.25;display:block;text-align:center">${ptTag}${fmtCoordLines(ll.lat, ll.lng).join('<br>')}</span>`;
       const lab = L.marker(map.containerPointToLatLng(labelPx), {
         icon: L.divIcon({
           className: 'inspect-angle-text',
           html,
-          iconSize: [Math.round(fontPx * 8), Math.round(fontPx * 2.6)],
-          iconAnchor: [Math.round(fontPx * 4), Math.round(fontPx * 1.3)]
+          iconSize: [Math.round(fontPx * 8), Math.round(fontPx * (stats.isPoly ? 3.8 : 2.6))],
+          iconAnchor: [Math.round(fontPx * 4), Math.round(fontPx * (stats.isPoly ? 1.9 : 1.3))]
         }),
         interactive: false, zIndexOffset: 2000
       }).addTo(map);
@@ -2154,6 +2189,12 @@ function updateInfoToggleUI() {
   const brgBtn = document.getElementById('infoToggleBearings');
   const angBtn = document.getElementById('infoToggleAngles');
   const coordBtn = document.getElementById('infoToggleCoords');
+  const ptsBtn = document.getElementById('infoTogglePoints');
+  const isPolyItem = !!(inspectItem && inspectItem.mode === 'polygon');
+  if (!isPolyItem && inspectShowPoints) { inspectShowPoints = false; inspectShowSegs = true; }
+  if (isPolyItem && inspectShowBearings) { inspectShowBearings = false; inspectShowPoints = true; }   // las superficies ya no muestran rumbos
+  if (ptsBtn) { ptsBtn.style.display = isPolyItem ? '' : 'none'; ptsBtn.className = 'info-tg' + (inspectShowPoints ? ' on tg-pts' : ''); }
+  if (brgBtn) brgBtn.style.display = isPolyItem ? 'none' : '';
   const copyBtn = document.getElementById('infoCopyCoordsBtn');
   if (copyBtn) copyBtn.classList.toggle('hidden', !(inspectShowCoords && inspectItem));
   if (inspectStraight && inspectShowAngles) { inspectShowAngles = false; inspectShowSegs = true; }   // sin ángulos en una recta
@@ -2189,7 +2230,9 @@ function updateInfoToggleUI() {
 function showMeasurementInfo(item) {
   inspectItem = item;
   inspectStraight = false;
-  inspectShowSegs = true;
+  const polyItem = item.mode === 'polygon';
+  inspectShowSegs = !polyItem;           // superficie: abre mostrando los puntos numerados; distancia: los lados
+  inspectShowPoints = polyItem;
   inspectShowBearings = false;
   inspectShowAngles = false;
   inspectShowCoords = false;
@@ -3874,7 +3917,8 @@ function infoActionRows(item, poi) {
       ? { key: 'nav', icon: 'navigation', label: 'Navegar', cls: 'text-slate-500', off: true, run: () => {} }
       : { key: 'nav', icon: 'navigation', label: navigating ? 'Dejar de navegar' : 'Navegar', short: navigating ? 'Detener' : 'Navegar', cls: navigating ? 'text-rose-300' : 'text-sky-300', run: () => { hideMeasurementInfo(); toggleNavPoi(poi); } });
   }
-  if (!poi && item) {
+  const onSurface = !poi && item && item.mode === 'polygon';   // en una superficie ya estás "en el elemento": solo Editar y Borrar
+  if (!poi && item && !onSurface) {
     const tgt = navTargetForItem(item);
     if (tgt) {
       const navigating = navPoi && navPoi.id === tgt.id;
@@ -3885,7 +3929,7 @@ function infoActionRows(item, poi) {
     }
   }
   const hereGo = poi ? standingOnPoi(poi) : savedInView(item);
-  if (!poi) rows.push(hereGo
+  if (!poi && !onSurface) rows.push(hereGo
     ? { key: 'go', icon: 'crosshair', label: 'Ud está aquí', short: 'Ir', cls: 'text-slate-500', off: true, run: () => {} }
     : { key: 'go', icon: 'crosshair', label: 'Ir', cls: 'text-slate-200', run: () => { if (poi) goToPoi(poi); else focusSaved(item); } });
   rows.push({ key: 'del', icon: 'trash-2', label: 'Eliminar', short: 'Borrar', cls: 'text-red-400', run: () => { if (poi) confirmDeletePoi(poi); else deleteSavedItem(item); } });

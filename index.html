@@ -14,7 +14,7 @@
   <meta name="apple-mobile-web-app-title" content="Medidor">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <!-- Versión: debe coincidir con APP_VERSION (app.js) y --app-version (styles.css) -->
-  <meta name="app-version" content="2026.11.21-v2-35">
+  <meta name="app-version" content="2026.11.21-v2-36">
 
   <!-- Librerías locales (en este mismo repo) + Tailwind por CDN -->
   <link rel="stylesheet" href="leaflet.css" />
@@ -405,7 +405,8 @@
         <div class="info-tgrow">
           <button id="infoToggleSegs" type="button" class="info-tg"><i data-lucide="ruler" class="w-4 h-4"></i><span>Dist.</span></button>
           <button id="infoToggleBearings" type="button" class="info-tg"><i data-lucide="compass" class="w-4 h-4"></i><span>Rumbos</span></button>
-          <button id="infoToggleAngles" type="button" class="info-tg"><i data-lucide="triangle" class="w-4 h-4"></i><span>Ángulos</span></button>
+          <button id="infoTogglePoints" type="button" class="info-tg" style="display:none"><i data-lucide="map-pin" class="w-4 h-4"></i><span>Puntos</span></button>
+          <button id="infoToggleAngles" type="button" class="info-tg"><svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 20h18"/><path d="M3 20L16 5"/><path d="M11 20a8 8 0 0 0-2.4-5.7"/></svg><span>Ángulos</span></button>
           <button id="infoToggleCoords" type="button" class="info-tg"><i data-lucide="map-pin" class="w-4 h-4"></i><span>Coord.</span></button>
         </div>
         <div class="flex justify-end">

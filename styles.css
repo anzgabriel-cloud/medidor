@@ -2,7 +2,7 @@
    Separado del HTML para mejor mantenimiento
 */
 
-:root { --app-version: "2026.11.21-v2-35"; }
+:root { --app-version: "2026.11.21-v2-36"; }
 
 .leaflet-control-attribution { font-size: 9px !important; background: rgba(15,23,42,0.7) !important; color: #94a3b8 !important; }
 .leaflet-control-attribution a { color: #94a3b8 !important; }
@@ -807,3 +807,14 @@ body.lbl-off .dist-label, body.lbl-off .poi-label, body.lbl-off .item-name-tag {
   background: radial-gradient(closest-side at center, rgba(15,23,42,.6) 0%, rgba(15,23,42,.3) 60%, transparent 100%);
   text-shadow: 0 1px 3px rgba(0,0,0,.95), 0 0 2px rgba(0,0,0,.8);
 }
+
+.info-tg.tg-pts { color: #fdba74; background: rgba(249,115,22,.15); }
+/* Puntos numerados (P1, P2…) al consultar una superficie */
+.inspect-pt-label { display: flex; align-items: center; justify-content: center; pointer-events: none; }
+.inspect-pt-label span {
+  font-weight: 800; color: #fff; line-height: 1; padding: 3px 6px; border-radius: 999px; white-space: nowrap;
+  background: rgba(15,23,42,.85); border: 1.5px solid var(--inspect-color, #00ff66); box-shadow: 0 1px 4px rgba(0,0,0,.6);
+}
+/* Lados vivos: blanco brillante; los fijos, un gris más apagado, para distinguirlos */
+.dist-label-live { color: #fff; font-size: 12px; text-shadow: 0 1px 3px rgba(0,0,0,.95), 0 0 2px rgba(0,0,0,.8), 0 0 9px rgba(255,255,255,.45); }
+.dist-label-fixed { color: #94a3b8; font-weight: 700; opacity: .92; }

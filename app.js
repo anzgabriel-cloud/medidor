@@ -129,6 +129,7 @@ function sanitizeSaved(s) {
   s.color = safeColor(s.color);
   s.name = String(s.name ?? 'Medición').slice(0, 200);
   s.date = String(s.date ?? '').slice(0, 40);
+  s.note = String(s.note ?? '').slice(0, 2000);
   return s;
 }
 function sanitizePoi(p) {
@@ -1748,7 +1749,7 @@ function updateMetrics(areaM2, distM) {
   liveArea = areaM2; liveDist = distM;
   updateLiveBadge();
 }
-const APP_VERSION = '2026.11.21-v2-42';
+const APP_VERSION = '2026.11.21-v2-43';
 let liveSelfIntersect = false; // el polígono se cruza a sí mismo (los marcadores rojos ya lo señalan)
 function updateSelfIntersectWarning(show) {
   const v = !!show;
@@ -2051,9 +2052,10 @@ function refreshInspectOverlays() {
         const brg = trueBearing(a, b);
         const decl = magneticDeclination((a.lat + b.lat) / 2, (a.lng + b.lng) / 2);
         const mag = magneticBearing(brg, decl);
-        html = `<span style="font-size:${fontPx}px;line-height:1.2;text-align:center">${brg0(brg)}° V<br><span style="font-size:${Math.max(8, fontPx * 0.85)}px;opacity:0.95">${brg0(mag)}° M</span></span>`;
-        iconW = Math.round(fontPx * 5.5);
-        iconH = Math.round(fontPx * 2.7);
+        const shown = compassNorth === 'M' ? mag : brg;    // el norte elegido en Ajustes
+        html = `<span style="font-size:${(fontPx * 1.1).toFixed(1)}px;line-height:1.2;color:#fbbf24;font-weight:800">${brg0(shown)}° ${compassNorth === 'M' ? 'M' : 'V'}</span>`;
+        iconW = Math.round(fontPx * 4.6);
+        iconH = Math.round(fontPx * 1.7);
       } else if (stats.isPoly) {
         // superficie: el lado indica entre qué puntos está (P1–P2)
         html = `<span style="font-size:${fontPx}px;line-height:1.15;display:block;text-align:center">${formatDist(stats.segs[i])}<br><span style="font-size:${Math.max(7, fontPx * 0.8)}px;opacity:.85">P${i + 1}–P${((i + 1) % n) + 1}</span></span>`;
@@ -2217,34 +2219,14 @@ function updateInfoToggleUI() {
   if (angBtn) angBtn.className = 'info-tg' + (inspectShowAngles ? ' on tg-ang' : '');
   if (coordBtn) coordBtn.className = 'info-tg' + (inspectShowCoords ? ' on tg-crd' : '');
 
-  // Declinación solo visible al consultar rumbos
-  const declBox = document.getElementById('infoDeclination');
-  const declVal = document.getElementById('infoDeclinationValue');
-  if (declBox && declVal) {
-    if (inspectShowBearings && inspectItem && inspectItem.points && inspectItem.points.length) {
-      let lat = 0, lng = 0;
-      inspectItem.points.forEach(p => { lat += p.lat; lng += p.lng; });
-      lat /= inspectItem.points.length;
-      lng /= inspectItem.points.length;
-      const decl = magneticDeclination(lat, lng);
-      const absDecl = Math.abs(decl).toFixed(1);
-      const side = decl >= 0 ? 'E' : 'O';
-      const sign = decl >= 0 ? '+' : '−';
-      const declTag = getDeclOverride() !== null ? 'manual' : 'estimada';
-      declVal.textContent = `${sign}${absDecl}° ${side} (${declTag})`;
-      declBox.classList.remove('hidden');
-      lucide.createIcons();
-    } else {
-      declBox.classList.add('hidden');
-    }
-  }
+  document.getElementById('infoDeclination')?.classList.add('hidden');   // la declinación ya no se muestra en la consulta
 }
 
 function showMeasurementInfo(item) {
   inspectItem = item;
   inspectStraight = false;
-  const polyItem = item.mode === 'polygon';
-  inspectShowSegs = !polyItem;           // superficie: abre mostrando los puntos numerados; distancia: los lados
+  const polyItem = item.mode === 'polygon' || item.mode === 'line';
+  inspectShowSegs = !polyItem;           // superficie y distancia abren mostrando los puntos numerados
   inspectShowPoints = polyItem;
   inspectShowBearings = false;
   inspectShowAngles = false;
@@ -2257,6 +2239,8 @@ function showMeasurementInfo(item) {
   document.getElementById('infoColorDot').style.background = color;
   document.getElementById('infoName').textContent = item.name || 'Medición';
   document.getElementById('infoMeta').textContent = `${stats.latlngs.length} puntos`;
+  const noteBox = document.getElementById('infoNote');
+  if (noteBox) { noteBox.textContent = item.note || ''; noteBox.classList.toggle('hidden', !item.note); }
   const metrics = document.getElementById('infoMetrics');
   let topHtml = '';
   if (stats.isPoly) {
@@ -2353,6 +2337,7 @@ function showPoiInfo(p) {
   document.getElementById('infoColorDot').style.background = color;
   document.getElementById('infoName').textContent = p.name || 'POI';
   document.getElementById('infoMeta').textContent = 'Punto de interés';
+  document.getElementById('infoNote')?.classList.add('hidden');
   setInfoActions(p, null);
   let distHtml = '<div class="text-[11px] text-slate-500">Sin ubicación</div>';
   if (userLocMarker) {
@@ -3752,6 +3737,7 @@ function openSaveModal() {
   const isTrack = trackMode;
   const existing = editingId ? saved.find(s => s.id === editingId) : null;
   // Al editar, el nombre actual queda cargado y se puede cambiar
+  const noteEl = document.getElementById('saveNoteInput'); if (noteEl) noteEl.value = existing ? (existing.note || '') : '';
   document.getElementById('saveNameInput').value = existing ? existing.name : (isTrack ? `Recorrido ${saved.length + 1}` : `Medición ${saved.length + 1}`);
   const title = document.querySelector('#saveModal h3');
   if (title) title.textContent = existing ? 'Guardar cambios' : (isTrack ? 'Guardar recorrido' : 'Guardar Medición');
@@ -3765,10 +3751,11 @@ function confirmSave() {
   const prev = editingId ? saved.find(s => s.id === editingId) : null;
   const name = document.getElementById('saveNameInput').value.trim() || (prev ? prev.name : `Medición ${saved.length + 1}`);
   document.getElementById('saveModal').classList.add('hidden');
-  commitSave(name);
+  const noteEl = document.getElementById('saveNoteInput');
+  commitSave(name, noteEl ? noteEl.value.trim() : '');
 }
 
-function commitSave(name) {
+function commitSave(name, note) {
   if (points.length < 2) return toast({ type: 'warning', title: 'Muy pocos puntos', message: 'Agregá al menos 2 puntos.' });
   const pts = points.map(p => ({ lat: p.lat, lng: p.lng }));
   let item;
@@ -3777,12 +3764,12 @@ function commitSave(name) {
   if (editingId) {
     const idx = saved.findIndex(s => s.id === editingId);
     if (idx >= 0) {
-      saved[idx] = { ...saved[idx], name, mode: savedMode, color: safeColor(themeColor), date: new Date().toLocaleDateString('es-AR'), points: pts, visible: true };
+      saved[idx] = { ...saved[idx], name, note: note || '', mode: savedMode, color: safeColor(themeColor), date: new Date().toLocaleDateString('es-AR'), points: pts, visible: true };
       item = saved[idx];
     }
   }
   if (!item) {
-    item = { id: Date.now().toString(), name, mode: savedMode, color: safeColor(themeColor), date: new Date().toLocaleDateString('es-AR'), points: pts, visible: true };
+    item = { id: Date.now().toString(), name, note: note || '', mode: savedMode, color: safeColor(themeColor), date: new Date().toLocaleDateString('es-AR'), points: pts, visible: true };
     saved.push(item);
   }
   persist();
@@ -3935,7 +3922,6 @@ function infoActionRows(item, poi) {
       : { key: 'nav', icon: 'navigation', label: navigating ? 'Dejar de navegar' : 'Navegar', short: navigating ? 'Detener' : 'Navegar', cls: navigating ? 'text-rose-300' : 'text-sky-300', run: () => { hideMeasurementInfo(); toggleNavPoi(poi); } });
   }
   const onSurface = !poi && item && (item.mode === 'polygon' || item.mode === 'line');   // ya estás "en el elemento": sin Navegar ni Ir
-  if (!poi && item && item.mode === 'line') rows.push({ key: 'profile', icon: 'mountain', label: 'Ver perfil', short: 'Ver perfil', cls: 'text-amber-300', run: () => openProfile(item) });
   if (!poi && item && !onSurface) {
     const tgt = navTargetForItem(item);
     if (tgt) {
@@ -3951,6 +3937,7 @@ function infoActionRows(item, poi) {
     ? { key: 'go', icon: 'crosshair', label: 'Ud está aquí', short: 'Ir', cls: 'text-slate-500', off: true, run: () => {} }
     : { key: 'go', icon: 'crosshair', label: 'Ir', cls: 'text-slate-200', run: () => { if (poi) goToPoi(poi); else focusSaved(item); } });
   rows.push({ key: 'del', icon: 'trash-2', label: 'Eliminar', short: 'Borrar', cls: 'text-red-400', run: () => { if (poi) confirmDeletePoi(poi); else deleteSavedItem(item); } });
+  if (!poi && item && item.mode === 'line') rows.push({ key: 'profile', icon: 'mountain', label: 'Ver perfil', short: 'Ver perfil', cls: 'text-amber-300', run: () => openProfile(item) });   // a la derecha
   return rows;
 }
 /** Consulta (POI y mediciones): encabezado con ícono y acciones a la vista (Editar | Navegar | Borrar (POI) · + Ir (mediciones)) */

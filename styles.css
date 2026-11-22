@@ -2,7 +2,7 @@
    Separado del HTML para mejor mantenimiento
 */
 
-:root { --app-version: "2026.11.21-v2-42"; }
+:root { --app-version: "2026.11.21-v2-43"; }
 
 .leaflet-control-attribution { font-size: 9px !important; background: rgba(15,23,42,0.7) !important; color: #94a3b8 !important; }
 .leaflet-control-attribution a { color: #94a3b8 !important; }
@@ -824,3 +824,5 @@ body:has(#infoPanel:not(.hidden)) .strip { opacity: 0; visibility: hidden; point
 
 .info-tgrow .info-tg { font-size: 10.5px; padding-left: 0; padding-right: 0; }
 body.line-busy #tpSearch, body.line-busy #tpFolder { opacity: .35; }
+#infoActions .poi-act-profile { grid-column: 4; }
+#infoActions .poi-act-profile svg, #infoActions .poi-act-profile i { color: #fbbf24; }

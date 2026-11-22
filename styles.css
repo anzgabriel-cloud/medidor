@@ -2,7 +2,7 @@
    Separado del HTML para mejor mantenimiento
 */
 
-:root { --app-version: "2026.11.21-v2-43"; }
+:root { --app-version: "2026.11.22-v2-45"; }
 
 .leaflet-control-attribution { font-size: 9px !important; background: rgba(15,23,42,0.7) !important; color: #94a3b8 !important; }
 .leaflet-control-attribution a { color: #94a3b8 !important; }
@@ -271,19 +271,9 @@ body.is-dragging .midpoint-marker { opacity: 0 !important; pointer-events: none 
 }
 .inspect-seg-label span { display: block; text-align: center; width: 100%; }
 #fixedCompass { position: fixed; }
-.nav-label-wrap { background: none; border: 0; }
-.nav-label { position: absolute; transform: translate(-50%, -50%); display: flex; flex-direction: column; align-items: center; line-height: 1.15;
-  padding: 3px 9px; border-radius: 9px; background: #0b1220; border: 2px solid #38bdf8; box-shadow: 0 2px 8px rgba(0,0,0,.6); white-space: nowrap; pointer-events: none; }
-.nav-label b { color: #fff; font-size: 13px; font-weight: 800; letter-spacing: -.01em; }
-.nav-label { flex-direction: row; align-items: center; gap: 8px; padding-right: 5px; }
-.nav-txt { display: flex; flex-direction: column; align-items: center; line-height: 1.15; }
 .nav-stop { pointer-events: auto; position: relative; flex: none; width: 28px; height: 28px; border-radius: 50%; border: 2px solid #fff; background: #dc2626; padding: 0; touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
 .nav-stop::before { content: ''; position: absolute; inset: -9px; }                 /* zona de toque más grande que el dibujo */
 .nav-stop i { display: block; width: 10px; height: 10px; margin: 0 auto; background: #fff; border-radius: 2px; }
-.nav-label b i { font-style: normal; color: #7dd3fc; margin-left: 8px; }
-.nav-label b u { text-decoration: none; color: #cbd5e1; font-weight: 700; margin-left: 8px; }
-.nav-label span { color: #fde68a; font-size: 15px; font-weight: 800; }
-.nav-label span em { font-style: normal; color: #a7f3d0; font-size: 12px; font-weight: 700; margin-left: 9px; }
 .fixed-compass-svg { display: block; filter: drop-shadow(0 2px 6px rgba(0,0,0,0.7)); }
 .inspect-angle-text {
   color: var(--inspect-label-text, var(--inspect-color, #00ff66));
@@ -419,7 +409,7 @@ body.is-dragging .midpoint-marker { opacity: 0 !important; pointer-events: none 
   animation: btnPulse 0.45s ease;
 }
 
-button:disabled, .btn-disabled {
+button:disabled {
   opacity: 0.35 !important;
   cursor: not-allowed !important;
   pointer-events: none !important;
@@ -692,6 +682,14 @@ body.ui-min #toastContainer {
 .free-save:not(:disabled) { background: #7c3aed; color: #fff; border-color: #a78bfa; }
 #mainControls[data-mode="free"] #freeHist { display: flex !important; flex: 0 0 100%; gap: 2px; justify-content: flex-start; }
 #freeHist .ringbtn { display: inline-flex; }
+/* Tipo de línea (rayas / puntos): a la derecha, en la misma fila que nuevo y guardar */
+#mainControls[data-mode="free"] #freeStyleRow { display: grid !important; grid-template-columns: repeat(2, 44px); gap: 2px; flex: none; margin-left: auto; }
+#freeStyleRow button { width: 44px; height: 44px; border-radius: 10px; display: grid; place-items: center; border: 1px solid rgba(167,139,250,.35); background: rgba(124,58,237,.14); color: #c4b5fd; opacity: .6; }
+#freeStyleRow button[aria-pressed="true"] { opacity: 1; background: rgba(124,58,237,.45); border-color: #a78bfa; color: #fff; box-shadow: 0 0 0 1.5px #a78bfa inset; }
+#freeStyleRow svg { width: 28px !important; height: 8px !important; }
+/* Flechas de la ruta: inicio rojo, final azul */
+.free-arrow { background: none; border: 0; }
+.free-arrow svg { display: block; filter: drop-shadow(0 1px 2px rgba(0,0,0,.7)); }
 
 #mainControls[data-mode="ring"] #ringHist { display: flex !important; flex: 0 0 100%; gap: 2px; justify-content: flex-start; }
 #ringHist .ringbtn { display: inline-flex; }
@@ -703,22 +701,8 @@ body.ui-min #toastContainer {
 
 /* Rumbo recíproco: segunda línea en la brújula y en la etiqueta de navegación */
 #compassCaption { text-align: center; line-height: 1.25; }
-#compassCaption .cap-rec { display: block; font-size: 10px; font-weight: 700; opacity: .9; }
-#compassCaption .cap-rec .cap-n.on { font-size: 11px; }
-.nav-label small.nav-rec { color: #94a3b8; font-size: 10px; font-weight: 700; }
-.nav-label small.nav-rec i { font-style: normal; margin-left: 5px; }
 
 /* Navegación: rumbos juntos con los colores de la brújula, recíproco algo más chico, distancia y velocidad abajo */
-.nav-label b { color: #00ff66; }
-.nav-label .cap-n { color: #00ff66; }
-.nav-label .cap-n.on { color: #fbbf24; font-size: 16px; }
-.nav-label small.nav-rec { color: #00ff66; font-size: 12px; font-weight: 700; }
-.nav-label small.nav-rec .cap-n.on { font-size: 13px; }
-#compassCaption .cap-rec { font-size: 12px; }
-#compassCaption .cap-rec .cap-n.on { font-size: 13px; }
-.nav-label b .cap-n { font-size: 13px; font-weight: 800; }
-.nav-label b .cap-n.on { font-size: 16px; }
-.nav-label small.nav-rec .cap-n { font-size: 12px; font-weight: 700; }
 
 /* v2-22: rumbos en cuadrícula (brújula y navegación); la navegación va bajo la brújula */
 .cap-grid { display: inline-grid; grid-template-columns: auto auto auto; column-gap: 9px; row-gap: 1px; align-items: baseline; justify-items: center; line-height: 1.25; }
@@ -820,7 +804,7 @@ body.lbl-off .dist-label, body.lbl-off .poi-label, body.lbl-off .item-name-tag {
 .dist-label-fixed { color: #94a3b8; font-weight: 700; opacity: .92; }
 
 /* Con el panel de Consulta abierto, las columnas de íconos se ocultan (vuelven al cerrarlo) */
-body:has(#infoPanel:not(.hidden)) .strip { opacity: 0; visibility: hidden; pointer-events: none; }
+body:has(#infoPanel:not(.hidden)) .strip, body:has(#xInfo:not(.hidden)) .strip { opacity: 0; visibility: hidden; pointer-events: none; }
 
 .info-tgrow .info-tg { font-size: 10.5px; padding-left: 0; padding-right: 0; }
 body.line-busy #tpSearch, body.line-busy #tpFolder { opacity: .35; }

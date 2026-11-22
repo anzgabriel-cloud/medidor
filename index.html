@@ -14,7 +14,7 @@
   <meta name="apple-mobile-web-app-title" content="Medidor">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <!-- Versión: debe coincidir con APP_VERSION (app.js) y --app-version (styles.css) -->
-  <meta name="app-version" content="2026.11.21-v2-43">
+  <meta name="app-version" content="2026.11.22-v2-45">
 
   <!-- Librerías locales (en este mismo repo) + Tailwind por CDN -->
   <link rel="stylesheet" href="leaflet.css" />
@@ -317,6 +317,10 @@
             </div>
             <button id="freeNewBtn" type="button" class="act-btn act-free ringbtn free-new" aria-label="Empezar a dibujar una ruta" title="Empezar a dibujar" aria-pressed="false"><i data-lucide="plus" class="w-3.5 h-3.5"></i></button>
             <button id="freeSaveBtn" type="button" class="act-btn act-free ringbtn free-save" aria-label="Guardar ruta" title="Guardar ruta y terminar" disabled><i data-lucide="save" class="w-3.5 h-3.5"></i></button>
+            <div id="freeStyleRow" class="act-free" role="group" aria-label="Tipo de línea">
+              <button type="button" data-free-style="dash" aria-pressed="true" aria-label="Línea de rayas" title="Rayas"><svg width="30" height="8" viewBox="0 0 30 8" aria-hidden="true"><path d="M1 4H8M12 4H19M23 4H29" stroke="currentColor" stroke-width="3.4" stroke-linecap="round" fill="none"/></svg></button>
+              <button type="button" data-free-style="dot" aria-pressed="false" aria-label="Línea punteada" title="Puntos"><svg width="30" height="8" viewBox="0 0 30 8" aria-hidden="true"><path d="M2 4H2.1M8 4H8.1M14 4H14.1M20 4H20.1M26 4H26.1" stroke="currentColor" stroke-width="4" stroke-linecap="round" fill="none"/></svg></button>
+            </div>
             <div id="freeHist" class="act-free" role="group" aria-label="Deshacer, rehacer y borrar">
               <button id="freeUndoBtn" type="button" class="act-btn ringbtn ring-neutral" aria-label="Deshacer último tramo" title="Deshacer último tramo" disabled><i data-lucide="undo-2" class="w-3.5 h-3.5"></i></button>
               <button id="freeRedoBtn" type="button" class="act-btn ringbtn ring-neutral" aria-label="Rehacer tramo" title="Rehacer tramo" disabled><i data-lucide="redo-2" class="w-3.5 h-3.5"></i></button>
@@ -395,13 +399,6 @@
           </div>
         </div>
         <div id="infoMetrics" class="grid grid-cols-2 gap-1.5 mb-1.5"></div>
-        <div id="infoDeclination" class="hidden mb-2 px-2.5 py-2 rounded-xl bg-slate-950/80 border border-slate-800 text-[11px] text-slate-300 flex items-center justify-between gap-2">
-          <span class="flex items-center gap-1.5 text-slate-400">
-            <i data-lucide="compass" class="w-3.5 h-3.5 text-rose-300"></i>
-            Declinación magnética
-          </span>
-          <span id="infoDeclinationValue" class="font-bold text-rose-300">—</span>
-        </div>
         <div id="infoToggles">
         <div class="info-tgrow">
           <button id="infoTogglePoints" type="button" class="info-tg" style="display:none"><i data-lucide="map-pin" class="w-4 h-4"></i><span>Puntos</span></button>

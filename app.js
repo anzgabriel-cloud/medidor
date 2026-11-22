@@ -830,7 +830,7 @@ document.getElementById('closePoiBtn').onclick = (e) => { e.preventDefault(); e.
   document.getElementById('savedDrawer').onclick = (e) => { if (e.target.id === 'savedDrawer') { document.getElementById('savedDrawer').classList.add('hidden'); } };
   const savedPanel = document.getElementById('savedDrawerPanel');
   if (savedPanel) savedPanel.onclick = (e) => e.stopPropagation();
-  document.getElementById('cancelSaveBtn').onclick = () => document.getElementById('saveModal').classList.add('hidden');
+  document.getElementById('cancelSaveBtn').onclick = () => { window.MedidorSaveHook = null; document.getElementById('saveModal').classList.add('hidden'); };
   document.getElementById('confirmSaveBtn').onclick = confirmSave;
   document.getElementById('poiNameClear').onclick = (e) => {
     e.preventDefault(); e.stopPropagation();
@@ -1749,7 +1749,7 @@ function updateMetrics(areaM2, distM) {
   liveArea = areaM2; liveDist = distM;
   updateLiveBadge();
 }
-const APP_VERSION = '2026.11.21-v2-43';
+const APP_VERSION = '2026.11.22-v2-45';
 let liveSelfIntersect = false; // el polígono se cruza a sí mismo (los marcadores rojos ya lo señalan)
 function updateSelfIntersectWarning(show) {
   const v = !!show;
@@ -2219,7 +2219,6 @@ function updateInfoToggleUI() {
   if (angBtn) angBtn.className = 'info-tg' + (inspectShowAngles ? ' on tg-ang' : '');
   if (coordBtn) coordBtn.className = 'info-tg' + (inspectShowCoords ? ' on tg-crd' : '');
 
-  document.getElementById('infoDeclination')?.classList.add('hidden');   // la declinación ya no se muestra en la consulta
 }
 
 function showMeasurementInfo(item) {
@@ -2233,7 +2232,6 @@ function showMeasurementInfo(item) {
   inspectShowCoords = false;
   const stats = computeItemStats(item);
   const fmt = new Intl.NumberFormat('es-AR', { maximumFractionDigits: 2 });
-  const fmt0 = new Intl.NumberFormat('es-AR', { maximumFractionDigits: 0 });
   const color = item.color || '#00ff66';
   setInfoActions(null, item);
   document.getElementById('infoColorDot').style.background = color;
@@ -2365,7 +2363,6 @@ function showPoiInfo(p) {
     </div>`;
   document.getElementById('infoCopyPoiCoords').onclick = (e) => copyToClipboard(`${(+p.lat).toFixed(6)}, ${(+p.lng).toFixed(6)}`, e.currentTarget);   // decimal: lo entiende cualquier mapa
   loadInfoElevForPoi(p);
-  document.getElementById('infoDeclination')?.classList.add('hidden');
   document.getElementById('infoToggles')?.classList.add('hidden');
   const main = document.getElementById('mainControls');
   if (main) main.classList.add('hidden');
@@ -3729,6 +3726,7 @@ function openPoiDrawer() {
 
 // ========== SAVE / LOAD ==========
 function openSaveModal() {
+  window.MedidorSaveHook = null;   // rutas.js usa el mismo cuadro con su propio guardado
   if (!drawingActive && !trackMode) return;
   if (isLocked) return toast({ type: 'warning', title: 'Medición bloqueada', message: 'Entrá en Editar para modificarla.' });
   if (points.length < 2) return toast({ type: 'warning', title: 'Muy pocos puntos', message: 'Agregá al menos 2 puntos antes de guardar.' });
@@ -3747,6 +3745,12 @@ function openSaveModal() {
 }
 
 function confirmSave() {
+  if (window.MedidorSaveHook) {      // guardado de una ruta a mano alzada (rutas.js)
+    const hook = window.MedidorSaveHook; window.MedidorSaveHook = null;
+    document.getElementById('saveModal').classList.add('hidden');
+    const ne = document.getElementById('saveNoteInput');
+    return hook(document.getElementById('saveNameInput').value.trim(), ne ? ne.value.trim() : '');
+  }
   if (points.length < 2) return toast({ type: 'warning', title: 'Muy pocos puntos', message: 'Agregá al menos 2 puntos.' });
   const prev = editingId ? saved.find(s => s.id === editingId) : null;
   const name = document.getElementById('saveNameInput').value.trim() || (prev ? prev.name : `Medición ${saved.length + 1}`);
@@ -4253,7 +4257,7 @@ function applyBackupModel(model) {
     sigs.add(sg);
     saved.push({
       id: Date.now().toString() + Math.random().toString(16).slice(2),
-      name: m.name, mode: m.mode, color: m.color, date: m.date || today,
+      name: m.name, note: m.note || '', mode: m.mode, color: m.color, date: m.date || today,
       points: m.points, visible: true
     });
     count++;
@@ -4546,7 +4550,6 @@ async function getItemProfile(item) {
   return item.prof;
 }
 
-const elevCard = (inner) => `<div id="infoElev" class="col-span-2 bg-slate-950/80 rounded-xl p-2.5 border border-slate-800">${inner}</div>`;
 const elevMsg = (t) => `<div class="text-[10px] text-slate-400 uppercase">Altitud s.n.m.</div><div class="text-[11px] text-slate-500">${t}</div>`;
 const elevFail = '<span>No disponible sin conexión.</span> <button id="infoElevRetry" class="underline text-amber-300">Reintentar</button>';
 function setInfoElev(html, itemOrPoi, retry) {

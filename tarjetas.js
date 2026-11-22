@@ -26,6 +26,7 @@
     '<button id="xCloseBtn" type="button" class="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-slate-800 border border-slate-600 text-slate-200 text-xs font-semibold flex-shrink-0" aria-label="Cerrar consulta">' +
     '<i data-lucide="x" class="w-4 h-4"></i> Cerrar</button></div></div>' +
     '<div id="xMetrics" class="grid grid-cols-1 gap-1.5"></div>' +
+    '<div id="xActions" class="hidden flex gap-1.5 mt-2"></div>' +
     '</div></div>';
   document.body.appendChild(el);
 
@@ -41,7 +42,7 @@
       });
       h += '</div>';
     });
-    if (extra) h += '<div class="mt-1.5 pt-1.5 border-t-2 border-slate-700 text-[11px] text-slate-300 break-words">' + esc(extra) + '</div>';
+    if (extra) h += '<div class="mt-1.5 pt-1.5 border-t-2 border-slate-700 text-[11px] text-slate-300 break-words" style="white-space:pre-line">' + esc(extra) + '</div>';
     return h + '</div>';
   }
 
@@ -80,7 +81,7 @@
     el.classList.add('hidden');
     try { if (c.onClose) c.onClose(); } catch (e) {}
   }
-  // spec: { color, title, meta, metrics: [[{label,value,unit,sub,cls}]], extra, rows: [{icon,label,cls,run}], onClose }
+  // spec: { color, title, meta, metrics: [[{label,value,unit,sub,cls}]], extra, rows: [{icon,label,cls,run}] (menú ⋯), actions: [{icon,label,cls,run}] (botones abajo), onClose }
   function open(spec) {
     if (cur) close();
     try { if (typeof inspectItem !== 'undefined' && (inspectItem || inspectPoi) && typeof hideMeasurementInfo === 'function') hideMeasurementInfo(); } catch (e) {}
@@ -89,6 +90,18 @@
     $('xName').textContent = spec.title || '';
     $('xMeta').textContent = spec.meta || '';
     $('xMetrics').innerHTML = metricsHtml(spec.metrics, spec.extra);
+    // Con 'rows' se muestra el menú ⋯; con 'actions', botones abajo del panel (sin menú)
+    $('xMenuBtn').classList.toggle('hidden', !(spec.rows && spec.rows.length));
+    var ab = $('xActions'); ab.innerHTML = '';
+    (spec.actions || []).forEach(function (a) {
+      var b = document.createElement('button'); b.type = 'button';
+      b.className = 'flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-slate-800 border border-slate-600 text-xs font-semibold ' + (a.cls || 'text-slate-200');
+      b.innerHTML = '<i data-lucide="' + esc(a.icon) + '" class="w-4 h-4"></i> ' + esc(a.label);
+      b.onclick = function () { if (a.run) a.run(); };
+      ab.appendChild(b);
+    });
+    ab.classList.toggle('hidden', !(spec.actions && spec.actions.length));
+    if (window.lucide) lucide.createIcons();
     el.classList.remove('hidden');
   }
   $('xMenuBtn').onclick = openMenu;

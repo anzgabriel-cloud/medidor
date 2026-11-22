@@ -59,23 +59,39 @@
   }
 
   // --- Dibujo ---
-  var dash = '9,6';
-  function removeDraftLayers() {
-    var m = getMap(); if (!m) return;
-    [draftLine, liveLine, endMark, startMark].forEach(function (l) { if (l) m.removeLayer(l); });
-    draftLine = liveLine = endMark = startMark = null;
+  // Tipo de línea: rayas (raya - espacio) o puntos (punto - espacio); se recuerda la última elegida
+  var lstyle = (function () { try { return localStorage.getItem('medidor_ruta_estilo') === 'dot' ? 'dot' : 'dash'; } catch (e) { return 'dash'; } })();
+  function dashOf(s) { return s === 'dot' ? '1,11' : '9,6'; }
+  // Flechas de sentido: inicio rojo, final azul (apuntan en el sentido en que se dibujó)
+  var RED = '#ef4444', BLUE = '#3b82f6';
+  function bearingDeg(a, b) { var dx = (b[1] - a[1]) * Math.cos((a[0] + b[0]) / 2 * Math.PI / 180), dy = b[0] - a[0]; return Math.atan2(dx, dy) * 180 / Math.PI; }
+  function arrowMarker(pts, atEnd, fill) {
+    var m = getMap(); if (!m || pts.length < 2) return null;
+    var p0 = atEnd ? pts[pts.length - 1] : pts[0], q = null, i;
+    for (i = 1; i < pts.length; i++) {          // primer punto a más de ~3 m, para que la dirección sea estable
+      var c = atEnd ? pts[pts.length - 1 - i] : pts[i];
+      if (m.distance(p0, c) > 3 || i === pts.length - 1) { q = c; break; }
+    }
+    var deg = atEnd ? bearingDeg(q, p0) : bearingDeg(p0, q);
+    var svg = '<svg width="28" height="28" viewBox="0 0 28 28" style="transform:rotate(' + deg.toFixed(1) + 'deg)" aria-hidden="true"><path d="M14 2 L23 25 L14 19.5 L5 25 Z" fill="' + fill + '" stroke="#fff" stroke-width="2" stroke-linejoin="round"/></svg>';
+    return L.marker(p0, { icon: L.divIcon({ className: 'free-arrow', html: svg, iconSize: [28, 28], iconAnchor: [14, 14] }), interactive: false, keyboard: false });
   }
+  var MAGNET_R = 17, SNAP_R = 36, SNAP_EXIT = 20;   // radio visible del imán, radio de captura y distancia que debe alejarse el dedo
   function drawDraft() {
     persistDraft();
     var m = getMap(); if (!m || !ui) return;
     var col = curColor(), pts = allPts();
-    if (!draftLine) draftLine = L.polyline(pts, { color: col, weight: 4, opacity: 0.95, dashArray: dash, lineCap: 'round', interactive: false }).addTo(m);
-    else draftLine.setLatLngs(pts).setStyle({ color: col });
+    if (!draftLine) draftLine = L.polyline(pts, { color: col, weight: 4, opacity: 0.95, dashArray: dashOf(lstyle), lineCap: 'round', interactive: false }).addTo(m);
+    else draftLine.setLatLngs(pts).setStyle({ color: col, dashArray: dashOf(lstyle) });
     if (endMark) { m.removeLayer(endMark); endMark = null; }
     if (startMark) { m.removeLayer(startMark); startMark = null; }
     if (pts.length) {
-      startMark = L.circleMarker(pts[0], { radius: 5, color: '#fff', weight: 2, fillColor: col, fillOpacity: 1, interactive: false }).addTo(m);
-      endMark = L.circleMarker(pts[pts.length - 1], { radius: 8, color: '#fff', weight: 3, fillColor: col, fillOpacity: 0.55, interactive: false }).addTo(m);
+      var end = pts[pts.length - 1];
+      // el círculo del final es el "imán": al apoyar el dedo cerca de él, el trazo nuevo arranca desde el final exacto
+      var ring = L.circleMarker(end, { radius: MAGNET_R, color: '#fff', weight: 2, dashArray: '3,5', fillColor: col, fillOpacity: 0.22, interactive: false });
+      var sa = arrowMarker(pts, false, RED), ea = arrowMarker(pts, true, BLUE);
+      startMark = L.layerGroup(sa ? [sa] : []).addTo(m);
+      endMark = L.layerGroup([ring].concat(ea ? [ea] : [])).addTo(m);
     }
     syncUI();
   }
@@ -99,11 +115,12 @@
     savedLayers = {};
     saved.forEach(function (r) {
       if (r.hidden) return;
-      var line = L.polyline(r.pts, { color: safeColor(r.color), weight: 4, opacity: 0.9, dashArray: dash, lineCap: 'round', interactive: false });
+      var line = L.polyline(r.pts, { color: safeColor(r.color), weight: 4, opacity: 0.9, dashArray: dashOf(r.style), lineCap: 'round', interactive: false });
+      var sa = arrowMarker(r.pts, false, RED), ea = arrowMarker(r.pts, true, BLUE);
       // trazo ancho e invisible: facilita tocar la ruta para consultarla
       var hit = L.polyline(r.pts, { color: '#000', weight: 26, opacity: 0.01, interactive: true });
       hit.on('click', function (ev) { selectRoute(r, ev); });
-      savedLayers[r.id] = L.layerGroup([line, hit]).addTo(m);
+      savedLayers[r.id] = L.layerGroup([line, hit].concat(sa ? [sa] : [], ea ? [ea] : [])).addTo(m);
     });
     var n = $('fmFreeN'); if (n) n.textContent = String(saved.length);
   }
@@ -126,16 +143,13 @@
     clearHl();
     hlLayer = L.polyline(pts, { color: '#fff', weight: 9, opacity: 0.5, interactive: false }).addTo(m);
     window.MedidorConsulta.open({
-      color: rt.color, title: 'Ruta a mano alzada', meta: pts.length + ' puntos · ' + d + ' · distancia aproximada',
+      color: rt.color, title: rt.name || 'Ruta a mano alzada', meta: pts.length + ' puntos · ' + d + ' · distancia aproximada',
       metrics: [[{ label: 'Distancia', value: '≈ ' + nf.format(T.v), unit: T.u, sub: lenSub(total), cls: 'text-violet-300' },
                  { label: 'Recta inicio-fin', value: nf.format(S.v), unit: S.u, sub: straight > 1 ? brg0(brg) + '° V · ' + bearingCardinal(brg) : lenSub(straight) }]],
-      extra: 'Inicio: ' + fmtCoord(a.lat, a.lng) + '   Fin: ' + fmtCoord(b.lat, b.lng),
-      rows: [
-        { icon: 'crosshair', label: 'Ir', cls: 'text-slate-200', run: function () { try { m.fitBounds(L.latLngBounds(pts), { padding: [30, 30] }); } catch (e) {} } },
-        { icon: 'copy', label: 'Copiar coordenadas', cls: 'text-sky-300', run: function () { copyToClipboard(pts.map(function (p) { return p[0].toFixed(6) + ', ' + p[1].toFixed(6); }).join('\n'), null); } },
-        { icon: 'eye-off', label: 'Ocultar', cls: 'text-slate-200', run: function () { rt.hidden = true; persist(); renderSaved(); window.MedidorConsulta.close(); } },
-        { icon: 'trash-2', label: 'Eliminar', cls: 'text-red-400', run: function () {
-          confirmToast({ title: '¿Eliminar esta ruta de ≈ ' + fmtKm(total) + '?', message: 'No se puede deshacer.', confirmLabel: 'Eliminar', danger: true }).then(function (ok) {
+      extra: (rt.note ? 'Nota: ' + rt.note + '\n' : '') + 'Inicio: ' + fmtCoord(a.lat, a.lng) + '   Fin: ' + fmtCoord(b.lat, b.lng),
+      actions: [
+        { icon: 'trash-2', label: 'Borrar', cls: 'text-red-400', run: function () {
+          confirmToast({ title: '¿Borrar ' + (rt.name ? '“' + rt.name + '”' : 'esta ruta de ≈ ' + fmtKm(total)) + '?', message: 'No se puede deshacer.', confirmLabel: 'Borrar', danger: true }).then(function (ok) {
             if (!ok) return;
             saved = saved.filter(function (x) { return x.id !== rt.id; }); persist(); renderSaved(); window.MedidorConsulta.close();
           });
@@ -158,12 +172,12 @@
   // API de datos (copias de seguridad y "Borrar todo")
   var sig = function (x) { var p = x.pts; return p.length + ':' + p[0][0] + ',' + p[0][1] + ':' + p[p.length - 1][0] + ',' + p[p.length - 1][1]; };
   window.MedidorRutas = {
-    list: function () { return saved.map(function (r) { return { pts: r.pts, color: r.color, date: r.date || new Date(r.ts || Date.now()).toLocaleDateString('es-AR'), dist: r.dist || 0 }; }); },
+    list: function () { return saved.map(function (r) { return { pts: r.pts, name: r.name || '', note: r.note || '', style: r.style === 'dot' ? 'dot' : 'dash', color: r.color, date: r.date || new Date(r.ts || Date.now()).toLocaleDateString('es-AR'), dist: r.dist || 0 }; }); },
     add: function (items) {
       var n = 0, d = 0, have = {}; saved.forEach(function (r) { have[sig(r)] = 1; });
       items.forEach(function (it) {
         var pts = it.pts.map(function (p) { return [Math.round(p[0] * 1e6) / 1e6, Math.round(p[1] * 1e6) / 1e6]; });
-        var x = { id: 'g' + Date.now().toString(36) + Math.random().toString(16).slice(2, 6), pts: pts, color: safeColor(it.color), dist: 0, hidden: false, ts: Date.now(), date: it.date || null };
+        var x = { id: 'g' + Date.now().toString(36) + Math.random().toString(16).slice(2, 6), pts: pts, color: safeColor(it.color), dist: 0, hidden: false, ts: Date.now(), date: it.date || null, name: it.name || '', note: it.note || '', style: it.style === 'dot' ? 'dot' : 'dash' };
         if (have[sig(x)]) { d++; return; }
         have[sig(x)] = 1;
         var m = getMap(), t = 0; for (var i = 1; i < pts.length; i++) t += (m ? m.distance(pts[i - 1], pts[i]) : 0);
@@ -183,11 +197,11 @@
   function lastEnd() { var p = allPts(); return p.length ? p[p.length - 1] : null; }
   function liveRender() {
     var m = getMap(); if (!m || !cur) return;
-    var simp = rdp(cur.px, 1.5);
+    var simp = rdp(cur.snap ? cur.px.slice(1) : cur.px, 1.5);
     var ll = simp.map(function (p) { var c = m.containerPointToLatLng(L.point(p.x, p.y)); return [c.lat, c.lng]; });
     if (cur.anchor) ll.unshift(cur.anchor);
-    if (!liveLine) liveLine = L.polyline(ll, { color: curColor(), weight: 4, opacity: 0.95, dashArray: dash, lineCap: 'round', interactive: false }).addTo(m);
-    else liveLine.setLatLngs(ll).setStyle({ color: curColor() });
+    if (!liveLine) liveLine = L.polyline(ll, { color: curColor(), weight: 4, opacity: 0.95, dashArray: dashOf(lstyle), lineCap: 'round', interactive: false }).addTo(m);
+    else liveLine.setLatLngs(ll).setStyle({ color: curColor(), dashArray: dashOf(lstyle) });
     var base = allPts(); updateNum(dist(base.concat(cur.anchor ? ll.slice(1) : ll)));
   }
   function finishStroke(commit) {
@@ -196,7 +210,7 @@
     if (!c || !m) { drawDraft(); return; }
     var len = 0; for (var i = 1; i < c.px.length; i++) len += Math.hypot(c.px[i].x - c.px[i - 1].x, c.px[i].y - c.px[i - 1].y);
     if (!commit || len < 8) { drawDraft(); return; }       // un toque suelto no hace nada
-    var simp = rdp(c.px, 2.5);
+    var simp = rdp(c.snap ? c.px.slice(1) : c.px, 2.5);
     var ll = simp.map(function (p) { var q = m.containerPointToLatLng(L.point(p.x, p.y)); return [Math.round(q.lat * 1e6) / 1e6, Math.round(q.lng * 1e6) / 1e6]; });
     if (c.anchor) ll.unshift(c.anchor);                     // imán: el tramo nuevo nace exacto en el final del anterior
     if (ll.length >= 2) { strokes.push(ll); redo = []; }
@@ -212,12 +226,15 @@
     }
     multi = false;
     var m = getMap(); if (!m) return;
-    cur = { px: [pt(e)], anchor: lastEnd() };
+    var p0 = pt(e), an = lastEnd(), snap = false;
+    if (an) { var ep = m.latLngToContainerPoint(L.latLng(an[0], an[1])); if (Math.hypot(p0.x - ep.x, p0.y - ep.y) <= SNAP_R) { snap = true; p0 = { x: ep.x, y: ep.y }; } }
+    cur = { px: [p0], anchor: an, snap: snap, ign: snap };   // imán: dentro del radio, el trazo parte del final exacto y se ignora el temblor inicial
     try { e.target.setPointerCapture && e.target.setPointerCapture(e.pointerId); } catch (x) {}
   }
   function onMove(e) {
     if (!active || !cur || multi || !pointers[e.pointerId]) return;
     var p = pt(e), l = cur.px[cur.px.length - 1];
+    if (cur.ign) { if (Math.hypot(p.x - l.x, p.y - l.y) < SNAP_EXIT) return; cur.ign = false; }
     if (Math.hypot(p.x - l.x, p.y - l.y) < 2) return;
     cur.px.push(p);
     if (e.cancelable) e.preventDefault();
@@ -293,13 +310,37 @@
     if (allPts().length > 20 && !window.confirm('¿Descartar toda la ruta sin guardar?')) return;
     strokes = []; redo = []; drawDraft(); setDrawing(false);
   };
+  // Guardar: pide nombre y nota (mismo cuadro que las otras mediciones)
   $('freeSaveBtn').onclick = function () {
     var pts = allPts(); if (pts.length < 2) return;
+    var modal = $('saveModal'), ni = $('saveNameInput');
+    if (!modal || !ni) { commitRoute('', ''); return; }
+    ni.value = 'Ruta ' + (saved.length + 1);
+    var no = $('saveNoteInput'); if (no) no.value = '';
+    var h3 = modal.querySelector('h3'); if (h3) h3.textContent = 'Guardar ruta';
+    var cb = $('confirmSaveBtn'); if (cb) cb.textContent = 'Guardar';
+    window.MedidorSaveHook = commitRoute;
+    modal.classList.remove('hidden');
+  };
+  function commitRoute(name, note) {
+    var pts = allPts(); if (pts.length < 2) return;
     var d = dist(pts);
-    saved.push({ id: 'g' + Date.now().toString(36), pts: pts, color: curColor(), dist: d, hidden: false, ts: Date.now() });
+    saved.push({ id: 'g' + Date.now().toString(36), pts: pts, color: curColor(), dist: d, hidden: false, ts: Date.now(), name: name || ('Ruta ' + (saved.length + 1)), note: note || '', style: lstyle });
     persist(); strokes = []; redo = []; renderSaved(); drawDraft(); setDrawing(false);   // fin de la sesión
     if (typeof toast === 'function') toast({ type: 'success', title: 'Ruta guardada', message: '≈ ' + fmtKm(d) + '. La ves en Guardados > Rutas.', duration: 2500 });
-  };
+  }
+  // Tipo de línea
+  function syncStyleBtns() {
+    document.querySelectorAll('#freeStyleRow [data-free-style]').forEach(function (b) { b.setAttribute('aria-pressed', b.getAttribute('data-free-style') === lstyle ? 'true' : 'false'); });
+  }
+  document.querySelectorAll('#freeStyleRow [data-free-style]').forEach(function (b) {
+    b.onclick = function () {
+      lstyle = b.getAttribute('data-free-style') === 'dot' ? 'dot' : 'dash';
+      try { localStorage.setItem('medidor_ruta_estilo', lstyle); } catch (e) {}
+      syncStyleBtns(); drawDraft();
+    };
+  });
+  syncStyleBtns();
   var pal = $('colorPalette');
   if (pal) pal.addEventListener('click', function () { if (active) setTimeout(drawDraft, 0); });
 
@@ -311,8 +352,8 @@
     saved.forEach(function (r) {
       var row = document.createElement('div'); row.className = 'ring-row';
       var dot = document.createElement('span'); dot.className = 'ring-dot'; dot.style.background = safeColor(r.color); if (r.hidden) dot.style.opacity = '.3';
-      var nm = document.createElement('div'); nm.className = 'ring-nm'; nm.textContent = 'Ruta ≈ ' + fmtKm(r.dist || 0);
-      var sm = document.createElement('small'); sm.textContent = new Date(r.ts).toLocaleDateString('es-AR') + (r.hidden ? ' · oculta' : ''); nm.appendChild(sm);
+      var nm = document.createElement('div'); nm.className = 'ring-nm'; nm.textContent = r.name || ('Ruta ≈ ' + fmtKm(r.dist || 0));
+      var sm = document.createElement('small'); sm.textContent = (r.name ? '≈ ' + fmtKm(r.dist || 0) + ' · ' : '') + new Date(r.ts).toLocaleDateString('es-AR') + (r.hidden ? ' · oculta' : ''); nm.appendChild(sm);
       var go = document.createElement('button'); go.type = 'button'; go.className = 'ring-go'; go.textContent = 'Ir'; go.setAttribute('aria-label', 'Ir a la ruta');
       go.onclick = function () {
         var m = getMap(); if (!m) return;

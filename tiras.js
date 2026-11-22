@@ -26,6 +26,10 @@
   // Si se abre buscar/carpeta estando en medición, se pasa a Ver (así la regla se desmarca)
   function leaveMeasure() { if ($('viewMedirBtn').getAttribute('aria-pressed') === 'true') click('viewVerBtn'); }
   $('tpSearch').onclick = function () {
+    if (typeof lineBusy === 'function' && lineBusy()) {
+      if (typeof toast === 'function') toast({ type: 'info', title: 'Distancia en curso', message: 'Guardala o cancelala antes de abrir Buscar o las listas.', duration: 2500 });
+      return;
+    }
     var open = !body.classList.contains('search-open');
     closeFolder();
     if (!open) { closeSearch(); return; }
@@ -64,6 +68,10 @@
 
   // --- Guardados: menú con POI y Mediciones (abren las listas de siempre) ---
   $('tpFolder').onclick = function () {
+    if (typeof lineBusy === 'function' && lineBusy()) {
+      if (typeof toast === 'function') toast({ type: 'info', title: 'Distancia en curso', message: 'Guardala o cancelala antes de abrir Buscar o las listas.', duration: 2500 });
+      return;
+    }
     var m = $('folderMenu'), open = m.classList.contains('hidden');
     closeSearch();
     if (open) leaveMeasure();

@@ -1204,8 +1204,9 @@ function updateLiveSegmentLabels() {
       const brg = trueBearing(a, b);
       const decl = magneticDeclination((a.lat + b.lat) / 2, (a.lng + b.lng) / 2);
       const mag = magneticBearing(brg, decl);
-      html = `<span style="line-height:1.2">${distTxt}<br><span style="font-size:9.5px">${brg0(brg)}° V · ${brg0(mag)}° M</span></span>`;
-      iconW = 90; iconH = 36;
+      const brgShown = compassNorth === 'M' ? mag : brg;    // el norte elegido en Ajustes
+      html = `<span style="line-height:1.2;display:block;text-align:center"><span style="font-size:14px">${distTxt}</span><br><span style="font-size:13px;color:#fbbf24;font-weight:800">${brg0(brgShown)}° ${compassNorth === 'M' ? 'M' : 'V'}</span></span>`;
+      iconW = 96; iconH = 42;
     }
     const aPx = map.latLngToContainerPoint(a), bPx = map.latLngToContainerPoint(b);
     const midPx = L.point((aPx.x + bPx.x) / 2, (aPx.y + bPx.y) / 2);
@@ -1514,6 +1515,7 @@ function updateGeometry() {
   }
 }
 function redraw() {
+  try { syncLineBusy(); } catch (e) {}
   scheduleDraftSave();
   midMarkers.forEach(m => map.removeLayer(m));
   labels.forEach(l => map.removeLayer(l));
@@ -1545,9 +1547,10 @@ function redraw() {
       const brg = trueBearing(a, b);
       const decl = magneticDeclination((a.lat + b.lat) / 2, (a.lng + b.lng) / 2);
       const mag = magneticBearing(brg, decl);
-      html = `<span style="font-size:${fontDraw}px;line-height:1.2">${distTxt}<br><span style="font-size:${Math.max(8, fontDraw * 0.85)}px;opacity:0.95">${brg0(brg)}° V · ${brg0(mag)}° M</span></span>`;
-      iconW = Math.round(fontDraw * 7.5);
-      iconH = Math.round(fontDraw * 2.8);
+      const brgShown = compassNorth === 'M' ? mag : brg;     // el norte elegido en Ajustes (V o M)
+      html = `<span style="font-size:${(fontDraw * 1.15).toFixed(1)}px;line-height:1.2">${distTxt}<br><span style="font-size:${(fontDraw * 1.05).toFixed(1)}px;color:#fbbf24;font-weight:800">${brg0(brgShown)}° ${compassNorth === 'M' ? 'M' : 'V'}</span></span>`;
+      iconW = Math.round(fontDraw * 6);
+      iconH = Math.round(fontDraw * 3.2);
     } else {
       html = `<span style="font-size:${fontDraw}px">${distTxt}</span>`;
       iconW = Math.round(fontDraw * 4.2);
@@ -1745,7 +1748,7 @@ function updateMetrics(areaM2, distM) {
   liveArea = areaM2; liveDist = distM;
   updateLiveBadge();
 }
-const APP_VERSION = '2026.11.21-v2-41';
+const APP_VERSION = '2026.11.21-v2-42';
 let liveSelfIntersect = false; // el polígono se cruza a sí mismo (los marcadores rojos ya lo señalan)
 function updateSelfIntersectWarning(show) {
   const v = !!show;
@@ -2122,7 +2125,7 @@ function refreshInspectOverlays() {
     }
   }
 
-  if (inspectShowPoints && stats.isPoly) {
+  if (inspectShowPoints) {
     // Puntos numerados en el orden en que se crearon, hacia afuera de la superficie
     const z = map.getZoom();
     const scale = Math.pow(1.18, z - 15);
@@ -2136,7 +2139,16 @@ function refreshInspectOverlays() {
     latlngs.forEach((ll, vi) => {
       const vPx = map.latLngToContainerPoint(ll);
       let dx = 0, dy = -1;
-      if (cPx) { dx = vPx.x - cPx.x; dy = vPx.y - cPx.y; const l = Math.sqrt(dx * dx + dy * dy) || 1; dx /= l; dy /= l; }
+      if (stats.isPoly && cPx) { dx = vPx.x - cPx.x; dy = vPx.y - cPx.y; const l = Math.sqrt(dx * dx + dy * dy) || 1; dx /= l; dy /= l; }
+      else if (!stats.isPoly) {
+        // línea: en los extremos, hacia afuera del trazado; en los intermedios, al costado
+        const pv = vi > 0 ? map.latLngToContainerPoint(latlngs[vi - 1]) : null;
+        const nx = vi < latlngs.length - 1 ? map.latLngToContainerPoint(latlngs[vi + 1]) : null;
+        if (pv && nx) { dx = -(nx.y - pv.y); dy = nx.x - pv.x; }
+        else if (nx) { dx = vPx.x - nx.x; dy = vPx.y - nx.y; }
+        else if (pv) { dx = vPx.x - pv.x; dy = vPx.y - pv.y; }
+        const l = Math.sqrt(dx * dx + dy * dy) || 1; dx /= l; dy /= l;
+      }
       const off = 20 + fontPx * 0.4;
       const w = Math.round(fontPx * 2.6), hh = Math.round(fontPx * 1.7);
       inspectLayers.push(L.marker(map.containerPointToLatLng(L.point(vPx.x + dx * off, vPx.y + dy * off)), {
@@ -2191,9 +2203,9 @@ function updateInfoToggleUI() {
   const coordBtn = document.getElementById('infoToggleCoords');
   const ptsBtn = document.getElementById('infoTogglePoints');
   const isPolyItem = !!(inspectItem && inspectItem.mode === 'polygon');
-  if (!isPolyItem && inspectShowPoints) { inspectShowPoints = false; inspectShowSegs = true; }
+  const isLineItem = !!(inspectItem && inspectItem.mode === 'line');
   if (isPolyItem && inspectShowBearings) { inspectShowBearings = false; inspectShowPoints = true; }   // las superficies ya no muestran rumbos
-  if (ptsBtn) { ptsBtn.style.display = isPolyItem ? '' : 'none'; ptsBtn.className = 'info-tg' + (inspectShowPoints ? ' on tg-pts' : ''); }
+  if (ptsBtn) { ptsBtn.style.display = (isPolyItem || isLineItem) ? '' : 'none'; ptsBtn.className = 'info-tg' + (inspectShowPoints ? ' on tg-pts' : ''); }
   if (brgBtn) brgBtn.style.display = isPolyItem ? 'none' : '';
   const segLbl = document.getElementById('infoSegsLabel'); if (segLbl) segLbl.textContent = isPolyItem ? 'Lados' : 'Dist.';
   const copyBtn = document.getElementById('infoCopyCoordsBtn');
@@ -2290,12 +2302,12 @@ function showMeasurementInfo(item) {
         <div class="text-[10px] text-slate-400 uppercase">Distancia</div>
         <div class="text-base font-bold text-sky-400">${fmt.format(lenMain(stats.total).v)} <span class="text-xs font-normal">${lenMain(stats.total).u}</span></div>
         <div class="text-[11px] text-slate-500">${lenSub(stats.total)}</div>
-      </div>${bearingHtml}`;
+      </div>${bearingHtml}
+      <div id="infoElev" class="flex-1 min-w-0 pl-3 border-l-2 border-slate-700 text-[11px] text-slate-300"></div>`;
   }
   // Una sola tarjeta: datos arriba y altitud abajo
   metrics.innerHTML = `<div class="col-span-2 bg-slate-950/80 rounded-xl px-2.5 py-2 border border-slate-800">
     <div class="flex items-start gap-3">${topHtml}</div>
-    ${stats.isPoly ? '' : '<div id="infoElev" class="mt-1.5 pt-1.5 border-t-2 border-slate-700"></div>'}
   </div>`;
   inspectPoi = null;
   document.getElementById('infoToggles')?.classList.remove('hidden');
@@ -2514,6 +2526,7 @@ function clearActiveMeasurement(opts = {}) {
 
 /** Marca el modo activo en el panel para que los botones de acción tomen su color */
 function updateModeTheme() {
+  try { syncLineBusy(); } catch (e) {}
   const m = poiMode ? 'poi' : (trackMode ? 'track' : mode);
   const mc = document.getElementById('mainControls');
   mc?.setAttribute('data-mode', m);
@@ -2522,6 +2535,9 @@ function updateModeTheme() {
 // ========== VISTA: Ver / Medir ==========
 // Ver = mapa limpio, solo consulta. Medir = panel de medición. La app arranca en Ver.
 let appView = 'ver';
+/** Distancia sin guardar (nueva o en edición): se bloquean Buscar y las listas, que sacarían al usuario del modo y dan errores */
+function lineBusy() { return mode === 'line' && !poiMode && !trackMode && appView === 'medir' && (points.length > 0 || !!editingId); }
+function syncLineBusy() { document.body.classList.toggle('line-busy', lineBusy()); }
 function hasPendingWork() { return points.length > 0 || gpsWatchId !== null || !!editingId; }
 function ensureMedir() { if (appView !== 'medir') { appView = 'medir'; applyAppView(); } }
 function setAppView(v) {
@@ -3918,7 +3934,8 @@ function infoActionRows(item, poi) {
       ? { key: 'nav', icon: 'navigation', label: 'Navegar', cls: 'text-slate-500', off: true, run: () => {} }
       : { key: 'nav', icon: 'navigation', label: navigating ? 'Dejar de navegar' : 'Navegar', short: navigating ? 'Detener' : 'Navegar', cls: navigating ? 'text-rose-300' : 'text-sky-300', run: () => { hideMeasurementInfo(); toggleNavPoi(poi); } });
   }
-  const onSurface = !poi && item && item.mode === 'polygon';   // en una superficie ya estás "en el elemento": solo Editar y Borrar
+  const onSurface = !poi && item && (item.mode === 'polygon' || item.mode === 'line');   // ya estás "en el elemento": sin Navegar ni Ir
+  if (!poi && item && item.mode === 'line') rows.push({ key: 'profile', icon: 'mountain', label: 'Ver perfil', short: 'Ver perfil', cls: 'text-amber-300', run: () => openProfile(item) });
   if (!poi && item && !onSurface) {
     const tgt = navTargetForItem(item);
     if (tgt) {
@@ -4569,16 +4586,9 @@ function loadInfoElevForItem(item) {
     getItemProfile(item).then(p => {
       if (!p) return setInfoElev(elevMsg(elevFail), item, retry);
       const st = profileStats(p.z);
-      setInfoElev(`<div class="flex items-center justify-between gap-2">
-        <div class="min-w-0">
-          <div class="text-[10px] text-slate-400 uppercase">Altitud s.n.m.</div>
-          <div class="text-sm font-bold text-amber-300">${fmtElev(st.start)} → ${fmtElev(st.end)}</div>
-          <div class="text-[11px] text-slate-500">subida +${fmtElev(st.up)} · bajada −${fmtElev(st.down)}</div>
-        </div>
-        <button id="infoProfileBtn" class="flex-shrink-0 text-[11px] font-bold px-3 py-2 rounded-lg border bg-amber-500/20 text-amber-200 border-amber-500/40 inline-flex items-center gap-1"><i data-lucide="mountain" class="w-3.5 h-3.5"></i> Ver perfil</button>
-      </div>`, item);
-      const b = document.getElementById('infoProfileBtn');
-      if (b) b.onclick = () => openProfile(item);
+      setInfoElev(`<div class="text-[10px] text-slate-400 uppercase">Altitud s.n.m.</div>
+        <div class="text-sm font-bold text-amber-300 whitespace-nowrap">${fmtElev(st.start).replace(/\s*(m|ft)$/, '')} → ${fmtElev(st.end)}</div>
+        <div class="text-[11px] text-slate-500 whitespace-nowrap">+${fmtElev(st.up).replace(/\s*(m|ft)$/, '')} · −${fmtElev(st.down)}</div>`, item);
     });
   }
 }
@@ -4646,7 +4656,7 @@ function drawProfile(body, item, p) {
       ${stat('Mínima', fmtElev(st.min), 'text-sky-300')}${stat('Máxima', fmtElev(st.max), 'text-rose-300')}
       ${stat('Subida', '+' + fmtElev(st.up), 'text-emerald-300')}${stat('Bajada', '−' + fmtElev(st.down), 'text-amber-300')}
     </div>
-    <p class="text-[10px] text-slate-500 mt-2 leading-snug">Datos: Copernicus DEM (90 m) vía Open-Meteo. Son aproximados: pueden variar varios metros y, bajo monte, incluyen la copa de los árboles.</p>`;
+    <p class="text-[10px] text-slate-500 mt-2 leading-snug">Datos: modelo digital de elevación Copernicus (celdas de 90 m) vía Open-Meteo; si no responde, SRTM (30 m) vía OpenTopoData. Es un modelo de superficie global, no un relevamiento: incluye techos y copas de árboles, no capta detalles menores a ~90 m (terrazas, desniveles chicos) y en espejos de agua o zonas urbanas puede desviarse varios metros. Tomalo como orientativo.</p>`;
   const svg = document.getElementById('profSvg');
   const cur = document.getElementById('profCur'), dot = document.getElementById('profDot'), ro = document.getElementById('profReadout');
   const move = (ev) => {

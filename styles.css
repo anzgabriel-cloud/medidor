@@ -2,7 +2,7 @@
    Separado del HTML para mejor mantenimiento
 */
 
-:root { --app-version: "2026.11.21-v2-41"; }
+:root { --app-version: "2026.11.21-v2-42"; }
 
 .leaflet-control-attribution { font-size: 9px !important; background: rgba(15,23,42,0.7) !important; color: #94a3b8 !important; }
 .leaflet-control-attribution a { color: #94a3b8 !important; }
@@ -770,7 +770,7 @@ button.poi-color { border-color: rgba(255,255,255,.4); }
 
 /* v2-27: Consulta de mediciones: acciones a la vista y fila de "mostrar" compacta */
 #infoActions { margin-top: 4px; }
-.info-tgrow { display: grid; grid-template-columns: repeat(4, 1fr); background: rgba(2,6,23,.8); border: 1px solid #1e293b; border-radius: 12px; overflow: hidden; }
+.info-tgrow { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; background: rgba(2,6,23,.8); border: 1px solid #1e293b; border-radius: 12px; overflow: hidden; }
 .info-tg { display: flex; align-items: center; justify-content: center; gap: 4px; padding: 9px 2px; font-size: 11px; font-weight: 700; color: #94a3b8; background: none; border: 0; -webkit-tap-highlight-color: transparent; touch-action: manipulation; }
 .info-tg + .info-tg { border-left: 2px solid #334155; }
 .info-tg:disabled { opacity: .35; }
@@ -821,3 +821,6 @@ body.lbl-off .dist-label, body.lbl-off .poi-label, body.lbl-off .item-name-tag {
 
 /* Con el panel de Consulta abierto, las columnas de íconos se ocultan (vuelven al cerrarlo) */
 body:has(#infoPanel:not(.hidden)) .strip { opacity: 0; visibility: hidden; pointer-events: none; }
+
+.info-tgrow .info-tg { font-size: 10.5px; padding-left: 0; padding-right: 0; }
+body.line-busy #tpSearch, body.line-busy #tpFolder { opacity: .35; }

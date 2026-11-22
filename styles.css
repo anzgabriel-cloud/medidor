@@ -2,7 +2,7 @@
    Separado del HTML para mejor mantenimiento
 */
 
-:root { --app-version: "2026.11.22-v2-45"; }
+:root { --app-version: "2026.11.22-v2-46"; }
 
 .leaflet-control-attribution { font-size: 9px !important; background: rgba(15,23,42,0.7) !important; color: #94a3b8 !important; }
 .leaflet-control-attribution a { color: #94a3b8 !important; }
@@ -665,7 +665,7 @@ body.ui-min #toastContainer {
 #ringList .ring-empty , #freeList .ring-empty { margin: 8px 4px; font-size: 14px; color: #d9c8a4; }
 
 /* ===== Ruta a mano alzada ===== */
-#mainControls[data-mode="free"] #panelTitle::before { content: 'Ruta a mano alzada'; }
+#mainControls[data-mode="free"] #panelTitle::before { content: 'Ruta/Sendero a mano alzada'; }
 #mainControls[data-mode="free"] #histRow, #mainControls[data-mode="free"] #poiSizeRow { display: none !important; }
 #modeFreeBtn[aria-pressed="true"] { background: #7c3aed !important; color: #fff !important; border-color: transparent !important; opacity: 1 !important; }
 .ring-neutral { background: rgba(51,65,85,.6); color: #e2e8f0; border-color: rgba(100,116,139,.6); }

@@ -143,7 +143,7 @@
     clearHl();
     hlLayer = L.polyline(pts, { color: '#fff', weight: 9, opacity: 0.5, interactive: false }).addTo(m);
     window.MedidorConsulta.open({
-      color: rt.color, title: rt.name || 'Ruta a mano alzada', meta: pts.length + ' puntos · ' + d + ' · distancia aproximada',
+      color: rt.color, title: rt.name || 'Ruta/Sendero a mano alzada', hideLabel: true, meta: pts.length + ' puntos · ' + d + ' · distancia aproximada',
       metrics: [[{ label: 'Distancia', value: '≈ ' + nf.format(T.v), unit: T.u, sub: lenSub(total), cls: 'text-violet-300' },
                  { label: 'Recta inicio-fin', value: nf.format(S.v), unit: S.u, sub: straight > 1 ? brg0(brg) + '° V · ' + bearingCardinal(brg) : lenSub(straight) }]],
       extra: (rt.note ? 'Nota: ' + rt.note + '\n' : '') + 'Inicio: ' + fmtCoord(a.lat, a.lng) + '   Fin: ' + fmtCoord(b.lat, b.lng),

@@ -2223,6 +2223,7 @@ function updateInfoToggleUI() {
 }
 
 function showMeasurementInfo(item) {
+  clearPoiHighlight();
   inspectItem = item;
   inspectStraight = false;
   const polyItem = item.mode === 'polygon' || item.mode === 'line';
@@ -2328,10 +2329,11 @@ async function copyToClipboard(text, anchor) {
 }
 
 function showPoiInfo(p) {
-  clearInspectLayers();   // quita etiquetas y arcos de una medición consultada antes
+  clearInspectLayers();
   inspectItem = null;
   inspectPoi = p;
   syncFixedCompass();
+  highlightSelectedPoi(p);
   const color = safeColor(p.color, '#f59e0b');
   document.getElementById('infoColorDot').style.background = color;
   document.getElementById('infoName').textContent = p.name || 'POI';
@@ -2372,10 +2374,29 @@ function showPoiInfo(p) {
   lucide.createIcons();
 }
 
+/** Aureola pulsante alrededor del POI seleccionado */
+let poiHaloMarker = null;
+function highlightSelectedPoi(p) {
+  clearPoiHighlight();
+  if (!p || !map) return;
+  const color = safeColor(p.color, '#f59e0b');
+  const icon = L.divIcon({
+    className: '',
+    html: `<div class="poi-halo" style="--halo-color:${color}"></div>`,
+    iconSize: [64, 64],
+    iconAnchor: [32, 32]
+  });
+  poiHaloMarker = L.marker([p.lat, p.lng], { icon, interactive: false, zIndexOffset: 1150 }).addTo(map);
+}
+function clearPoiHighlight() {
+  if (poiHaloMarker) { map.removeLayer(poiHaloMarker); poiHaloMarker = null; }
+}
+
 function hideMeasurementInfo() {
   closeInfoMenu();
   document.getElementById('infoPanel').classList.add('hidden');
   inspectPoi = null;
+  clearPoiHighlight();
   try { updateLiveBadge(); } catch (e) {}
   document.getElementById('infoToggles')?.classList.remove('hidden');
   const main = document.getElementById('mainControls');
@@ -2406,13 +2427,20 @@ function addLockedLayer(item) {
     showMeasurementInfo(item);
   };
   if (item.mode === 'polygon' && latlngs.length >= 3) {
-    const poly = L.polygon(latlngs, { color, fillColor: color, fillOpacity: 0.18, weight: 2.5, interactive: true }).addTo(map);
-    poly.on('click', onShapeClick);
+    // Relleno no interactivo para no tapar rutas internas
+    const poly = L.polygon(latlngs, { color, fillColor: color, fillOpacity: 0.18, weight: 2.5, interactive: false }).addTo(map);
     layers.push(poly);
+    const hit = L.polyline(latlngs.concat([latlngs[0]]), { color: '#000', weight: 22, opacity: 0.01, interactive: true }).addTo(map);
+    hit.on('click', onShapeClick);
+    hit.bringToFront();
+    layers.push(hit);
   } else {
-    const line = L.polyline(latlngs, { color, weight: 5, interactive: true }).addTo(map);
-    line.on('click', onShapeClick);
+    const line = L.polyline(latlngs, { color, weight: 5, interactive: false }).addTo(map);
     layers.push(line);
+    const hit = L.polyline(latlngs, { color: '#000', weight: 20, opacity: 0.01, interactive: true }).addTo(map);
+    hit.on('click', onShapeClick);
+    hit.bringToFront();
+    layers.push(hit);
   }
   latlngs.forEach(ll => {
     layers.push(L.circleMarker(ll, { radius: 5, color: '#fff', weight: 2, fillColor: color, fillOpacity: 1, interactive: false }).addTo(map));

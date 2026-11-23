@@ -1749,7 +1749,7 @@ function updateMetrics(areaM2, distM) {
   liveArea = areaM2; liveDist = distM;
   updateLiveBadge();
 }
-const APP_VERSION = '2026.11.22-v2-47';
+const APP_VERSION = '2026.11.23-v2-48';
 let liveSelfIntersect = false; // el polígono se cruza a sí mismo (los marcadores rojos ya lo señalan)
 function updateSelfIntersectWarning(show) {
   const v = !!show;
@@ -1987,7 +1987,7 @@ function renderCompass() {
     txt = capGrid(`${brg0(p.h)}° V`, `${brg0(mag)}° M`, bearingCardinal(p.h) + (p.src === 'GPS' ? ' GPS' : ''), `${brg0(rv)}° V`, `${brg0(rm)}° M`);
   } else txt = compassNeedsTap() ? 'Tocá la brújula' : 'Sin rumbo…';
   if (txt !== compassLastTxt) { cap.innerHTML = txt; compassLastTxt = txt; }
-  if (navBrg !== null) updateNavArrow();
+  updateNavArrow();   // la flecha de rumbo está siempre (con GPS y rumbo disponibles), no solo al navegar
 }
 /** Enciende o apaga el sensor y el refresco (solo mientras la brújula está en modo rumbo y a la vista) */
 function compassActive(on) {
@@ -3581,10 +3581,11 @@ function capGrid(v, m, third, rv, rm) {
   return `<span class="cap-grid"><span class="cap-ar">↑</span><span class="cap-n${nv}">${v}</span><span class="cap-n${nm}">${m}</span><span class="cap-c">${third}</span>` +
     `<span class="cap-ar">↓</span><span class="cap-n${nv}">${rv}</span><span class="cap-n${nm}">${rm}</span><span class="cap-c"></span></span>`;
 }
-/** Flecha de rumbo alrededor del punto azul del GPS: apunta hacia donde mirás; es roja y se pone azul (como el punto GPS) al alinearse con la cuerda */
+/** Flecha de rumbo alrededor del punto azul del GPS: apunta hacia donde mirás. Siempre es azul (como el punto GPS);
+ *  al navegar a un POI, cuando se alinea con la cuerda toma el color de la cuerda (el del POI) */
 let navArrow = null, navBrg = null;
 function updateNavArrow() {
-  if (!navPoi || !userLocMarker || navBrg === null) { if (navArrow) { map.removeLayer(navArrow); navArrow = null; } return; }
+  if (!userLocMarker) { if (navArrow) { map.removeLayer(navArrow); navArrow = null; } return; }
   const p = pickHeading();
   if (!p) { if (navArrow) navArrow.getElement() && (navArrow.getElement().style.display = 'none'); return; }
   if (!navArrow) {
@@ -3595,7 +3596,8 @@ function updateNavArrow() {
   el.style.display = '';
   const box = el.querySelector('.nav-arrow');
   box.style.transform = `translate(-50%,-50%) rotate(${p.h.toFixed(1)}deg)`;
-  const aligned = Math.abs(shortDiff(p.h, navBrg)) <= 10;
+  const aligned = !!navPoi && navBrg !== null && Math.abs(shortDiff(p.h, navBrg)) <= 10;
+  box.style.setProperty('--nav-c', navPoi ? safeColor(navPoi.color, '#38bdf8') : '#4285F4');
   box.classList.toggle('aligned', aligned);
 }
 function updateNavLabel() {

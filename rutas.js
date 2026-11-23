@@ -118,8 +118,9 @@
       var line = L.polyline(r.pts, { color: safeColor(r.color), weight: 4, opacity: 0.9, dashArray: dashOf(r.style), lineCap: 'round', interactive: false });
       var sa = arrowMarker(r.pts, false, RED), ea = arrowMarker(r.pts, true, BLUE);
       // trazo ancho e invisible: facilita tocar la ruta para consultarla
-      var hit = L.polyline(r.pts, { color: '#000', weight: 26, opacity: 0.01, interactive: true });
+      var hit = L.polyline(r.pts, { color: '#000', weight: 28, opacity: 0.01, interactive: true });
       hit.on('click', function (ev) { selectRoute(r, ev); });
+      hit.bringToFront();
       savedLayers[r.id] = L.layerGroup([line, hit].concat(sa ? [sa] : [], ea ? [ea] : [])).addTo(m);
     });
     var n = $('fmFreeN'); if (n) n.textContent = String(saved.length);

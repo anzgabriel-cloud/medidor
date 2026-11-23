@@ -373,6 +373,23 @@ body.is-dragging .midpoint-marker { opacity: 0 !important; pointer-events: none 
   box-shadow: 0 1px 4px rgba(0,0,0,0.45);
   z-index: 2;
 }
+
+/* Aureola pulsante del POI seleccionado */
+.poi-halo {
+  position: absolute; left: 50%; top: 50%;
+  width: 64px; height: 64px;
+  margin: -32px 0 0 -32px;
+  border-radius: 50%;
+  border: 3px solid var(--halo-color, #f59e0b);
+  background: transparent;
+  box-shadow: 0 0 14px var(--halo-color, #f59e0b);
+  animation: poiHalo 1.5s ease-out infinite;
+  pointer-events: none;
+}
+@keyframes poiHalo {
+  0% { transform: scale(0.65); opacity: 0.95; }
+  100% { transform: scale(1.9); opacity: 0; }
+}
 @keyframes userLocPulse {
   0% { transform: scale(0.55); opacity: 0.7; }
   70% { transform: scale(1.35); opacity: 0; }
@@ -734,27 +751,10 @@ body.ui-min #toastContainer {
 .nav-arrow svg { display: block; fill: #ef4444; filter: drop-shadow(0 1px 2px rgba(0,0,0,.7)); }
 .nav-arrow.aligned svg { fill: #4285F4; }
 
-/* Flecha de rumbo permanente (azul, siempre visible sobre el punto GPS) */
+/* Flecha de rumbo permanente azul */
 .heading-arrow-wrap { background: none; border: 0; }
 .heading-arrow { position: absolute; left: 0; top: 0; width: 96px; height: 96px; pointer-events: none; }
-.heading-arrow svg { display: block; fill: #4285F4; fill-opacity: 0.85; filter: drop-shadow(0 1px 4px rgba(0,0,0,.65)); }
-
-/* Aureola pulsante del POI seleccionado */
-.poi-halo {
-  position: absolute; left: 50%; top: 50%;
-  width: 64px; height: 64px;
-  margin: -32px 0 0 -32px;
-  border-radius: 50%;
-  border: 3px solid var(--halo-color, #f59e0b);
-  background: transparent;
-  box-shadow: 0 0 14px var(--halo-color, #f59e0b);
-  animation: poiHalo 1.5s ease-out infinite;
-  pointer-events: none;
-}
-@keyframes poiHalo {
-  0% { transform: scale(0.65); opacity: 0.95; }
-  100% { transform: scale(1.9); opacity: 0; }
-}
+.heading-arrow svg { display: block; fill: #4285F4; fill-opacity: 0.9; filter: drop-shadow(0 1px 4px rgba(0,0,0,.7)); }
 
 /* v2-25: Consulta de POI con las acciones a la vista */
 #infoActions { display: grid; grid-template-columns: repeat(4, 1fr); margin-top: 2px; }

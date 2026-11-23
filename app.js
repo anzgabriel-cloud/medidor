@@ -1988,6 +1988,7 @@ function renderCompass() {
   } else txt = compassNeedsTap() ? 'Tocá la brújula' : 'Sin rumbo…';
   if (txt !== compassLastTxt) { cap.innerHTML = txt; compassLastTxt = txt; }
   if (navBrg !== null) updateNavArrow();
+  updateHeadingArrow();
 }
 /** Enciende o apaga el sensor y el refresco (solo mientras la brújula está en modo rumbo y a la vista) */
 function compassActive(on) {
@@ -2858,6 +2859,7 @@ function updateUserLocation(lat, lng, accuracy) {
     userAccCircle.setRadius(acc);
   }
   try { refreshListsByDistance(); } catch (e) {}
+  try { updateHeadingArrow(); } catch (e) {}
 }
 
 function startUserLocationWatch(centerOnFirst) {
@@ -3606,6 +3608,35 @@ function updateNavArrow() {
   box.style.transform = `translate(-50%,-50%) rotate(${p.h.toFixed(1)}deg)`;
   const aligned = Math.abs(shortDiff(p.h, navBrg)) <= 10;
   box.classList.toggle('aligned', aligned);
+}
+
+/** Flecha de rumbo permanente (azul, más grande): siempre visible sobre el punto azul para saber hacia dónde apunta el dispositivo */
+let headingArrow = null;
+function updateHeadingArrow() {
+  if (!userLocMarker) {
+    if (headingArrow) { map.removeLayer(headingArrow); headingArrow = null; }
+    return;
+  }
+  const p = pickHeading();
+  if (!p) {
+    if (headingArrow && headingArrow.getElement()) headingArrow.getElement().style.display = 'none';
+    return;
+  }
+  if (!headingArrow) {
+    const icon = L.divIcon({
+      className: 'heading-arrow-wrap',
+      iconSize: [0, 0],
+      html: '<div class="heading-arrow"><svg viewBox="0 0 96 96" width="96" height="96"><polygon points="48,6 64,36 48,28 32,36" stroke="#fff" stroke-width="2.2" stroke-linejoin="round"/></svg></div>'
+    });
+    headingArrow = L.marker(userLocMarker.getLatLng(), { icon, interactive: false, keyboard: false, zIndexOffset: 800 }).addTo(map);
+  } else {
+    headingArrow.setLatLng(userLocMarker.getLatLng());
+  }
+  const el = headingArrow.getElement();
+  if (!el) return;
+  el.style.display = '';
+  const box = el.querySelector('.heading-arrow');
+  if (box) box.style.transform = `translate(-50%,-50%) rotate(${p.h.toFixed(1)}deg)`;
 }
 function updateNavLabel() {
   const box = document.getElementById('navBox');

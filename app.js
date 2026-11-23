@@ -1988,7 +1988,6 @@ function renderCompass() {
   } else txt = compassNeedsTap() ? 'Tocá la brújula' : 'Sin rumbo…';
   if (txt !== compassLastTxt) { cap.innerHTML = txt; compassLastTxt = txt; }
   if (navBrg !== null) updateNavArrow();
-  updateHeadingArrow();
 }
 /** Enciende o apaga el sensor y el refresco (solo mientras la brújula está en modo rumbo y a la vista) */
 function compassActive(on) {
@@ -2223,6 +2222,7 @@ function updateInfoToggleUI() {
 }
 
 function showMeasurementInfo(item) {
+  clearPoiHighlight();
   inspectItem = item;
   inspectStraight = false;
   const polyItem = item.mode === 'polygon' || item.mode === 'line';
@@ -2332,6 +2332,7 @@ function showPoiInfo(p) {
   inspectItem = null;
   inspectPoi = p;
   syncFixedCompass();
+  highlightSelectedPoi(p);
   const color = safeColor(p.color, '#f59e0b');
   document.getElementById('infoColorDot').style.background = color;
   document.getElementById('infoName').textContent = p.name || 'POI';
@@ -2372,10 +2373,29 @@ function showPoiInfo(p) {
   lucide.createIcons();
 }
 
+/** Aureola pulsante alrededor del POI seleccionado (útil cuando las etiquetas de nombre están ocultas) */
+let poiHaloMarker = null;
+function highlightSelectedPoi(p) {
+  clearPoiHighlight();
+  if (!p || !map) return;
+  const color = safeColor(p.color, '#f59e0b');
+  const icon = L.divIcon({
+    className: '',
+    html: `<div class="poi-halo" style="--halo-color:${color}"></div>`,
+    iconSize: [56, 56],
+    iconAnchor: [28, 28]
+  });
+  poiHaloMarker = L.marker([p.lat, p.lng], { icon, interactive: false, zIndexOffset: 1100 }).addTo(map);
+}
+function clearPoiHighlight() {
+  if (poiHaloMarker) { map.removeLayer(poiHaloMarker); poiHaloMarker = null; }
+}
+
 function hideMeasurementInfo() {
   closeInfoMenu();
   document.getElementById('infoPanel').classList.add('hidden');
   inspectPoi = null;
+  clearPoiHighlight();
   try { updateLiveBadge(); } catch (e) {}
   document.getElementById('infoToggles')?.classList.remove('hidden');
   const main = document.getElementById('mainControls');
@@ -2406,22 +2426,13 @@ function addLockedLayer(item) {
     showMeasurementInfo(item);
   };
   if (item.mode === 'polygon' && latlngs.length >= 3) {
-    // Relleno visual no interactivo: no roba el toque a rutas o senderos que estén adentro
-    const poly = L.polygon(latlngs, { color, fillColor: color, fillOpacity: 0.18, weight: 2.5, interactive: false }).addTo(map);
+    const poly = L.polygon(latlngs, { color, fillColor: color, fillOpacity: 0.18, weight: 2.5, interactive: true }).addTo(map);
+    poly.on('click', onShapeClick);
     layers.push(poly);
-    // Borde ancho e invisible para facilitar la selección (mismo criterio que rutas y anillos)
-    const hit = L.polyline(latlngs.concat([latlngs[0]]), { color: '#000', weight: 22, opacity: 0.01, interactive: true }).addTo(map);
-    hit.on('click', onShapeClick);
-    hit.bringToFront();
-    layers.push(hit);
   } else {
-    const line = L.polyline(latlngs, { color, weight: 5, interactive: false }).addTo(map);
+    const line = L.polyline(latlngs, { color, weight: 5, interactive: true }).addTo(map);
+    line.on('click', onShapeClick);
     layers.push(line);
-    // Zona de toque más ancha e invisible
-    const hit = L.polyline(latlngs, { color: '#000', weight: 20, opacity: 0.01, interactive: true }).addTo(map);
-    hit.on('click', onShapeClick);
-    hit.bringToFront();
-    layers.push(hit);
   }
   latlngs.forEach(ll => {
     layers.push(L.circleMarker(ll, { radius: 5, color: '#fff', weight: 2, fillColor: color, fillOpacity: 1, interactive: false }).addTo(map));
@@ -2859,7 +2870,6 @@ function updateUserLocation(lat, lng, accuracy) {
     userAccCircle.setRadius(acc);
   }
   try { refreshListsByDistance(); } catch (e) {}
-  try { updateHeadingArrow(); } catch (e) {}
 }
 
 function startUserLocationWatch(centerOnFirst) {
@@ -3608,35 +3618,6 @@ function updateNavArrow() {
   box.style.transform = `translate(-50%,-50%) rotate(${p.h.toFixed(1)}deg)`;
   const aligned = Math.abs(shortDiff(p.h, navBrg)) <= 10;
   box.classList.toggle('aligned', aligned);
-}
-
-/** Flecha de rumbo permanente (azul, más grande): siempre visible sobre el punto azul para saber hacia dónde apunta el dispositivo */
-let headingArrow = null;
-function updateHeadingArrow() {
-  if (!userLocMarker) {
-    if (headingArrow) { map.removeLayer(headingArrow); headingArrow = null; }
-    return;
-  }
-  const p = pickHeading();
-  if (!p) {
-    if (headingArrow && headingArrow.getElement()) headingArrow.getElement().style.display = 'none';
-    return;
-  }
-  if (!headingArrow) {
-    const icon = L.divIcon({
-      className: 'heading-arrow-wrap',
-      iconSize: [0, 0],
-      html: '<div class="heading-arrow"><svg viewBox="0 0 96 96" width="96" height="96"><polygon points="48,6 64,36 48,28 32,36" stroke="#fff" stroke-width="2.2" stroke-linejoin="round"/></svg></div>'
-    });
-    headingArrow = L.marker(userLocMarker.getLatLng(), { icon, interactive: false, keyboard: false, zIndexOffset: 800 }).addTo(map);
-  } else {
-    headingArrow.setLatLng(userLocMarker.getLatLng());
-  }
-  const el = headingArrow.getElement();
-  if (!el) return;
-  el.style.display = '';
-  const box = el.querySelector('.heading-arrow');
-  if (box) box.style.transform = `translate(-50%,-50%) rotate(${p.h.toFixed(1)}deg)`;
 }
 function updateNavLabel() {
   const box = document.getElementById('navBox');

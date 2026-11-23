@@ -361,6 +361,29 @@ body.is-dragging .midpoint-marker { opacity: 0 !important; pointer-events: none 
   margin: -20px 0 0 -20px;
   border-radius: 50%;
   background: rgba(66, 133, 244, 0.28);
+  animation: userPulse 2.2s ease-out infinite;
+}
+@keyframes userPulse {
+  0% { transform: scale(0.6); opacity: 0.7; }
+  100% { transform: scale(2.2); opacity: 0; }
+}
+
+/* Aureola pulsante del POI seleccionado */
+.poi-halo {
+  position: absolute; left: 50%; top: 50%;
+  width: 56px; height: 56px;
+  margin: -28px 0 0 -28px;
+  border-radius: 50%;
+  border: 3px solid var(--halo-color, #f59e0b);
+  background: transparent;
+  box-shadow: 0 0 12px var(--halo-color, #f59e0b);
+  animation: poiHalo 1.4s ease-out infinite;
+  pointer-events: none;
+}
+@keyframes poiHalo {
+  0% { transform: scale(0.7); opacity: 0.9; }
+  100% { transform: scale(1.8); opacity: 0; }
+}
   animation: userLocPulse 2s ease-out infinite;
 }
 .user-loc-dot {
@@ -733,11 +756,6 @@ body.ui-min #toastContainer {
 .nav-arrow { position: absolute; left: 0; top: 0; width: 64px; height: 64px; pointer-events: none; }
 .nav-arrow svg { display: block; fill: #ef4444; filter: drop-shadow(0 1px 2px rgba(0,0,0,.7)); }
 .nav-arrow.aligned svg { fill: #4285F4; }
-
-/* Flecha de rumbo permanente (siempre visible sobre el punto azul del GPS) */
-.heading-arrow-wrap { background: none; border: 0; }
-.heading-arrow { position: absolute; left: 0; top: 0; width: 96px; height: 96px; pointer-events: none; }
-.heading-arrow svg { display: block; fill: #4285F4; fill-opacity: 0.82; filter: drop-shadow(0 1px 4px rgba(0,0,0,.65)); }
 
 /* v2-25: Consulta de POI con las acciones a la vista */
 #infoActions { display: grid; grid-template-columns: repeat(4, 1fr); margin-top: 2px; }

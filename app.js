@@ -1988,6 +1988,7 @@ function renderCompass() {
   } else txt = compassNeedsTap() ? 'Tocá la brújula' : 'Sin rumbo…';
   if (txt !== compassLastTxt) { cap.innerHTML = txt; compassLastTxt = txt; }
   if (navBrg !== null) updateNavArrow();
+  updateHeadingArrow();
 }
 /** Enciende o apaga el sensor y el refresco (solo mientras la brújula está en modo rumbo y a la vista) */
 function compassActive(on) {
@@ -2328,7 +2329,7 @@ async function copyToClipboard(text, anchor) {
 }
 
 function showPoiInfo(p) {
-  clearInspectLayers();   // quita etiquetas y arcos de una medición consultada antes
+  clearInspectLayers();
   inspectItem = null;
   inspectPoi = p;
   syncFixedCompass();
@@ -2373,7 +2374,7 @@ function showPoiInfo(p) {
   lucide.createIcons();
 }
 
-/** Aureola pulsante alrededor del POI seleccionado (útil cuando las etiquetas de nombre están ocultas) */
+/** Aureola pulsante alrededor del POI seleccionado */
 let poiHaloMarker = null;
 function highlightSelectedPoi(p) {
   clearPoiHighlight();
@@ -2382,10 +2383,10 @@ function highlightSelectedPoi(p) {
   const icon = L.divIcon({
     className: '',
     html: `<div class="poi-halo" style="--halo-color:${color}"></div>`,
-    iconSize: [56, 56],
-    iconAnchor: [28, 28]
+    iconSize: [64, 64],
+    iconAnchor: [32, 32]
   });
-  poiHaloMarker = L.marker([p.lat, p.lng], { icon, interactive: false, zIndexOffset: 1100 }).addTo(map);
+  poiHaloMarker = L.marker([p.lat, p.lng], { icon, interactive: false, zIndexOffset: 1150 }).addTo(map);
 }
 function clearPoiHighlight() {
   if (poiHaloMarker) { map.removeLayer(poiHaloMarker); poiHaloMarker = null; }
@@ -2870,6 +2871,7 @@ function updateUserLocation(lat, lng, accuracy) {
     userAccCircle.setRadius(acc);
   }
   try { refreshListsByDistance(); } catch (e) {}
+  try { updateHeadingArrow(); } catch (e) {}
 }
 
 function startUserLocationWatch(centerOnFirst) {
@@ -3618,6 +3620,35 @@ function updateNavArrow() {
   box.style.transform = `translate(-50%,-50%) rotate(${p.h.toFixed(1)}deg)`;
   const aligned = Math.abs(shortDiff(p.h, navBrg)) <= 10;
   box.classList.toggle('aligned', aligned);
+}
+
+/** Flecha de rumbo permanente (azul) sobre el punto GPS */
+let headingArrow = null;
+function updateHeadingArrow() {
+  if (!userLocMarker) {
+    if (headingArrow) { map.removeLayer(headingArrow); headingArrow = null; }
+    return;
+  }
+  const p = pickHeading();
+  if (!p) {
+    if (headingArrow && headingArrow.getElement()) headingArrow.getElement().style.display = 'none';
+    return;
+  }
+  if (!headingArrow) {
+    const icon = L.divIcon({
+      className: 'heading-arrow-wrap',
+      iconSize: [0, 0],
+      html: '<div class="heading-arrow"><svg viewBox="0 0 96 96" width="96" height="96"><polygon points="48,6 64,36 48,28 32,36" stroke="#fff" stroke-width="2.2" stroke-linejoin="round"/></svg></div>'
+    });
+    headingArrow = L.marker(userLocMarker.getLatLng(), { icon, interactive: false, keyboard: false, zIndexOffset: 800 }).addTo(map);
+  } else {
+    headingArrow.setLatLng(userLocMarker.getLatLng());
+  }
+  const el = headingArrow.getElement();
+  if (!el) return;
+  el.style.display = '';
+  const box = el.querySelector('.heading-arrow');
+  if (box) box.style.transform = `translate(-50%,-50%) rotate(${p.h.toFixed(1)}deg)`;
 }
 function updateNavLabel() {
   const box = document.getElementById('navBox');

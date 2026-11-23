@@ -118,9 +118,8 @@
       var line = L.polyline(r.pts, { color: safeColor(r.color), weight: 4, opacity: 0.9, dashArray: dashOf(r.style), lineCap: 'round', interactive: false });
       var sa = arrowMarker(r.pts, false, RED), ea = arrowMarker(r.pts, true, BLUE);
       // trazo ancho e invisible: facilita tocar la ruta para consultarla
-      var hit = L.polyline(r.pts, { color: '#000', weight: 28, opacity: 0.01, interactive: true });
+      var hit = L.polyline(r.pts, { color: '#000', weight: 26, opacity: 0.01, interactive: true });
       hit.on('click', function (ev) { selectRoute(r, ev); });
-      hit.bringToFront();
       savedLayers[r.id] = L.layerGroup([line, hit].concat(sa ? [sa] : [], ea ? [ea] : [])).addTo(m);
     });
     var n = $('fmFreeN'); if (n) n.textContent = String(saved.length);
@@ -133,7 +132,7 @@
   }
   function selectRoute(rt, ev) {
     if (!canSelect()) return;
-    L.DomEvent.stopPropagation(ev);
+    if (ev) L.DomEvent.stopPropagation(ev);
     var m = getMap(); if (!m) return;
     var nf = new Intl.NumberFormat('es-AR', { maximumFractionDigits: 2 });
     var pts = rt.pts, a = L.latLng(pts[0][0], pts[0][1]), b = L.latLng(pts[pts.length - 1][0], pts[pts.length - 1][1]);
@@ -149,6 +148,7 @@
                  { label: 'Recta inicio-fin', value: nf.format(S.v), unit: S.u, sub: straight > 1 ? brg0(brg) + '° V · ' + bearingCardinal(brg) : lenSub(straight) }]],
       extra: (rt.note ? 'Nota: ' + rt.note + '\n' : '') + 'Inicio: ' + fmtCoord(a.lat, a.lng) + '   Fin: ' + fmtCoord(b.lat, b.lng),
       actions: [
+        { icon: 'pencil', label: 'Editar', cls: 'text-slate-200', run: function () { editRoute(rt); } },
         { icon: 'trash-2', label: 'Borrar', cls: 'text-red-400', run: function () {
           confirmToast({ title: '¿Borrar ' + (rt.name ? '“' + rt.name + '”' : 'esta ruta de ≈ ' + fmtKm(total)) + '?', message: 'No se puede deshacer.', confirmLabel: 'Borrar', danger: true }).then(function (ok) {
             if (!ok) return;
@@ -158,6 +158,29 @@
       ],
       onClose: clearHl
     });
+  }
+  // Editar: siempre se puede cambiar nombre, nota y color (mismo cuadro que al guardar, con selector de color)
+  var COLORS = ['#00ff66', '#ffe600', '#ff6600', '#48cae4', '#3b82f6', '#ff00a0', '#e10600', '#ffffff', '#9ca3af', '#111827', '#8b5a2b'];
+  function editRoute(rt) {
+    var modal = $('saveModal'), ni = $('saveNameInput'), row = $('saveColorRow'), box = $('saveColorSwatches');
+    if (!modal || !ni || !row || !box) return;
+    var col = safeColor(rt.color);
+    ni.value = rt.name || ''; var no = $('saveNoteInput'); if (no) no.value = rt.note || '';
+    box.innerHTML = '';
+    function paint() { Array.prototype.forEach.call(box.children, function (b) { b.classList.toggle('active', b.getAttribute('data-color').toLowerCase() === col.toLowerCase()); }); }
+    COLORS.forEach(function (c) {
+      var b = document.createElement('button'); b.type = 'button'; b.className = 'color-swatch'; b.style.background = c; b.setAttribute('data-color', c); b.setAttribute('aria-label', 'Color ' + c);
+      b.onclick = function () { col = c; paint(); };
+      box.appendChild(b);
+    });
+    paint(); row.style.display = '';
+    var h3 = modal.querySelector('h3'); if (h3) h3.textContent = 'Editar ruta';
+    var cb = $('confirmSaveBtn'); if (cb) cb.textContent = 'Guardar cambios';
+    window.MedidorSaveHook = function (name, note) {
+      rt.name = name || rt.name || ''; rt.note = note || ''; rt.color = col;
+      persist(); renderSaved(); selectRoute(rt);
+    };
+    modal.classList.remove('hidden');
   }
   var tries = 0;
   (function waitMap() {

@@ -16,7 +16,7 @@
     '<div class="p-3">' +
     '<div class="flex items-start justify-between gap-2 mb-1.5">' +
     '<div class="min-w-0">' +
-    '<p id="xLabel" class="text-[10px] font-bold uppercase tracking-wider text-amber-400 mb-0.5">Consulta</p>' +
+    '<p id="xLabel" class="hidden text-[10px] font-bold uppercase tracking-wider text-amber-400 mb-0.5">Consulta</p>' +
     '<div class="flex items-center gap-2"><span id="xColor" class="w-2.5 h-2.5 rounded-full flex-shrink-0 ring-2 ring-white/20"></span>' +
     '<h3 id="xName" class="font-bold text-sm text-slate-50 truncate">—</h3></div>' +
     '<p id="xMeta" class="text-[10px] text-slate-400 mt-0.5"></p></div>' +
@@ -87,7 +87,6 @@
     try { if (typeof inspectItem !== 'undefined' && (inspectItem || inspectPoi) && typeof hideMeasurementInfo === 'function') hideMeasurementInfo(); } catch (e) {}
     cur = spec;
     $('xColor').style.background = /^#[0-9a-f]{6}$/i.test(spec.color || '') ? spec.color : '#00ff66';
-    $('xLabel').classList.toggle('hidden', !!spec.hideLabel);
     $('xName').textContent = spec.title || '';
     $('xMeta').textContent = spec.meta || '';
     $('xMetrics').innerHTML = metricsHtml(spec.metrics, spec.extra);

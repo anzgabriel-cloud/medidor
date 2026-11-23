@@ -737,7 +737,7 @@ body.ui-min #toastContainer {
 /* Flecha de rumbo permanente (siempre visible sobre el punto azul del GPS) */
 .heading-arrow-wrap { background: none; border: 0; }
 .heading-arrow { position: absolute; left: 0; top: 0; width: 96px; height: 96px; pointer-events: none; }
-.heading-arrow svg { display: block; fill: #22c55e; fill-opacity: 0.82; filter: drop-shadow(0 1px 4px rgba(0,0,0,.65)); }
+.heading-arrow svg { display: block; fill: #4285F4; fill-opacity: 0.82; filter: drop-shadow(0 1px 4px rgba(0,0,0,.65)); }
 
 /* v2-25: Consulta de POI con las acciones a la vista */
 #infoActions { display: grid; grid-template-columns: repeat(4, 1fr); margin-top: 2px; }

@@ -73,8 +73,8 @@
       if (m.distance(p0, c) > 3 || i === pts.length - 1) { q = c; break; }
     }
     var deg = atEnd ? bearingDeg(q, p0) : bearingDeg(p0, q);
-    var svg = '<svg width="28" height="28" viewBox="0 0 28 28" style="transform:rotate(' + deg.toFixed(1) + 'deg)" aria-hidden="true"><path d="M14 2 L23 25 L14 19.5 L5 25 Z" fill="' + fill + '" stroke="#fff" stroke-width="2" stroke-linejoin="round"/></svg>';
-    return L.marker(p0, { icon: L.divIcon({ className: 'free-arrow', html: svg, iconSize: [28, 28], iconAnchor: [14, 14] }), interactive: false, keyboard: false });
+    var svg = '<svg width="22" height="22" viewBox="0 0 22 22" style="transform:rotate(' + deg.toFixed(1) + 'deg)" aria-hidden="true"><polygon points="11,1.8 19,15.6 3,15.6" fill="' + fill + '" stroke="#fff" stroke-width="1.6" stroke-linejoin="round"/></svg>';   // triángulo equilátero (distinto de la flecha de navegación)
+    return L.marker(p0, { icon: L.divIcon({ className: 'free-arrow', html: svg, iconSize: [22, 22], iconAnchor: [11, 11] }), interactive: false, keyboard: false });
   }
   var MAGNET_R = 17, SNAP_R = 36, SNAP_EXIT = 20;   // radio visible del imán, radio de captura y distancia que debe alejarse el dedo
   function drawDraft() {

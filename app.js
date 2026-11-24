@@ -1751,7 +1751,7 @@ function updateMetrics(areaM2, distM) {
   liveArea = areaM2; liveDist = distM;
   updateLiveBadge();
 }
-const APP_VERSION = '2026.11.23-v2-55';
+const APP_VERSION = '2026.11.24-v2-57';
 let liveSelfIntersect = false; // el polígono se cruza a sí mismo (los marcadores rojos ya lo señalan)
 function updateSelfIntersectWarning(show) {
   const v = !!show;
@@ -4526,13 +4526,13 @@ async function getItemElev(item) {
   return item.elev;
 }
 
-/** Línea/recorrido: muestras equiespaciadas a lo largo del trazado (≤ 100) */
+/** Línea/recorrido: muestras equiespaciadas a lo largo del trazado (≤ 400) */
 function lineSamples(lls) {
   const cum = [0];
   for (let i = 1; i < lls.length; i++) cum.push(cum[i - 1] + lls[i - 1].distanceTo(lls[i]));
   const total = cum[cum.length - 1];
   if (!(total >= 1)) return null;
-  const n = Math.min(100, Math.max(2, Math.ceil(total / 50) + 1));
+  const n = Math.min(400, Math.max(2, Math.ceil(total / 50) + 1));   // hasta 400 muestras (se piden de a 100): en trazados largos no se pierden las cumbres
   const out = [];
   let seg = 1;
   for (let k = 0; k < n; k++) {
@@ -4553,7 +4553,7 @@ function profileStats(z) {
 }
 async function getItemProfile(item) {
   const sig = itemSig(item);
-  if (item.prof && item.prof.sig === sig) return item.prof;
+  if (item.prof && item.prof.sig === sig && item.prof.v === 2) return item.prof;   // v2: más muestras en trazados largos
   const smp = lineSamples(item.points.map(p => L.latLng(p.lat, p.lng)));
   if (!smp) return null;
   const z = await fetchElevations(smp.samples.map(s => s.ll));
@@ -4565,7 +4565,7 @@ async function getItemProfile(item) {
     let b = i + 1; while (b < z.length && z[b] === null) b++;
     z[i] = a < 0 ? z[b] : b >= z.length ? z[a] : z[a] + (z[b] - z[a]) * (i - a) / (b - a);
   }
-  item.prof = { sig, d: smp.samples.map(s => Math.round(s.d)), z: z.map(v => Math.round(v * 10) / 10), total: smp.total };
+  item.prof = { sig, v: 2, d: smp.samples.map(s => Math.round(s.d)), z: z.map(v => Math.round(v * 10) / 10), total: smp.total };
   persist();
   return item.prof;
 }
@@ -4632,12 +4632,25 @@ function openProfile(item) {
   });
 }
 function closeProfile() { document.getElementById('profileModal')?.classList.add('hidden'); }
+/** Distancias del gráfico con el formato del país (coma decimal). Si el trazado es largo, todas van en km (o mi), incluido el 0 del inicio */
+function fmtAxisLen(m, total) {
+  if (isImp()) {
+    if (total / MI < 0.5) return fmtLenShort(m);
+    return new Intl.NumberFormat('es-AR', { maximumFractionDigits: total / MI >= 100 ? 0 : 2 }).format(m / MI) + ' mi';
+  }
+  if (total < 1000) return fmtLenShort(m);
+  const km = m / 1000;
+  return new Intl.NumberFormat('es-AR', { maximumFractionDigits: total / 1000 >= 100 ? 0 : 2 }).format(km) + ' km';
+}
 function drawProfile(body, item, p) {
   const W = 340, H = 180, l = 40, r = 10, t = 12, b = 24;
   const zs = p.z.map(elevConv);
   let zmin = Math.min(...zs), zmax = Math.max(...zs);
   if (zmax - zmin < 4) { const c = (zmax + zmin) / 2; zmin = c - 2; zmax = c + 2; }
+  const dmin = zmin, dmax = zmax;
   const pad = (zmax - zmin) * 0.08; zmin -= pad; zmax += pad;
+  if (dmin >= 0 && zmin < 0) zmin = 0;     // el eje no baja de 0 si no hay datos bajo el nivel del mar (el mar es 0 m, no -361)
+  if (dmax <= 0 && zmax > 0) zmax = 0;
   const total = p.total || p.d[p.d.length - 1] || 1;
   const X = (d) => l + (d / total) * (W - l - r);
   const Y = (z) => t + (1 - (z - zmin) / (zmax - zmin)) * (H - t - b);
@@ -4648,7 +4661,7 @@ function drawProfile(body, item, p) {
   const yTicks = [0, 0.5, 1].map(f => zmin + (zmax - zmin) * f);
   const grid = yTicks.map(v => `<line x1="${l}" x2="${W - r}" y1="${Y(v).toFixed(1)}" y2="${Y(v).toFixed(1)}" stroke="#334155" stroke-width="0.6" stroke-dasharray="3 3"/>
     <text x="${l - 4}" y="${(Y(v) + 3).toFixed(1)}" text-anchor="end" font-size="9" fill="#94a3b8">${nf0.format(v)}</text>`).join('');
-  const xTicks = [0, 0.5, 1].map((f, i) => `<text x="${X(total * f).toFixed(1)}" y="${H - 8}" text-anchor="${i === 0 ? 'start' : i === 2 ? 'end' : 'middle'}" font-size="9" fill="#94a3b8">${escapeHtml(fmtLenShort(total * f))}</text>`).join('');
+  const xTicks = [0, 0.5, 1].map((f, i) => `<text x="${X(total * f).toFixed(1)}" y="${H - 8}" text-anchor="${i === 0 ? 'start' : i === 2 ? 'end' : 'middle'}" font-size="9" fill="#94a3b8">${escapeHtml(fmtAxisLen(total * f, total))}</text>`).join('');
   const st = profileStats(p.z);
   const stat = (cap, val, cls) => `<div class="bg-slate-950/80 rounded-lg p-2 border border-slate-800 text-center"><div class="text-[9px] text-slate-400 uppercase">${cap}</div><div class="text-xs font-bold ${cls}">${val}</div></div>`;
   body.innerHTML = `
@@ -4680,7 +4693,7 @@ function drawProfile(body, item, p) {
     const j = Math.min(p.d.length - 1, i + 1), k = Math.max(0, i - 1);
     const run = p.d[j] - p.d[k];
     const slope = run > 0 ? (p.z[j] - p.z[k]) / run * 100 : 0;
-    ro.textContent = `${fmtLenShort(p.d[i])} · ${fmtElev(p.z[i])} · pendiente ${slope >= 0 ? '+' : '−'}${Math.abs(slope).toFixed(0)}%`;
+    ro.textContent = `${fmtAxisLen(p.d[i], total)} · ${fmtElev(p.z[i])} · pendiente ${slope >= 0 ? '+' : '−'}${Math.abs(slope).toFixed(0)}%`;
   };
   svg.onpointerdown = (ev) => { svg.setPointerCapture?.(ev.pointerId); move(ev); };
   svg.onpointermove = move;

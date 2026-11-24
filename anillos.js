@@ -37,7 +37,7 @@
   function build(m, a, interactive) {
     var g = L.layerGroup();
     var c = L.latLng(a.lat, a.lng), col = safeColor(a.color);
-    L.circle(c, { radius: a.r, color: col, weight: 3, fillColor: col, fillOpacity: 0.1, interactive: false }).addTo(g);
+    L.circle(c, { radius: a.r, color: col, weight: 3, fill: false, interactive: false }).addTo(g);
     if (interactive) {   // borde ancho e invisible: se toca el aro (no el interior) para consultar el anillo
       L.circle(c, { radius: a.r, fill: false, color: '#000', weight: 26, opacity: 0.01, interactive: true }).addTo(g)
         .on('click', function (ev) { selectRing(a, ev); });

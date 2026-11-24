@@ -2,7 +2,7 @@
    Separado del HTML para mejor mantenimiento
 */
 
-:root { --app-version: "2026.11.23-v2-53"; }
+:root { --app-version: "2026.11.23-v2-54"; }
 
 .leaflet-control-attribution { font-size: 9px !important; background: rgba(15,23,42,0.7) !important; color: #94a3b8 !important; }
 .leaflet-control-attribution a { color: #94a3b8 !important; }
@@ -812,13 +812,6 @@ body:has(#infoPanel:not(.hidden)) .strip, body:has(#xInfo:not(.hidden)) .strip {
 body.line-busy #tpSearch, body.line-busy #tpFolder { opacity: .35; }
 #infoActions .poi-act-profile { grid-column: 4; }
 #infoActions .poi-act-profile svg, #infoActions .poi-act-profile i { color: #fbbf24; }
-
-/* Lupa del dibujo a mano alzada: sin borde, más aumento al centro y degradado hacia las orillas */
-#freeLoupe { display: none; position: fixed; z-index: 18; width: 112px; height: 112px; pointer-events: none; }
-#freeLoupe .fl-layer { position: absolute; left: 50%; top: 50%; border-radius: 50%; overflow: hidden; background: #0b1220; transform: translate(-50%, -50%); }
-#freeLoupe .fl-out { width: 112px; height: 112px; -webkit-mask-image: radial-gradient(circle closest-side, #000 52%, rgba(0,0,0,0) 100%); mask-image: radial-gradient(circle closest-side, #000 52%, rgba(0,0,0,0) 100%); }
-#freeLoupe .fl-in { width: 58px; height: 58px; -webkit-mask-image: radial-gradient(circle closest-side, #000 45%, rgba(0,0,0,0) 100%); mask-image: radial-gradient(circle closest-side, #000 45%, rgba(0,0,0,0) 100%); }
-#freeLoupe .fl-cross { position: absolute; left: 50%; top: 50%; width: 8px; height: 8px; margin: -4px 0 0 -4px; border-radius: 50%; border: 1.5px solid #fff; box-shadow: 0 0 0 1px rgba(0,0,0,.6); z-index: 500; box-sizing: border-box; }
 
 /* La regla de "Mediciones" toma el color del modo elegido (cada modo con su color) */
 body:has(#mainControls[data-mode="polygon"]) #tpMeasure[aria-pressed="true"] { background: rgba(5,150,105,.32); color: #6ee7b7; }

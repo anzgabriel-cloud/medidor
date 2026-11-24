@@ -254,52 +254,7 @@
     else liveLine.setLatLngs(ll).setStyle({ color: curColor(), dashArray: dashOf(lstyle) });
     var base = allPts(); updateNum(dist(base.concat(cur.anchor ? ll.slice(1) : ll)));
   }
-  // --- Lupa propia: sin borde, con más aumento hacia el centro y un degradado hacia las orillas (dos mapas superpuestos) ---
-  // Va desplazada hacia arriba del dedo para que no la tape. Capa exterior ~1,6× y capa interior ~3× (ambas con borde difuso).
-  var LOUPE = 112, LOUPE_OFF = 70, lp = null;
-  var LOUPE_LAYERS = [{ cls: 'fl-out', size: 112, add: 0.7, w: 4 }, { cls: 'fl-in', size: 56, add: 1.6, w: 5 }];
-  function loupeEnsure() {
-    var m = getMap(); if (!m || typeof L === 'undefined') return null;
-    if (!lp) {
-      var box = document.createElement('div'); box.id = 'freeLoupe'; box.setAttribute('aria-hidden', 'true');
-      var layers = LOUPE_LAYERS.map(function (d) {
-        var el = document.createElement('div'); el.className = 'fl-layer ' + d.cls; box.appendChild(el);
-        var lm = L.map(el, { zoomControl: false, attributionControl: false, dragging: false, touchZoom: false, doubleClickZoom: false, scrollWheelZoom: false, boxZoom: false, keyboard: false, tap: false, zoomSnap: 0, zoomAnimation: false, fadeAnimation: false, markerZoomAnimation: false, inertia: false });
-        return { def: d, map: lm, tiles: null, line: null };
-      });
-      var cross = document.createElement('div'); cross.className = 'fl-cross'; box.appendChild(cross);
-      document.body.appendChild(box);
-      lp = { box: box, layers: layers, key: '' };
-    }
-    var key = typeof currentTiles !== 'undefined' ? currentTiles : '';
-    if (lp.key !== key && typeof makeTileLayerRaw === 'function' && typeof tiles !== 'undefined' && tiles[key]) {
-      lp.layers.forEach(function (ly) { if (ly.tiles) ly.map.removeLayer(ly.tiles); ly.tiles = makeTileLayerRaw(tiles[key]).addTo(ly.map); });
-      lp.key = key;
-    }
-    return lp;
-  }
-  function loupeUpdate(e) {
-    var m = getMap(); if (!m || !active || !drawing) return;
-    var l = loupeEnsure(); if (!l) return;
-    var show = l.box.style.display !== 'block';
-    var vw = document.documentElement.clientWidth, x = e.clientX, y = e.clientY;
-    var top = y - LOUPE_OFF - LOUPE / 2;
-    if (top < 110) top = y + LOUPE_OFF - LOUPE / 2;           // cerca del borde de arriba (o de la brújula) se pasa debajo del dedo
-    l.box.style.left = Math.round(Math.max(4, Math.min(vw - LOUPE - 4, x - LOUPE / 2))) + 'px';
-    l.box.style.top = Math.round(top) + 'px';
-    if (show) { l.box.style.display = 'block'; l.layers.forEach(function (ly) { ly.map.invalidateSize(false); }); }
-    var ll = m.mouseEventToLatLng(e);
-    var maxZ = typeof m.getMaxZoom === 'function' && m.getMaxZoom() ? m.getMaxZoom() : 19;
-    var parts = strokes.slice(); if (liveLine) parts.push(liveLine.getLatLngs().map(function (q) { return [q.lat, q.lng]; }));
-    l.layers.forEach(function (ly) {
-      ly.map.setView(ll, Math.min(m.getZoom() + ly.def.add, maxZ), { animate: false });
-      var opt = { color: curColor(), weight: ly.def.w, opacity: 0.95, dashArray: dashOf(lstyle), lineCap: 'round', interactive: false };
-      if (!ly.line) ly.line = L.polyline(parts, opt).addTo(ly.map); else ly.line.setLatLngs(parts).setStyle(opt);
-    });
-  }
-  function loupeHide() { if (lp) lp.box.style.display = 'none'; }
   function finishStroke(commit) {
-    loupeHide();
     var m = getMap(); var c = cur; cur = null;
     if (liveLine && m) { m.removeLayer(liveLine); liveLine = null; }
     if (!c || !m) { drawDraft(); return; }
@@ -325,17 +280,15 @@
     if (an) { var ep = m.latLngToContainerPoint(L.latLng(an[0], an[1])); if (Math.hypot(p0.x - ep.x, p0.y - ep.y) <= SNAP_R) { snap = true; p0 = { x: ep.x, y: ep.y }; } }
     cur = { px: [p0], anchor: an, snap: snap, ign: snap };   // imán: dentro del radio, el trazo parte del final exacto y se ignora el temblor inicial
     try { e.target.setPointerCapture && e.target.setPointerCapture(e.pointerId); } catch (x) {}
-    loupeUpdate(e);
   }
   function onMove(e) {
     if (!active || !cur || multi || !pointers[e.pointerId]) return;
     var p = pt(e), l = cur.px[cur.px.length - 1];
-    if (cur.ign) { if (Math.hypot(p.x - l.x, p.y - l.y) < SNAP_EXIT) { loupeUpdate(e); return; } cur.ign = false; }
+    if (cur.ign) { if (Math.hypot(p.x - l.x, p.y - l.y) < SNAP_EXIT) return; cur.ign = false; }
     if (Math.hypot(p.x - l.x, p.y - l.y) < 2) return;
     cur.px.push(p);
     if (e.cancelable) e.preventDefault();
     liveRender();
-    loupeUpdate(e);
   }
   function onUp(e) {
     if (!pointers[e.pointerId]) return;
@@ -375,7 +328,6 @@
   function setDrawing(on) {
     var m = getMap(); if (!m) return;
     if (!on && cur) finishStroke(true);
-    if (!on) loupeHide();
     drawing = !!on;
     if (on) { m.dragging.disable(); m.doubleClickZoom.disable(); }
     else { if (wasDragging) m.dragging.enable(); if (wasDbl) m.doubleClickZoom.enable(); }
@@ -385,7 +337,7 @@
   function exit() {
     if (!active) return;
     setDrawing(false);
-    active = false; loupeHide();
+    active = false;
     $('modeFreeBtn').setAttribute('aria-pressed', 'false');
     $('freeNum').classList.remove('on');
     if (typeof setMode === 'function') { try { setMode(mode); } catch (e) {} }

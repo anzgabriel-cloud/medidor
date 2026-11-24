@@ -604,6 +604,8 @@ function init() {
   map = L.map('map', { zoomControl: false, attributionControl: true, tapTolerance: 25, maxZoom: 22 })
     .setView([startLat, startLng], startZoom);
   map.attributionControl.setPrefix('');
+  // Las superficies guardadas van en un plano propio, debajo de líneas, rutas y anillos: así el relleno de una superficie no tapa lo que hay dentro
+  map.createPane('areaPane').style.zIndex = 395;
   // Capa de mapa: la primera vez satélite; después, la última que usaste (así no se cargan mosaicos de una capa que no usás)
   try { const s = localStorage.getItem('medidor_capa'); if (s && tiles[s]) currentTiles = s; } catch (e) {}
   tileLayer = makeTileLayer(tiles[currentTiles]).addTo(map);
@@ -1749,7 +1751,7 @@ function updateMetrics(areaM2, distM) {
   liveArea = areaM2; liveDist = distM;
   updateLiveBadge();
 }
-const APP_VERSION = '2026.11.23-v2-53';
+const APP_VERSION = '2026.11.23-v2-54';
 let liveSelfIntersect = false; // el polígono se cruza a sí mismo (los marcadores rojos ya lo señalan)
 function updateSelfIntersectWarning(show) {
   const v = !!show;
@@ -2391,6 +2393,7 @@ function addLockedLayer(item) {
   if (latlngs.length < 2) return;
   const color = item.color || '#00ff66';
   const layers = [];
+  let polyForSort = null;
   const onShapeClick = (e) => {
     // La Consulta es solo de Modo vista. En Modo medición (o ubicando POI) las mediciones guardadas no interceptan el toque: pasa al mapa
     if (appView !== 'ver' || (drawingActive && !isLocked) || poiMode) {
@@ -2405,13 +2408,18 @@ function addLockedLayer(item) {
     showMeasurementInfo(item);
   };
   if (item.mode === 'polygon' && latlngs.length >= 3) {
-    const poly = L.polygon(latlngs, { color, fillColor: color, fillOpacity: 0.18, weight: 2.5, interactive: true }).addTo(map);
+    const poly = L.polygon(latlngs, { color, fillColor: color, fillOpacity: 0.18, weight: 2.5, interactive: true, pane: 'areaPane' }).addTo(map);
     poly.on('click', onShapeClick);
     layers.push(poly);
+    polyForSort = poly;
   } else {
     const line = L.polyline(latlngs, { color, weight: 5, interactive: true }).addTo(map);
     line.on('click', onShapeClick);
     layers.push(line);
+    // zona de toque ancha e invisible (como en rutas y anillos): se acierta sin apuntar justo sobre la línea
+    const hit = L.polyline(latlngs, { color: '#000', weight: 26, opacity: 0.01, interactive: true, lineCap: 'round' }).addTo(map);
+    hit.on('click', onShapeClick);
+    layers.push(hit);
   }
   latlngs.forEach(ll => {
     layers.push(L.circleMarker(ll, { radius: 5, color: '#fff', weight: 2, fillColor: color, fillOpacity: 1, interactive: false }).addTo(map));
@@ -2450,7 +2458,15 @@ function addLockedLayer(item) {
     nameMarker.on('click', onShapeClick);
     layers.push(nameMarker);
   } catch (e) {}
-  lockedLayers.push({ id: item.id, layers });
+  let areaM2 = 0;
+  if (polyForSort) { try { areaM2 = computeItemStats(item).area || 0; } catch (e) {} }
+  lockedLayers.push({ id: item.id, layers, poly: polyForSort, area: areaM2 });
+  if (polyForSort) reorderAreas();
+}
+
+/** Superficies superpuestas: las más chicas quedan arriba, así una superficie pequeña dentro de otra grande se puede tocar */
+function reorderAreas() {
+  lockedLayers.filter(e => e.poly).sort((a, b) => b.area - a.area).forEach(e => { try { e.poly.bringToFront(); } catch (x) {} });
 }
 
 function removeLockedLayer(id) {

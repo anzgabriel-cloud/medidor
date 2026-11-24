@@ -254,22 +254,27 @@
     else liveLine.setLatLngs(ll).setStyle({ color: curColor(), dashArray: dashOf(lstyle) });
     var base = allPts(); updateNum(dist(base.concat(cur.anchor ? ll.slice(1) : ll)));
   }
-  // --- Lupa propia: círculo con el mapa ampliado (2×) alrededor del dedo, desplazado hacia arriba para que el dedo no la tape ---
-  var LOUPE = 84, LOUPE_OFF = 66, lp = null;       // lp: { box, map, tiles, key, line, ring }
+  // --- Lupa propia: sin borde, con más aumento hacia el centro y un degradado hacia las orillas (dos mapas superpuestos) ---
+  // Va desplazada hacia arriba del dedo para que no la tape. Capa exterior ~1,6× y capa interior ~3× (ambas con borde difuso).
+  var LOUPE = 112, LOUPE_OFF = 70, lp = null;
+  var LOUPE_LAYERS = [{ cls: 'fl-out', size: 112, add: 0.7, w: 4 }, { cls: 'fl-in', size: 56, add: 1.6, w: 5 }];
   function loupeEnsure() {
     var m = getMap(); if (!m || typeof L === 'undefined') return null;
     if (!lp) {
       var box = document.createElement('div'); box.id = 'freeLoupe'; box.setAttribute('aria-hidden', 'true');
-      var inner = document.createElement('div'); inner.className = 'fl-map'; box.appendChild(inner);
+      var layers = LOUPE_LAYERS.map(function (d) {
+        var el = document.createElement('div'); el.className = 'fl-layer ' + d.cls; box.appendChild(el);
+        var lm = L.map(el, { zoomControl: false, attributionControl: false, dragging: false, touchZoom: false, doubleClickZoom: false, scrollWheelZoom: false, boxZoom: false, keyboard: false, tap: false, zoomSnap: 0, zoomAnimation: false, fadeAnimation: false, markerZoomAnimation: false, inertia: false });
+        return { def: d, map: lm, tiles: null, line: null };
+      });
       var cross = document.createElement('div'); cross.className = 'fl-cross'; box.appendChild(cross);
       document.body.appendChild(box);
-      var lm = L.map(inner, { zoomControl: false, attributionControl: false, dragging: false, touchZoom: false, doubleClickZoom: false, scrollWheelZoom: false, boxZoom: false, keyboard: false, tap: false, zoomSnap: 0, zoomAnimation: false, fadeAnimation: false, markerZoomAnimation: false, inertia: false });
-      lp = { box: box, map: lm, tiles: null, key: '', line: null };
+      lp = { box: box, layers: layers, key: '' };
     }
     var key = typeof currentTiles !== 'undefined' ? currentTiles : '';
     if (lp.key !== key && typeof makeTileLayerRaw === 'function' && typeof tiles !== 'undefined' && tiles[key]) {
-      if (lp.tiles) lp.map.removeLayer(lp.tiles);
-      lp.tiles = makeTileLayerRaw(tiles[key]).addTo(lp.map); lp.key = key;
+      lp.layers.forEach(function (ly) { if (ly.tiles) ly.map.removeLayer(ly.tiles); ly.tiles = makeTileLayerRaw(tiles[key]).addTo(ly.map); });
+      lp.key = key;
     }
     return lp;
   }
@@ -280,16 +285,17 @@
     var vw = document.documentElement.clientWidth, x = e.clientX, y = e.clientY;
     var top = y - LOUPE_OFF - LOUPE / 2;
     if (top < 110) top = y + LOUPE_OFF - LOUPE / 2;           // cerca del borde de arriba (o de la brújula) se pasa debajo del dedo
-    l.box.style.left = Math.round(Math.max(6, Math.min(vw - LOUPE - 6, x - LOUPE / 2))) + 'px';
+    l.box.style.left = Math.round(Math.max(4, Math.min(vw - LOUPE - 4, x - LOUPE / 2))) + 'px';
     l.box.style.top = Math.round(top) + 'px';
-    l.box.style.borderColor = curColor();
-    if (show) { l.box.style.display = 'block'; l.map.invalidateSize(false); }
+    if (show) { l.box.style.display = 'block'; l.layers.forEach(function (ly) { ly.map.invalidateSize(false); }); }
     var ll = m.mouseEventToLatLng(e);
-    var z = Math.min(m.getZoom() + 1, typeof m.getMaxZoom === 'function' && m.getMaxZoom() ? m.getMaxZoom() : 19);
-    l.map.setView(ll, z, { animate: false });
+    var maxZ = typeof m.getMaxZoom === 'function' && m.getMaxZoom() ? m.getMaxZoom() : 19;
     var parts = strokes.slice(); if (liveLine) parts.push(liveLine.getLatLngs().map(function (q) { return [q.lat, q.lng]; }));
-    var opt = { color: curColor(), weight: 5, opacity: 0.95, dashArray: dashOf(lstyle), lineCap: 'round', interactive: false };
-    if (!l.line) l.line = L.polyline(parts, opt).addTo(l.map); else l.line.setLatLngs(parts).setStyle(opt);
+    l.layers.forEach(function (ly) {
+      ly.map.setView(ll, Math.min(m.getZoom() + ly.def.add, maxZ), { animate: false });
+      var opt = { color: curColor(), weight: ly.def.w, opacity: 0.95, dashArray: dashOf(lstyle), lineCap: 'round', interactive: false };
+      if (!ly.line) ly.line = L.polyline(parts, opt).addTo(ly.map); else ly.line.setLatLngs(parts).setStyle(opt);
+    });
   }
   function loupeHide() { if (lp) lp.box.style.display = 'none'; }
   function finishStroke(commit) {

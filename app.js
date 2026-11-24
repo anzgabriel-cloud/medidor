@@ -1751,7 +1751,7 @@ function updateMetrics(areaM2, distM) {
   liveArea = areaM2; liveDist = distM;
   updateLiveBadge();
 }
-const APP_VERSION = '2026.11.24-v2-58';
+const APP_VERSION = '2026.11.24-v2-59';
 let liveSelfIntersect = false; // el polígono se cruza a sí mismo (los marcadores rojos ya lo señalan)
 function updateSelfIntersectWarning(show) {
   const v = !!show;
@@ -4417,7 +4417,7 @@ async function clearTileCache() {
 // ========== ALTITUD (s.n.m.) y PERFIL ==========
 // Fuente: Copernicus DEM GLO-90 (90 m) vía Open-Meteo; respaldo: Open Topo Data (SRTM).
 // Es un modelo de superficie: precisión de varios metros y, bajo monte, incluye la copa de los árboles.
-const ELEV_CACHE_KEY = 'medidor_elev_v1';
+const ELEV_CACHE_KEY = 'medidor_elev_v2';   // v2: se descartan alturas guardadas por error como 0 m
 let elevCache = null;
 const elevKey = (ll) => (+ll.lat).toFixed(4) + ',' + (+ll.lng).toFixed(4); // ≈ 11 m
 function loadElevCache() {
@@ -4453,10 +4453,14 @@ async function requestElevations(chunk) {
   const lat = chunk.map(c => c.lat).join(','), lng = chunk.map(c => c.lng).join(',');
   let v = await get(`https://api.open-meteo.com/v1/elevation?latitude=${lat}&longitude=${lng}`,
     j => Array.isArray(j.elevation) ? j.elevation : null);
-  if (v && v.length === chunk.length) return v;
+  const allZero = (x) => x.every(n => n === 0);
+  if (v && v.length === chunk.length && !allZero(v)) return v;
+  const dudoso = (v && v.length === chunk.length) ? v : null;   // todo en 0 m: puede ser mar real o una respuesta fallida; se verifica con la otra fuente
   const locs = chunk.map(c => c.lat + ',' + c.lng).join('|');
   v = await get(`https://api.opentopodata.org/v1/srtm30m?locations=${locs}`,
     j => Array.isArray(j.results) ? j.results.map(r => r.elevation) : null);
+  if (v && v.length === chunk.length && v.some(n => typeof n === 'number' && n !== 0)) return v;
+  if (dudoso) { dudoso.doubtful = true; return dudoso; }
   return (v && v.length === chunk.length) ? v : null;
 }
 /** Altitudes (m) de una lista de puntos; null donde no se pudo obtener (sin conexión, etc.) */
@@ -4474,9 +4478,10 @@ async function fetchElevations(lls) {
     const chunk = need.slice(s, s + 100);
     const vals = await requestElevations(chunk);
     if (!vals) break;
+    if (vals.doubtful) out.doubtful = true;
     chunk.forEach((c, j) => {
       const v = vals[j];
-      if (typeof v === 'number' && isFinite(v)) { elevCache[c.k] = v; idx.get(c.k).forEach(i => { out[i] = v; }); }
+      if (typeof v === 'number' && isFinite(v)) { if (!vals.doubtful) elevCache[c.k] = v; idx.get(c.k).forEach(i => { out[i] = v; }); }
     });
   }
   if (need.length) saveElevCache();
@@ -4553,7 +4558,7 @@ function profileStats(z) {
 }
 async function getItemProfile(item) {
   const sig = itemSig(item);
-  if (item.prof && item.prof.sig === sig && item.prof.v === 2) return item.prof;   // v2: más muestras en trazados largos
+  if (item.prof && item.prof.sig === sig && item.prof.v === 3) return item.prof;   // v3: recalcula perfiles guardados con ceros erróneos
   const smp = lineSamples(item.points.map(p => L.latLng(p.lat, p.lng)));
   if (!smp) return null;
   const z = await fetchElevations(smp.samples.map(s => s.ll));
@@ -4565,7 +4570,9 @@ async function getItemProfile(item) {
     let b = i + 1; while (b < z.length && z[b] === null) b++;
     z[i] = a < 0 ? z[b] : b >= z.length ? z[a] : z[a] + (z[b] - z[a]) * (i - a) / (b - a);
   }
-  item.prof = { sig, v: 2, d: smp.samples.map(s => Math.round(s.d)), z: z.map(v => Math.round(v * 10) / 10), total: smp.total };
+  const prof = { sig, v: 3, d: smp.samples.map(s => Math.round(s.d)), z: z.map(v => Math.round(v * 10) / 10), total: smp.total };
+  if (z.doubtful) return prof;   // respuesta dudosa (todo 0 m sin confirmar): se muestra pero no se guarda
+  item.prof = prof;
   persist();
   return item.prof;
 }

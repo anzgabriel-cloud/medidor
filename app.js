@@ -1751,7 +1751,7 @@ function updateMetrics(areaM2, distM) {
   liveArea = areaM2; liveDist = distM;
   updateLiveBadge();
 }
-const APP_VERSION = '2026.11.24-v2-59';
+const APP_VERSION = '2026.11.24-v2-60';
 let liveSelfIntersect = false; // el polígono se cruza a sí mismo (los marcadores rojos ya lo señalan)
 function updateSelfIntersectWarning(show) {
   const v = !!show;
@@ -4436,7 +4436,9 @@ const elevUnit = () => isImp() ? 'ft' : 'm';
 const fmtElev = (m) => `${nf0.format(elevConv(m))} ${elevUnit()}`;
 
 async function requestElevations(chunk) {
+  requestElevations.fatal = false;
   if (navigator.onLine === false) return null;
+  let rechazado = 0;
   const get = async (url, parse) => {
     for (let intento = 0; intento < 2; intento++) {
       const ctl = new AbortController();
@@ -4444,7 +4446,7 @@ async function requestElevations(chunk) {
       try {
         const r = await fetch(url, { signal: ctl.signal });
         if (r.ok) return parse(await r.json());
-        if (r.status >= 400 && r.status < 500 && r.status !== 429) return null; // pedido inválido: reintentar no sirve
+        if (r.status >= 400 && r.status < 500 && r.status !== 429) { rechazado++; return null; } // pedido inválido: reintentar no sirve
       } catch (e) { /* corte de red o tiempo agotado: se reintenta una vez */ } finally { clearTimeout(t); }
       if (intento === 0) await new Promise(res => setTimeout(res, 800));
     }
@@ -4461,6 +4463,7 @@ async function requestElevations(chunk) {
     j => Array.isArray(j.results) ? j.results.map(r => r.elevation) : null);
   if (v && v.length === chunk.length && v.some(n => typeof n === 'number' && n !== 0)) return v;
   if (dudoso) { dudoso.doubtful = true; return dudoso; }
+  requestElevations.fatal = rechazado >= 2;   // las dos fuentes rechazaron el pedido: repetirlo no sirve
   return (v && v.length === chunk.length) ? v : null;
 }
 /** Altitudes (m) de una lista de puntos; null donde no se pudo obtener (sin conexión, etc.) */
@@ -4474,15 +4477,31 @@ async function fetchElevations(lls) {
     if (!idx.has(k)) { idx.set(k, []); need.push({ k, lat: +(+ll.lat).toFixed(4), lng: +(+ll.lng).toFixed(4) }); }
     idx.get(k).push(i);
   });
-  for (let s = 0; s < need.length; s += 100) {
-    const chunk = need.slice(s, s + 100);
-    const vals = await requestElevations(chunk);
-    if (!vals) break;
+  const wait = (ms) => new Promise(res => setTimeout(res, ms));
+  const apply = (chunk, vals) => {
     if (vals.doubtful) out.doubtful = true;
     chunk.forEach((c, j) => {
       const v = vals[j];
       if (typeof v === 'number' && isFinite(v)) { if (!vals.doubtful) elevCache[c.k] = v; idx.get(c.k).forEach(i => { out[i] = v; }); }
     });
+  };
+  let failed = [];
+  for (let s = 0; s < need.length; s += 100) {
+    const chunk = need.slice(s, s + 100);
+    if (s) await wait(350);   // pausa entre pedidos: los servicios gratuitos cortan si se piden muy seguido
+    const vals = await requestElevations(chunk);
+    if (!vals) { if (!requestElevations.fatal) failed.push(chunk); if (navigator.onLine === false) break; continue; }   // un tramo que falla no arruina los demás
+    apply(chunk, vals);
+  }
+  for (let pass = 0; pass < 2 && failed.length; pass++) {   // reintento de los tramos que fallaron, con más espera
+    await wait(1500 * (pass + 1));
+    const again = [];
+    for (const chunk of failed) {
+      const vals = await requestElevations(chunk);
+      if (vals) apply(chunk, vals); else if (!requestElevations.fatal) again.push(chunk);
+      await wait(350);
+    }
+    failed = again;
   }
   if (need.length) saveElevCache();
   return out;
@@ -4563,15 +4582,18 @@ async function getItemProfile(item) {
   if (!smp) return null;
   const z = await fetchElevations(smp.samples.map(s => s.ll));
   if (z.every(v => v === null)) return null;
-  // huecos sueltos: se interpolan con los vecinos
+  // huecos sueltos: se interpolan con los vecinos; si el hueco es largo, el perfil queda marcado como incompleto
+  let incomplete = false;
   for (let i = 0; i < z.length; i++) {
     if (z[i] !== null) continue;
     let a = i - 1; while (a >= 0 && z[a] === null) a--;
     let b = i + 1; while (b < z.length && z[b] === null) b++;
+    if (b - a - 1 > 4) incomplete = true;
     z[i] = a < 0 ? z[b] : b >= z.length ? z[a] : z[a] + (z[b] - z[a]) * (i - a) / (b - a);
   }
   const prof = { sig, v: 3, d: smp.samples.map(s => Math.round(s.d)), z: z.map(v => Math.round(v * 10) / 10), total: smp.total };
-  if (z.doubtful) return prof;   // respuesta dudosa (todo 0 m sin confirmar): se muestra pero no se guarda
+  if (incomplete) prof.incomplete = true;
+  if (z.doubtful || incomplete) return prof;   // respuesta dudosa (todo 0 m sin confirmar): se muestra pero no se guarda
   item.prof = prof;
   persist();
   return item.prof;
@@ -4687,6 +4709,7 @@ function drawProfile(body, item, p) {
       ${stat('Subida', '+' + fmtElev(st.up), 'text-emerald-300')}${stat('Bajada', '−' + fmtElev(st.down), 'text-amber-300')}
     </div>
     <p class="text-[10px] text-slate-500 mt-2 leading-snug">Datos: modelo digital de elevación Copernicus (celdas de 90 m) vía Open-Meteo; si no responde, SRTM (30 m) vía OpenTopoData. Es un modelo de superficie global, no un relevamiento: incluye techos y copas de árboles, no capta detalles menores a ~90 m (terrazas, desniveles chicos) y en espejos de agua o zonas urbanas puede desviarse varios metros. Tomalo como orientativo.</p>`;
+  if (p.incomplete) body.insertAdjacentHTML('afterbegin', '<div class="text-[11px] text-amber-300 bg-amber-500/10 border border-amber-500/40 rounded-lg px-2 py-1.5 mb-2">Faltan datos de altura en parte del trazado (el servicio no respondió) y esos tramos están estimados en línea recta. Cerrá y volvé a abrir “Ver perfil” para reintentar.</div>');
   const svg = document.getElementById('profSvg');
   const cur = document.getElementById('profCur'), dot = document.getElementById('profDot'), ro = document.getElementById('profReadout');
   const move = (ev) => {

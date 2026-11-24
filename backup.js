@@ -3,7 +3,7 @@
 //   mediciones: { name, mode: 'polygon' | 'line', color: '#rrggbb', date, points: [{ lat, lng }] }
 //   POI:        { name, note, color: '#rrggbb', size: 's'|'m'|'l', lat, lng, elev? }
 //   anillos:    { lat, lng, r (metros), color }        rutas a mano alzada: { pts: [[lat, lng]], color, date }
-const BACKUP_VERSION = '2026.11.24-v2-61';
+const BACKUP_VERSION = '2026.11.24-v2-62';
 const BACKUP_FORMATS = {
   geojson: {
     label: 'GeoJSON', ext: 'geojson', mime: 'application/geo+json',
@@ -302,13 +302,15 @@ function parseGPX(text) {
   if (doc.documentElement.localName !== 'gpx') throw new Error('No es GPX');
   const model = bkNewModel();
   const colorOf = (el) => { const c = bkKids(el, 'color')[0]; return c ? c.textContent.trim() : null; };
-  const pts = (seg, tag) => bkKids(seg, tag).map(p => [+p.getAttribute('lon'), +p.getAttribute('lat')]);
+  // atributo ausente => NaN (con +null daría 0 y un punto falso en 0°,0°)
+  const attr = (el, n) => { const v = el.getAttribute(n); return v === null || String(v).trim() === '' ? NaN : +v; };
+  const pts = (seg, tag) => bkKids(seg, tag).map(p => [attr(p, 'lon'), attr(p, 'lat')]);
   bkKids(doc, 'wpt').forEach(w => {
     const kind = (bkKids(w, 'kind')[0] || {}).textContent;
-    if (kind === 'ring') { bkAddRing(model, { lat: +w.getAttribute('lat'), lng: +w.getAttribute('lon'), r: +((bkKids(w, 'radius')[0] || {}).textContent), color: colorOf(w) }); return; }
+    if (kind === 'ring') { bkAddRing(model, { lat: attr(w, 'lat'), lng: attr(w, 'lon'), r: +((bkKids(w, 'radius')[0] || {}).textContent), color: colorOf(w) }); return; }
     bkAddPoi(model, {
     name: bkChildText(w, 'name'), note: bkPlain(bkChildText(w, 'desc')), color: colorOf(w), size: (bkKids(w, 'size')[0] || {}).textContent,
-    lat: +w.getAttribute('lat'), lng: +w.getAttribute('lon')
+    lat: attr(w, 'lat'), lng: attr(w, 'lon')
     });
   });
   bkKids(doc, 'rte').forEach(r => bkAddMeasure(model, { name: bkChildText(r, 'name'), color: colorOf(r), coords: pts(r, 'rtept'), poly: false }));

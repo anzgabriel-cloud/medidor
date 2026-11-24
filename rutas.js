@@ -163,6 +163,10 @@
             if (!ok) return;
             saved = saved.filter(function (x) { return x.id !== rt.id; }); persist(); renderSaved(); window.MedidorConsulta.close();
           });
+        } },
+        { icon: 'mountain', label: 'Ver perfil', cls: 'text-amber-300', right: true, run: function () {
+          if (typeof openProfile !== 'function') return;
+          openProfile({ id: rt.id, mode: 'line', name: rt.name || 'Ruta/Sendero a mano alzada', color: rt.color, points: pts.map(function (p) { return { lat: p[0], lng: p[1] }; }) });
         } }
       ],
       onClose: clearHl

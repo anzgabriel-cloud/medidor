@@ -2,7 +2,7 @@
    Separado del HTML para mejor mantenimiento
 */
 
-:root { --app-version: "2026.11.23-v2-50"; }
+:root { --app-version: "2026.11.23-v2-51"; }
 
 .leaflet-control-attribution { font-size: 9px !important; background: rgba(15,23,42,0.7) !important; color: #94a3b8 !important; }
 .leaflet-control-attribution a { color: #94a3b8 !important; }
@@ -812,3 +812,15 @@ body:has(#infoPanel:not(.hidden)) .strip, body:has(#xInfo:not(.hidden)) .strip {
 body.line-busy #tpSearch, body.line-busy #tpFolder { opacity: .35; }
 #infoActions .poi-act-profile { grid-column: 4; }
 #infoActions .poi-act-profile svg, #infoActions .poi-act-profile i { color: #fbbf24; }
+
+/* Lupa del dibujo a mano alzada: mapa ampliado alrededor del dedo, desplazada hacia arriba */
+#freeLoupe { display: none; position: fixed; z-index: 18; width: 116px; height: 116px; border-radius: 50%; border: 3px solid #00ff66; box-sizing: border-box; overflow: hidden; pointer-events: none; background: #0b1220; box-shadow: 0 3px 14px rgba(0,0,0,.65), 0 0 0 2px rgba(255,255,255,.85); }
+#freeLoupe .fl-map { position: absolute; inset: 0; background: #0b1220; }
+#freeLoupe .fl-cross { position: absolute; left: 50%; top: 50%; width: 14px; height: 14px; margin: -7px 0 0 -7px; border-radius: 50%; border: 2px solid #fff; box-shadow: 0 0 0 1.5px rgba(0,0,0,.7), inset 0 0 0 1.5px rgba(0,0,0,.45); z-index: 500; box-sizing: border-box; }
+
+/* La regla de "Mediciones" toma el color del modo elegido (cada modo con su color) */
+body:has(#mainControls[data-mode="polygon"]) #tpMeasure[aria-pressed="true"] { background: rgba(5,150,105,.32); color: #6ee7b7; }
+body:has(#mainControls[data-mode="line"]) #tpMeasure[aria-pressed="true"] { background: rgba(14,165,233,.32); color: #7dd3fc; }
+body:has(#mainControls[data-mode="track"]) #tpMeasure[aria-pressed="true"] { background: rgba(220,38,38,.32); color: #fca5a5; }
+body:has(#mainControls[data-mode="ring"]) #tpMeasure[aria-pressed="true"] { background: rgba(8,145,178,.34); color: #67e8f9; }
+body:has(#mainControls[data-mode="free"]) #tpMeasure[aria-pressed="true"] { background: rgba(124,58,237,.38); color: #c4b5fd; }

@@ -104,11 +104,20 @@
   }
   function updateNum(d) {
     var el = $('freeNum'); if (!el) return;
-    var col = curColor();
-    el.style.textShadow = '0 0 6px ' + col + ', 0 0 14px ' + col;
     el.classList.toggle('on', active && d > 0);
     $('freeNumV').textContent = '≈ ' + fmtKm(d);
+    placeNum();
   }
+  /** La etiqueta va pegada arriba del panel de acción, a su borde derecho (igual que en las otras mediciones) */
+  function placeNum() {
+    var el = $('freeNum'), tb = $('bottomToolbar'); if (!el || !tb) return;
+    var rc = tb.getBoundingClientRect(); if (!rc.width) return;
+    el.style.bottom = Math.round(window.innerHeight - rc.top + 6) + 'px';
+    el.style.right = Math.round(document.documentElement.clientWidth - rc.right) + 'px';
+    el.style.maxWidth = Math.round(rc.width) + 'px';
+  }
+  window.addEventListener('resize', placeNum);
+  if (window.ResizeObserver && $('bottomToolbar')) new ResizeObserver(placeNum).observe($('bottomToolbar'));
   function renderSaved() {
     var m = getMap(); if (!m || !ui) return;
     Object.keys(savedLayers).forEach(function (k) { m.removeLayer(savedLayers[k]); });
@@ -136,16 +145,15 @@
     var m = getMap(); if (!m) return;
     var nf = new Intl.NumberFormat('es-AR', { maximumFractionDigits: 2 });
     var pts = rt.pts, a = L.latLng(pts[0][0], pts[0][1]), b = L.latLng(pts[pts.length - 1][0], pts[pts.length - 1][1]);
-    var total = rt.dist || dist(pts), straight = m.distance(a, b);
-    var T = lenMain(total), S = lenMain(straight);
-    var brg = trueBearing(a, b);
+    var total = rt.dist || dist(pts);
+    var T = lenMain(total);
     var d = rt.ts ? new Date(rt.ts).toLocaleDateString('es-AR') : (rt.date || '');
     clearHl();
     hlLayer = L.polyline(pts, { color: '#fff', weight: 9, opacity: 0.5, interactive: false }).addTo(m);
-    window.MedidorConsulta.open({
+    var spec = {
       color: rt.color, title: rt.name || 'Ruta/Sendero a mano alzada', hideLabel: true, meta: pts.length + ' puntos · ' + d + ' · distancia aproximada',
       metrics: [[{ label: 'Distancia', value: '≈ ' + nf.format(T.v), unit: T.u, sub: lenSub(total), cls: 'text-violet-300' },
-                 { label: 'Recta inicio-fin', value: nf.format(S.v), unit: S.u, sub: straight > 1 ? brg0(brg) + '° V · ' + bearingCardinal(brg) : lenSub(straight) }]],
+                 { label: 'Altitud s.n.m. media', value: '…', sub: 'calculando', cls: 'text-amber-300' }]],
       extra: (rt.note ? 'Nota: ' + rt.note + '\n' : '') + 'Inicio: ' + fmtCoord(a.lat, a.lng) + '   Fin: ' + fmtCoord(b.lat, b.lng),
       actions: [
         { icon: 'pencil', label: 'Editar', cls: 'text-slate-200', run: function () { editRoute(rt); } },
@@ -157,7 +165,25 @@
         } }
       ],
       onClose: clearHl
-    });
+    };
+    window.MedidorConsulta.open(spec);
+    loadMeanElev(spec, pts, total, nf);
+  }
+  /** Altitud media de la ruta: se toman hasta 60 puntos repartidos a lo largo (misma fuente que el resto de la app) */
+  function loadMeanElev(spec, pts, total, nf) {
+    function show(v, unit, sub) {
+      window.MedidorConsulta.update(spec, { metrics: [[spec.metrics[0][0], { label: 'Altitud s.n.m. media', value: v, unit: unit, sub: sub, cls: 'text-amber-300' }]] });
+    }
+    if (typeof fetchElevations !== 'function') return show('—', '', 'sin datos');
+    var n = Math.min(60, pts.length), sample = [], i;
+    for (i = 0; i < n; i++) { var p = pts[Math.round(i * (pts.length - 1) / Math.max(1, n - 1))]; sample.push(L.latLng(p[0], p[1])); }
+    fetchElevations(sample).then(function (z) {
+      var ok = z.filter(function (x) { return typeof x === 'number'; });
+      if (!ok.length) return show('—', '', 'sin conexión o sin datos');
+      var mean = ok.reduce(function (s, x) { return s + x; }, 0) / ok.length;
+      var lo = Math.min.apply(null, ok), hi = Math.max.apply(null, ok);
+      show(nf.format(Math.round(elevConv(mean))), elevUnit(), nf.format(Math.round(elevConv(lo))) + '–' + nf.format(Math.round(elevConv(hi))) + ' ' + elevUnit());
+    }).catch(function () { show('—', '', 'sin conexión o sin datos'); });
   }
   // Editar: siempre se puede cambiar nombre, nota y color (mismo cuadro que al guardar, con selector de color)
   var COLORS = ['#00ff66', '#ffe600', '#ff6600', '#48cae4', '#3b82f6', '#ff00a0', '#e10600', '#ffffff', '#9ca3af', '#111827', '#8b5a2b'];

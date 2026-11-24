@@ -1749,7 +1749,7 @@ function updateMetrics(areaM2, distM) {
   liveArea = areaM2; liveDist = distM;
   updateLiveBadge();
 }
-const APP_VERSION = '2026.11.23-v2-49';
+const APP_VERSION = '2026.11.23-v2-50';
 let liveSelfIntersect = false; // el polígono se cruza a sí mismo (los marcadores rojos ya lo señalan)
 function updateSelfIntersectWarning(show) {
   const v = !!show;
@@ -3589,7 +3589,7 @@ function updateNavArrow() {
   const p = pickHeading();
   if (!p) { if (navArrow) navArrow.getElement() && (navArrow.getElement().style.display = 'none'); return; }
   if (!navArrow) {
-    const icon = L.divIcon({ className: 'nav-arrow-wrap', iconSize: [0, 0], html: '<div class="nav-arrow"><svg viewBox="0 0 64 64" width="64" height="64"><polygon points="32,5 41,22 32,18 23,22" stroke="#fff" stroke-width="1.5" stroke-linejoin="round"/></svg></div>' });
+    const icon = L.divIcon({ className: 'nav-arrow-wrap', iconSize: [0, 0], html: '<div class="nav-arrow"><svg viewBox="0 0 64 64" width="76" height="76"><polygon points="32,5 41,22 32,18 23,22" stroke="#fff" stroke-width="1.5" stroke-linejoin="round"/></svg></div>' });
     navArrow = L.marker(userLocMarker.getLatLng(), { icon, interactive: false, keyboard: false, zIndexOffset: 850 }).addTo(map);
   } else navArrow.setLatLng(userLocMarker.getLatLng());
   const el = navArrow.getElement(); if (!el) return;

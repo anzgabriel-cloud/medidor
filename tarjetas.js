@@ -116,5 +116,11 @@
   var vm = $('viewMedirBtn');
   if (vm) new MutationObserver(function () { if (vm.getAttribute('aria-pressed') === 'true') close(); }).observe(vm, { attributes: true, attributeFilter: ['aria-pressed'] });
 
-  window.MedidorConsulta = { open: open, close: close, isOpen: function () { return !!cur; } };
+  // Actualiza datos de la tarjeta abierta (p. ej. una altitud que llega después); se ignora si ya se cerró o se abrió otra
+  function update(spec, patch) {
+    if (!cur || cur !== spec) return;
+    Object.keys(patch || {}).forEach(function (k) { spec[k] = patch[k]; });
+    $('xMetrics').innerHTML = metricsHtml(spec.metrics, spec.extra);
+  }
+  window.MedidorConsulta = { open: open, close: close, update: update, isOpen: function () { return !!cur; } };
 })();

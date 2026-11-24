@@ -254,8 +254,8 @@
     else liveLine.setLatLngs(ll).setStyle({ color: curColor(), dashArray: dashOf(lstyle) });
     var base = allPts(); updateNum(dist(base.concat(cur.anchor ? ll.slice(1) : ll)));
   }
-  // --- Lupa propia: círculo con el mapa ampliado (4×) alrededor del dedo, desplazado hacia arriba para que el dedo no la tape ---
-  var LOUPE = 116, LOUPE_OFF = 92, lp = null;       // lp: { box, map, tiles, key, line, ring }
+  // --- Lupa propia: círculo con el mapa ampliado (2×) alrededor del dedo, desplazado hacia arriba para que el dedo no la tape ---
+  var LOUPE = 84, LOUPE_OFF = 66, lp = null;       // lp: { box, map, tiles, key, line, ring }
   function loupeEnsure() {
     var m = getMap(); if (!m || typeof L === 'undefined') return null;
     if (!lp) {
@@ -279,13 +279,13 @@
     var show = l.box.style.display !== 'block';
     var vw = document.documentElement.clientWidth, x = e.clientX, y = e.clientY;
     var top = y - LOUPE_OFF - LOUPE / 2;
-    if (top < 120) top = y + LOUPE_OFF - LOUPE / 2;           // cerca del borde de arriba (o de la brújula) se pasa debajo del dedo
+    if (top < 110) top = y + LOUPE_OFF - LOUPE / 2;           // cerca del borde de arriba (o de la brújula) se pasa debajo del dedo
     l.box.style.left = Math.round(Math.max(6, Math.min(vw - LOUPE - 6, x - LOUPE / 2))) + 'px';
     l.box.style.top = Math.round(top) + 'px';
     l.box.style.borderColor = curColor();
     if (show) { l.box.style.display = 'block'; l.map.invalidateSize(false); }
     var ll = m.mouseEventToLatLng(e);
-    var z = Math.min(m.getZoom() + 2, typeof m.getMaxZoom === 'function' && m.getMaxZoom() ? m.getMaxZoom() : 19);
+    var z = Math.min(m.getZoom() + 1, typeof m.getMaxZoom === 'function' && m.getMaxZoom() ? m.getMaxZoom() : 19);
     l.map.setView(ll, z, { animate: false });
     var parts = strokes.slice(); if (liveLine) parts.push(liveLine.getLatLngs().map(function (q) { return [q.lat, q.lng]; }));
     var opt = { color: curColor(), weight: 5, opacity: 0.95, dashArray: dashOf(lstyle), lineCap: 'round', interactive: false };

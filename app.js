@@ -1751,7 +1751,7 @@ function updateMetrics(areaM2, distM) {
   liveArea = areaM2; liveDist = distM;
   updateLiveBadge();
 }
-const APP_VERSION = '2026.11.24-v2-57';
+const APP_VERSION = '2026.11.24-v2-58';
 let liveSelfIntersect = false; // el polígono se cruza a sí mismo (los marcadores rojos ya lo señalan)
 function updateSelfIntersectWarning(show) {
   const v = !!show;
@@ -4622,7 +4622,7 @@ function openProfile(item) {
   const modal = document.getElementById('profileModal');
   document.getElementById('profileTitle').textContent = item.name || 'Perfil de altura';
   const body = document.getElementById('profileBody');
-  body.innerHTML = '<div class="py-10 text-center text-xs text-slate-400">Calculando perfil…</div>';
+  body.innerHTML = '<div class="prof-loading py-10 flex flex-col items-center gap-2 text-xs text-amber-200"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 22h14"/><path d="M5 2h14"/><path d="M17 22v-4.172a2 2 0 0 0-.586-1.414L12 12l-4.414 4.414A2 2 0 0 0 7 17.828V22"/><path d="M7 2v4.172a2 2 0 0 0 .586 1.414L12 12l4.414-4.414A2 2 0 0 0 17 6.172V2"/></svg><span>Calculando perfil…</span></div>';
   modal.classList.remove('hidden');
   lucide.createIcons();
   getItemProfile(item).then(p => {

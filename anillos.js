@@ -50,8 +50,22 @@
     L.marker(mid, { interactive: false, keyboard: false, icon: L.divIcon({
       className: 'ring-label', html: '<span style="color:' + col + '">' + fmt(a.r) + '</span>', iconSize: [0, 0]
     }) }).addTo(g);
+    if (firstAtCenter(a)) {   // etiqueta del centro (una sola por centro, aunque haya anillos concéntricos)
+      L.marker(c, { interactive: false, keyboard: false, icon: L.divIcon({
+        className: 'ring-label ring-center', html: '<span style="color:' + col + '">Centro de radio</span>', iconSize: [0, 0]
+      }) }).addTo(g);
+    }
     g.addTo(m);
     return g;
+  }
+  /** ¿Es este el primer anillo visible de su centro (~40 m)? Evita repetir "Centro de radio" en anillos concéntricos */
+  function firstAtCenter(a) {
+    for (var i = 0; i < rings.length; i++) {
+      var x = rings[i];
+      if (x === a) return true;
+      if (!x.hidden && Math.abs(x.lat - a.lat) < 0.0004 && Math.abs(x.lng - a.lng) < 0.0004) return false;
+    }
+    return true;
   }
   function clearDraftLayer() { var m = getMap(); if (draftLayer && m) m.removeLayer(draftLayer); draftLayer = null; }
   function drawDraft() {

@@ -205,10 +205,16 @@
       box.appendChild(b);
     });
     paint(); row.style.display = '';
+    var sty = rt.style === 'dot' ? 'dot' : 'dash', srow = $('saveStyleRow');
+    function paintSty() { if (srow) Array.prototype.forEach.call(srow.querySelectorAll('[data-save-style]'), function (b) { b.setAttribute('aria-pressed', b.getAttribute('data-save-style') === sty ? 'true' : 'false'); }); }
+    if (srow) {
+      Array.prototype.forEach.call(srow.querySelectorAll('[data-save-style]'), function (b) { b.onclick = function () { sty = b.getAttribute('data-save-style'); paintSty(); }; });
+      paintSty(); srow.style.display = '';
+    }
     var h3 = modal.querySelector('h3'); if (h3) h3.textContent = 'Editar ruta';
     var cb = $('confirmSaveBtn'); if (cb) cb.textContent = 'Guardar cambios';
     window.MedidorSaveHook = function (name, note) {
-      rt.name = name || rt.name || ''; rt.note = note || ''; rt.color = col;
+      rt.name = name || rt.name || ''; rt.note = note || ''; rt.color = col; rt.style = sty;
       persist(); renderSaved(); selectRoute(rt);
     };
     modal.classList.remove('hidden');

@@ -1751,7 +1751,7 @@ function updateMetrics(areaM2, distM) {
   liveArea = areaM2; liveDist = distM;
   updateLiveBadge();
 }
-const APP_VERSION = '2026.11.24-v2-63';
+const APP_VERSION = '2026.11.24-v2-64';
 let liveSelfIntersect = false; // el polígono se cruza a sí mismo (los marcadores rojos ya lo señalan)
 function updateSelfIntersectWarning(show) {
   const v = !!show;
@@ -3231,7 +3231,7 @@ function closeCoordModal() { setSearchMode('place'); }
 function initCoordUI() {
   const si = document.getElementById('searchInput');
   si.addEventListener('focus', () => { si.placeholder = 'Escribe un nombre de lugar'; if (searchMode === 'coords') setSearchMode('place'); updateSearchLock(); });
-  si.addEventListener('blur', () => { si.placeholder = 'Buscar por lugar'; setTimeout(updateSearchLock, 0); });
+  si.addEventListener('blur', () => { si.placeholder = 'Buscar por lugar o coordenadas'; setTimeout(updateSearchLock, 0); });
   document.getElementById('modeCoordsBtn').onclick = () => setSearchMode(searchMode === 'coords' ? 'place' : 'coords');
   const modal = document.getElementById('coordPanel');
   const freeEl = document.getElementById('cgFree');
@@ -3802,7 +3802,7 @@ function openSaveModal() {
   document.getElementById('saveModal').classList.remove('hidden');
 }
 
-function hideSaveColorRow() { const r = document.getElementById('saveColorRow'); if (r) r.style.display = 'none'; }
+function hideSaveColorRow() { ['saveColorRow', 'saveStyleRow'].forEach(id => { const r = document.getElementById(id); if (r) r.style.display = 'none'; }); }
 
 function confirmSave() {
   if (window.MedidorSaveHook) {      // guardado de una ruta a mano alzada (rutas.js)

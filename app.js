@@ -1751,7 +1751,7 @@ function updateMetrics(areaM2, distM) {
   liveArea = areaM2; liveDist = distM;
   updateLiveBadge();
 }
-const APP_VERSION = '2026.11.24-v2-62';
+const APP_VERSION = '2026.11.24-v2-63';
 let liveSelfIntersect = false; // el polígono se cruza a sí mismo (los marcadores rojos ya lo señalan)
 function updateSelfIntersectWarning(show) {
   const v = !!show;
@@ -4019,6 +4019,8 @@ function setInfoActions(poi, item) {
   ic.classList.remove('hidden');
   box.classList.remove('hidden');
   const rows = infoActionRows(item || null, poi || null);
+  if (poi) { const ord = { edit: 0, del: 1, nav: 2 }; rows.sort((x, y) => (ord[x.key] ?? 9) - (ord[y.key] ?? 9)); }   // POI: Editar y Borrar a la izquierda, Navegar a la derecha
+  box.classList.toggle('for-poi', !!poi);
   box.innerHTML = rows.map((r, i) => `<button type="button" data-i="${i}" class="poi-act poi-act-${r.key}${r.off ? ' off' : ''}"${r.off ? ' aria-disabled="true"' : ''}><span>${escapeHtml(r.short || r.label)}</span><i data-lucide="${r.icon}" class="w-4 h-4"></i></button>`).join('');
   box.querySelectorAll('button').forEach(b => b.onclick = () => { const r = rows[+b.dataset.i]; if (r && !r.off) r.run(); });
 }

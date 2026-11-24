@@ -2,7 +2,7 @@
    Separado del HTML para mejor mantenimiento
 */
 
-:root { --app-version: "2026.11.24-v2-62"; }
+:root { --app-version: "2026.11.24-v2-63"; }
 
 .leaflet-control-attribution { font-size: 9px !important; background: rgba(15,23,42,0.7) !important; color: #94a3b8 !important; }
 .leaflet-control-attribution a { color: #94a3b8 !important; }
@@ -823,3 +823,4 @@ body:has(#mainControls[data-mode="free"]) #tpMeasure[aria-pressed="true"] { back
 
 .prof-loading svg { width: 34px; height: 34px; animation: hourglassFlip 1.7s ease-in-out infinite; }
 .free-draw.free-pan, .free-draw.free-pan * { cursor: grab !important; }
+#infoActions.for-poi .poi-act-nav { grid-column: 4; }

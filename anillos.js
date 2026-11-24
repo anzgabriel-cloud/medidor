@@ -39,8 +39,9 @@
     var c = L.latLng(a.lat, a.lng), col = safeColor(a.color);
     L.circle(c, { radius: a.r, color: col, weight: 3, fill: false, interactive: false }).addTo(g);
     if (interactive) {   // borde ancho e invisible: se toca el aro (no el interior) para consultar el anillo
-      L.circle(c, { radius: a.r, fill: false, color: '#000', weight: 26, opacity: 0.01, interactive: true }).addTo(g)
-        .on('click', function (ev) { selectRing(a, ev); });
+      var hitC = L.circle(c, { radius: a.r, fill: false, color: '#000', weight: 26, opacity: 0.01, interactive: true }).addTo(g);
+      var ent = window.MedidorPick && window.MedidorPick.add({ map: m, hit: hitC, d: window.MedidorPick.ringDist(a.lat, a.lng, a.r), open: function (ev) { selectRing(a, ev); } });
+      hitC.on('click', function (ev) { var t = ent ? window.MedidorPick.pick(ev, ent) : null; if (t && t !== ent) t.open(ev); else selectRing(a, ev); });
     }
     var b = (a.ang == null ? 90 : a.ang) * Math.PI / 180;   // rumbo del radio: cada anillo concéntrico gira el suyo para no pisar las etiquetas
     var e = L.latLng(a.lat + a.r * Math.cos(b) / 111320, a.lng + a.r * Math.sin(b) / (111320 * Math.max(0.05, Math.cos(a.lat * Math.PI / 180))));
@@ -100,7 +101,7 @@
       color: a.color, title: 'Anillo ' + fmt(r), meta: 'Radio desde un punto · ' + d,
       metrics: [[{ label: 'Radio', value: nf.format(R.v), unit: R.u, sub: lenSub(r), cls: 'text-orange-300' }, { label: 'Diámetro', value: nf.format(Di.v), unit: Di.u, sub: lenSub(2 * r) }],
                 [{ label: 'Circunferencia', value: nf.format(Ci.v), unit: Ci.u, sub: lenSub(2 * Math.PI * r) }, { label: 'Superficie', value: nf.format(A.v), unit: A.u, sub: areaSub(area), cls: 'text-emerald-400' }]],
-      extra: 'Centro: ' + fmtCoord(a.lat, a.lng),
+      extra: 'Centro de radio: ' + fmtCoord(a.lat, a.lng),
       rows: [
         { icon: 'crosshair', label: 'Ir', cls: 'text-slate-200', run: go },
         { icon: 'copy', label: 'Copiar centro', cls: 'text-sky-300', run: function () { copyToClipboard(a.lat.toFixed(6) + ', ' + a.lng.toFixed(6), null); } },

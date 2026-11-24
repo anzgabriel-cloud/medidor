@@ -1751,7 +1751,7 @@ function updateMetrics(areaM2, distM) {
   liveArea = areaM2; liveDist = distM;
   updateLiveBadge();
 }
-const APP_VERSION = '2026.11.24-v2-60';
+const APP_VERSION = '2026.11.24-v2-61';
 let liveSelfIntersect = false; // el polígono se cruza a sí mismo (los marcadores rojos ya lo señalan)
 function updateSelfIntersectWarning(show) {
   const v = !!show;
@@ -2387,6 +2387,43 @@ function hideMeasurementInfo() {
   syncFixedCompass();
 }
 
+/** Selección por cercanía: si se tocan líneas/anillos superpuestos, se abre el que está más cerca del dedo (no el que está encima) */
+window.MedidorPick = (function () {
+  const entries = new Set();
+  const segDist = (p, a, b) => {
+    const dx = b.x - a.x, dy = b.y - a.y, l2 = dx * dx + dy * dy;
+    let t = l2 ? ((p.x - a.x) * dx + (p.y - a.y) * dy) / l2 : 0; t = Math.max(0, Math.min(1, t));
+    return Math.hypot(p.x - (a.x + t * dx), p.y - (a.y + t * dy));
+  };
+  return {
+    lineDist: (lls) => (map, pt) => {
+      let best = Infinity, prev = null;
+      for (const ll of lls) { const c = map.latLngToContainerPoint(ll); if (prev) best = Math.min(best, segDist(pt, prev, c)); prev = c; }
+      return best;
+    },
+    ringDist: (lat, lng, r) => (map, pt) => {
+      const c = map.latLngToContainerPoint([lat, lng]);
+      const e = map.latLngToContainerPoint([lat, lng + r / (111320 * Math.max(0.05, Math.cos(lat * Math.PI / 180)))]);
+      return Math.abs(Math.hypot(pt.x - c.x, pt.y - c.y) - Math.hypot(e.x - c.x, e.y - c.y));
+    },
+    add: (e) => { entries.add(e); return e; },
+    pick: (ev, self) => {
+      try {
+        const map = self.map; if (!map || !ev || !ev.originalEvent) return self;
+        const pt = map.mouseEventToContainerPoint(ev.originalEvent);
+        let best = self, bd = self.d(map, pt);
+        entries.forEach(e => {
+          if (e === self) return;
+          if (!e.map || !e.map.hasLayer(e.hit)) { entries.delete(e); return; }
+          const d = e.d(e.map, pt);
+          if (d < bd - 2 && d <= 18) { best = e; bd = d; }
+        });
+        return best;
+      } catch (x) { return self; }
+    }
+  };
+})();
+
 function addLockedLayer(item) {
   removeLockedLayer(item.id);
   const latlngs = item.points.map(p => L.latLng(p.lat, p.lng));
@@ -2403,10 +2440,12 @@ function addLockedLayer(item) {
       }
       return;
     }
+    if (lineEntry) { const t = window.MedidorPick.pick(e, lineEntry); if (t !== lineEntry) { t.open(e); return; } }
     L.DomEvent.stopPropagation(e);
     if (e.originalEvent) e.originalEvent.stopPropagation();
     showMeasurementInfo(item);
   };
+  let lineEntry = null;
   if (item.mode === 'polygon' && latlngs.length >= 3) {
     const poly = L.polygon(latlngs, { color, fillColor: color, fillOpacity: 0.18, weight: 2.5, interactive: true, pane: 'areaPane' }).addTo(map);
     poly.on('click', onShapeClick);
@@ -2420,6 +2459,7 @@ function addLockedLayer(item) {
     const hit = L.polyline(latlngs, { color: '#000', weight: 26, opacity: 0.01, interactive: true, lineCap: 'round' }).addTo(map);
     hit.on('click', onShapeClick);
     layers.push(hit);
+    lineEntry = window.MedidorPick.add({ map, hit, d: window.MedidorPick.lineDist(latlngs), open: (e) => { L.DomEvent.stopPropagation(e); if (e.originalEvent) e.originalEvent.stopPropagation(); showMeasurementInfo(item); } });
   }
   latlngs.forEach(ll => {
     layers.push(L.circleMarker(ll, { radius: 5, color: '#fff', weight: 2, fillColor: color, fillOpacity: 1, interactive: false }).addTo(map));
@@ -2533,8 +2573,8 @@ function updateModeTheme() {
 // ========== VISTA: Ver / Medir ==========
 // Ver = mapa limpio, solo consulta. Medir = panel de medición. La app arranca en Ver.
 let appView = 'ver';
-/** Distancia sin guardar (nueva o en edición): se bloquean Buscar y las listas, que sacarían al usuario del modo y dan errores */
-function lineBusy() { return mode === 'line' && !poiMode && !trackMode && appView === 'medir' && (points.length > 0 || !!editingId); }
+/** Distancia o superficie sin guardar (nueva o en edición): se bloquean Buscar y las listas, que sacarían al usuario del modo y dan errores */
+function lineBusy() { return (mode === 'line' || mode === 'polygon') && !poiMode && !trackMode && appView === 'medir' && (points.length > 0 || !!editingId); }
 function syncLineBusy() { document.body.classList.toggle('line-busy', lineBusy()); }
 function hasPendingWork() { return points.length > 0 || gpsWatchId !== null || !!editingId; }
 function ensureMedir() { if (appView !== 'medir') { appView = 'medir'; applyAppView(); } }

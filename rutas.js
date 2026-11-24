@@ -128,7 +128,8 @@
       var sa = arrowMarker(r.pts, false, RED), ea = arrowMarker(r.pts, true, BLUE);
       // trazo ancho e invisible: facilita tocar la ruta para consultarla
       var hit = L.polyline(r.pts, { color: '#000', weight: 26, opacity: 0.01, interactive: true });
-      hit.on('click', function (ev) { selectRoute(r, ev); });
+      var ent = window.MedidorPick && window.MedidorPick.add({ map: m, hit: hit, d: window.MedidorPick.lineDist(r.pts.map(function (p) { return L.latLng(p); })), open: function (ev) { selectRoute(r, ev); } });
+      hit.on('click', function (ev) { var t = ent ? window.MedidorPick.pick(ev, ent) : null; if (t && t !== ent) t.open(ev); else selectRoute(r, ev); });
       savedLayers[r.id] = L.layerGroup([line, hit].concat(sa ? [sa] : [], ea ? [ea] : [])).addTo(m);
     });
     var n = $('fmFreeN'); if (n) n.textContent = String(saved.length);
@@ -266,8 +267,24 @@
     if (ll.length >= 2) { strokes.push(ll); redo = []; }
     drawDraft();
   }
+  // PC: con el mouse el botón izquierdo dibuja; para mover el mapa se usa el botón derecho/central o la barra espaciadora + arrastrar (la rueda sigue haciendo zoom)
+  var panning = null, spaceDown = false;
+  function setPanCursor() { var m = getMap(); if (m) m.getContainer().classList.toggle('free-pan', !!(active && drawing && spaceDown)); }
+  document.addEventListener('keydown', function (e) {
+    if (e.code !== 'Space' || !active || !drawing) return;
+    var t = e.target && e.target.tagName; if (t === 'INPUT' || t === 'TEXTAREA' || t === 'BUTTON') return;
+    spaceDown = true; setPanCursor(); e.preventDefault();
+  });
+  document.addEventListener('keyup', function (e) { if (e.code === 'Space') { spaceDown = false; setPanCursor(); } });
+  document.addEventListener('contextmenu', function (e) { if (active && drawing && inMap(e)) e.preventDefault(); }, true);
   function onDown(e) {
     if (!active || !drawing || !inMap(e)) return;
+    if (e.pointerType === 'mouse' && (e.button !== 0 || spaceDown)) {
+      if (cur) finishStroke(true);
+      panning = { id: e.pointerId, x: e.clientX, y: e.clientY };
+      try { e.target.setPointerCapture && e.target.setPointerCapture(e.pointerId); } catch (x) {}
+      e.preventDefault(); return;
+    }
     pointers[e.pointerId] = 1; nPtr++;
     if (nPtr > 1) {                                          // segundo dedo: es mover/zoom, se corta el trazo
       multi = true;
@@ -282,6 +299,12 @@
     try { e.target.setPointerCapture && e.target.setPointerCapture(e.pointerId); } catch (x) {}
   }
   function onMove(e) {
+    if (panning && panning.id === e.pointerId) {
+      var mp = getMap();
+      if (mp) { mp.panBy([panning.x - e.clientX, panning.y - e.clientY], { animate: false }); panning.x = e.clientX; panning.y = e.clientY; }
+      if (e.cancelable) e.preventDefault();
+      return;
+    }
     if (!active || !cur || multi || !pointers[e.pointerId]) return;
     var p = pt(e), l = cur.px[cur.px.length - 1];
     if (cur.ign) { if (Math.hypot(p.x - l.x, p.y - l.y) < SNAP_EXIT) return; cur.ign = false; }
@@ -291,6 +314,7 @@
     liveRender();
   }
   function onUp(e) {
+    if (panning && panning.id === e.pointerId) { panning = null; return; }
     if (!pointers[e.pointerId]) return;
     delete pointers[e.pointerId]; nPtr = Math.max(0, nPtr - 1);
     if (!active) return;

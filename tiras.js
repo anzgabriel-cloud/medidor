@@ -27,7 +27,7 @@
   function leaveMeasure() { if ($('viewMedirBtn').getAttribute('aria-pressed') === 'true') click('viewVerBtn'); }
   $('tpSearch').onclick = function () {
     if (typeof lineBusy === 'function' && lineBusy()) {
-      if (typeof toast === 'function') toast({ type: 'info', title: 'Distancia en curso', message: 'Guardala o cancelala antes de abrir Buscar o las listas.', duration: 2500 });
+      if (typeof toast === 'function') toast({ type: 'info', title: 'Medición en curso', message: 'Guardala o cancelala antes de abrir Buscar o las listas.', duration: 2500 });
       return;
     }
     var open = !body.classList.contains('search-open');
@@ -69,7 +69,7 @@
   // --- Guardados: menú con POI y Mediciones (abren las listas de siempre) ---
   $('tpFolder').onclick = function () {
     if (typeof lineBusy === 'function' && lineBusy()) {
-      if (typeof toast === 'function') toast({ type: 'info', title: 'Distancia en curso', message: 'Guardala o cancelala antes de abrir Buscar o las listas.', duration: 2500 });
+      if (typeof toast === 'function') toast({ type: 'info', title: 'Medición en curso', message: 'Guardala o cancelala antes de abrir Buscar o las listas.', duration: 2500 });
       return;
     }
     var m = $('folderMenu'), open = m.classList.contains('hidden');

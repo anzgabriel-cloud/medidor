@@ -89,7 +89,7 @@
   }
   function selectRing(a, ev) {
     if (!canSelect()) return;
-    L.DomEvent.stopPropagation(ev);
+    if (ev) L.DomEvent.stopPropagation(ev);
     var m = getMap(); if (!m) return;
     var nf = new Intl.NumberFormat('es-AR', { maximumFractionDigits: 2 });
     var r = a.r, R = lenMain(r), Di = lenMain(2 * r), Ci = lenMain(2 * Math.PI * r), area = Math.PI * r * r, A = areaMain(area);
@@ -105,9 +105,12 @@
       rows: [
         { icon: 'crosshair', label: 'Ir', cls: 'text-slate-200', run: go },
         { icon: 'copy', label: 'Copiar centro', cls: 'text-sky-300', run: function () { copyToClipboard(a.lat.toFixed(6) + ', ' + a.lng.toFixed(6), null); } },
-        { icon: 'eye-off', label: 'Ocultar', cls: 'text-slate-200', run: function () { a.hidden = true; persist(); renderSaved(); window.MedidorConsulta.close(); } },
-        { icon: 'trash-2', label: 'Eliminar', cls: 'text-red-400', run: function () {
-          confirmToast({ title: '¿Eliminar el anillo de ' + fmt(r) + '?', message: 'No se puede deshacer.', confirmLabel: 'Eliminar', danger: true }).then(function (ok) {
+        { icon: 'eye-off', label: 'Ocultar', cls: 'text-slate-200', run: function () { a.hidden = true; persist(); renderSaved(); window.MedidorConsulta.close(); } }
+      ],
+      actions: [
+        { icon: 'pencil', label: 'Editar', cls: 'text-slate-200', run: function () { editRing(a); } },
+        { icon: 'trash-2', label: 'Borrar', cls: 'text-red-400', run: function () {
+          confirmToast({ title: '¿Borrar el anillo de ' + fmt(r) + '?', message: 'No se puede deshacer.', confirmLabel: 'Borrar', danger: true }).then(function (ok) {
             if (!ok) return;
             rings = rings.filter(function (x) { return x.id !== a.id; }); persist(); renderSaved(); window.MedidorConsulta.close();
           });
@@ -115,6 +118,41 @@
       ],
       onClose: clearHl
     });
+  }
+  // Editar: radio (m o km) y color; el anillo no lleva nombre
+  var RCOLORS = ['#00ff66', '#ffe600', '#ff6600', '#48cae4', '#3b82f6', '#ff00a0', '#e10600', '#ffffff', '#9ca3af', '#111827', '#8b5a2b'];
+  function editRing(a) {
+    var modal = $('ringEditModal'), inp = $('ringEditRadius'), ub = $('ringEditUnit'), box = $('ringEditColors'), err = $('ringEditErr');
+    if (!modal || !inp || !ub || !box) return;
+    var col = safeColor(a.color), u = a.r >= 1000 ? 'km' : 'm';
+    function showR() { var v = u === 'km' ? a.r / 1000 : a.r; inp.value = String(Math.round(v * 1000) / 1000).replace('.', ','); ub.textContent = u; }
+    showR(); err.classList.add('hidden');
+    ub.onclick = function () {
+      var v = parseFloat(String(inp.value).replace(',', '.'));
+      if (isFinite(v) && v > 0) { var meters = u === 'km' ? v * 1000 : v; u = u === 'km' ? 'm' : 'km'; var nv = u === 'km' ? meters / 1000 : meters; inp.value = String(Math.round(nv * 1000) / 1000).replace('.', ','); }
+      else u = u === 'km' ? 'm' : 'km';
+      ub.textContent = u;
+    };
+    function paint() { Array.prototype.forEach.call(box.children, function (b) { b.classList.toggle('active', b.getAttribute('data-color').toLowerCase() === col.toLowerCase()); }); }
+    box.innerHTML = '';
+    RCOLORS.forEach(function (c) {
+      var b = document.createElement('button'); b.type = 'button'; b.className = 'color-swatch'; b.style.background = c; b.setAttribute('data-color', c); b.setAttribute('aria-label', 'Color ' + c);
+      b.onclick = function () { col = c; paint(); };
+      box.appendChild(b);
+    });
+    paint();
+    function close() { modal.classList.add('hidden'); }
+    $('ringEditCancel').onclick = close;
+    $('ringEditOk').onclick = function () {
+      var v = parseFloat(String(inp.value).replace(',', '.'));
+      var meters = isFinite(v) ? (u === 'km' ? v * 1000 : v) : 0;
+      if (!(meters > 0) || meters > 2000000) { err.classList.remove('hidden'); return; }
+      a.r = meters; a.color = col;
+      persist(); renderSaved(); close();
+      selectRing(a);
+    };
+    modal.classList.remove('hidden');
+    try { inp.focus(); inp.select(); } catch (e) {}
   }
   var sig = function (x) { return x.lat.toFixed(6) + ',' + x.lng.toFixed(6) + ',' + Math.round(x.r); };
   window.MedidorAnillos = {

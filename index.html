@@ -14,7 +14,7 @@
   <meta name="apple-mobile-web-app-title" content="Medidor">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <!-- Versión: debe coincidir con APP_VERSION (app.js) y --app-version (styles.css) -->
-  <meta name="app-version" content="2026.11.24-v2-66">
+  <meta name="app-version" content="2026.11.24-v2-67">
 
   <!-- Librerías locales (en este mismo repo) -->
   <link rel="stylesheet" href="leaflet.css" />
@@ -465,6 +465,12 @@
         <button type="button" class="poi-color w-6 h-6 rounded-full border-2 border-transparent" data-color="#94a3b8" style="background:#94a3b8"></button>
         <button type="button" class="poi-color w-6 h-6 rounded-full border-2 border-transparent" data-color="#0f172a" style="background:#0f172a"></button>
         <button type="button" class="poi-color w-6 h-6 rounded-full border-2 border-transparent" data-color="#8b5a2b" style="background:#8b5a2b"></button>
+      </div>
+      <label id="poiSizeLabel" class="text-[10px] uppercase tracking-wide text-slate-500 hidden">Tamaño</label>
+      <div id="poiEditSizeRow" class="hidden gap-2 mb-3 mt-1.5" role="group" aria-label="Tamaño del POI">
+        <button type="button" data-edit-size="s" aria-label="POI chico" aria-pressed="false"><svg width="10" height="16" viewBox="0 0 22 34" aria-hidden="true"><path d="M11 33.2C11 33.2 1.4 20.2 1.4 12.4 1.4 6.4 5.6 1.6 11 1.6S20.6 6.4 20.6 12.4C20.6 20.2 11 33.2 11 33.2Z" fill="currentColor" stroke="rgba(0,0,0,.55)" stroke-width="1.6" stroke-linejoin="round"/><ellipse cx="7.3" cy="9.6" rx="2.1" ry="3.9" fill="#fff" opacity=".32" transform="rotate(-16 7.3 9.6)"/><circle class="pin-dot" cx="11" cy="12.2" r="3.4"/></svg></button>
+        <button type="button" data-edit-size="m" aria-label="POI medio" aria-pressed="false"><svg width="14" height="22" viewBox="0 0 22 34" aria-hidden="true"><path d="M11 33.2C11 33.2 1.4 20.2 1.4 12.4 1.4 6.4 5.6 1.6 11 1.6S20.6 6.4 20.6 12.4C20.6 20.2 11 33.2 11 33.2Z" fill="currentColor" stroke="rgba(0,0,0,.55)" stroke-width="1.6" stroke-linejoin="round"/><ellipse cx="7.3" cy="9.6" rx="2.1" ry="3.9" fill="#fff" opacity=".32" transform="rotate(-16 7.3 9.6)"/><circle class="pin-dot" cx="11" cy="12.2" r="3.4"/></svg></button>
+        <button type="button" data-edit-size="l" aria-label="POI grande" aria-pressed="false"><svg width="18" height="28" viewBox="0 0 22 34" aria-hidden="true"><path d="M11 33.2C11 33.2 1.4 20.2 1.4 12.4 1.4 6.4 5.6 1.6 11 1.6S20.6 6.4 20.6 12.4C20.6 20.2 11 33.2 11 33.2Z" fill="currentColor" stroke="rgba(0,0,0,.55)" stroke-width="1.6" stroke-linejoin="round"/><ellipse cx="7.3" cy="9.6" rx="2.1" ry="3.9" fill="#fff" opacity=".32" transform="rotate(-16 7.3 9.6)"/><circle class="pin-dot" cx="11" cy="12.2" r="3.4"/></svg></button>
       </div>
       <div id="poiCoordsBox" class="hidden mb-3 px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-[11px] text-slate-300">
         <div class="text-[10px] uppercase tracking-wide text-slate-500 mb-1">Coordenadas</div>

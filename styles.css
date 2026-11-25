@@ -2,7 +2,7 @@
    Separado del HTML para mejor mantenimiento
 */
 
-:root { --app-version: "2026.11.24-v2-66"; }
+:root { --app-version: "2026.11.24-v2-67"; }
 
 .leaflet-control-attribution { font-size: 9px !important; background: rgba(15,23,42,0.7) !important; color: #94a3b8 !important; }
 .leaflet-control-attribution a { color: #94a3b8 !important; }
@@ -732,7 +732,7 @@ body.ui-min #toastContainer {
 #navBox .nav-dist em { margin-left: 0; }
 #navBox .nav-foot { display: flex; align-items: center; justify-content: flex-start; gap: 8px; padding-right: 44px; min-height: 22px; }
 /* Depósito colgante: la pestaña con el botón de detener cuelga del borde inferior derecho del recuadro */
-#navBox .nav-hang { position: absolute; right: 8px; top: 100%; margin-top: -2px; padding: 5px 9px 6px; background: rgba(2,6,23,.92); border: 2px solid; border-color: inherit; border-top-color: transparent; border-radius: 0 0 12px 12px; box-shadow: 0 4px 8px rgba(0,0,0,.5); pointer-events: none; }
+#navBox .nav-hang { position: absolute; right: 8px; top: 100%; margin-top: -13px; padding: 3px 8px 4px; background: rgba(2,6,23,.92); border: 2px solid; border-color: inherit; border-top-color: transparent; border-radius: 0 0 12px 12px; box-shadow: 0 4px 8px rgba(0,0,0,.5); pointer-events: none; }
 #navBox .nav-foot span { color: #38bdf8; font-size: 13px; font-weight: 800; }
 .nav-arrow-wrap { background: none; border: 0; }
 .nav-arrow { position: absolute; left: 0; top: 0; width: 76px; height: 76px; pointer-events: none; }
@@ -832,3 +832,6 @@ body:has(#mainControls[data-mode="free"]) #tpMeasure[aria-pressed="true"] { back
 
 /* Herramientas bloqueadas: mientras hay una medición en curso se desactivan de verdad (no responden y se ven apagadas) */
 [data-locked="1"] { opacity: .35 !important; pointer-events: none !important; filter: grayscale(.4); }
+#navBox .nav-hang .nav-stop { width: 26px; height: 26px; }
+#poiEditSizeRow button { width: 52px; height: 40px; border-radius: 10px; display: grid; place-items: center; border: 1px solid #334155; background: rgba(30,41,59,.7); opacity: .6; color: #f59e0b; }
+#poiEditSizeRow button[aria-pressed="true"] { opacity: 1; border-color: #f59e0b; box-shadow: 0 0 0 1.5px #f59e0b inset; background: rgba(245,158,11,.15); }

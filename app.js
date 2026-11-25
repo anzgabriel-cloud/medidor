@@ -1751,7 +1751,7 @@ function updateMetrics(areaM2, distM) {
   liveArea = areaM2; liveDist = distM;
   updateLiveBadge();
 }
-const APP_VERSION = '2026.11.24-v2-66';
+const APP_VERSION = '2026.11.24-v2-67';
 let liveSelfIntersect = false; // el polígono se cruza a sí mismo (los marcadores rojos ya lo señalan)
 function updateSelfIntersectWarning(show) {
   const v = !!show;
@@ -3370,6 +3370,9 @@ function setPoiAim(on) {
   updateDrawingUI();
 }
 
+let poiEditSize = 'm';
+function paintEditSize() { document.querySelectorAll('#poiEditSizeRow [data-edit-size]').forEach(b => b.setAttribute('aria-pressed', b.dataset.editSize === poiEditSize ? 'true' : 'false')); }
+document.querySelectorAll('#poiEditSizeRow [data-edit-size]').forEach(b => b.addEventListener('click', () => { poiEditSize = b.dataset.editSize; paintEditSize(); }));
 function openPoiModal(latlng, existing) {
   pendingPoi = latlng;
   editingPoiId = existing ? existing.id : null;
@@ -3391,6 +3394,9 @@ function openPoiModal(latlng, existing) {
     document.getElementById('poiColorLabel')?.classList.remove('hidden');
     document.getElementById('poiColorPicker')?.classList.remove('hidden');
     document.getElementById('poiColorPicker')?.classList.add('flex');
+    poiEditSize = POI_SIZES[existing.size] ? existing.size : 'm'; paintEditSize();
+    document.getElementById('poiSizeLabel')?.classList.remove('hidden');
+    const sr = document.getElementById('poiEditSizeRow'); if (sr) { sr.classList.remove('hidden'); sr.classList.add('flex'); }
     if (delBtn) delBtn.classList.add('hidden');   // borrar se hace desde la consulta
     if (confirmBtn) confirmBtn.textContent = 'Guardar cambios';
   } else {
@@ -3401,6 +3407,8 @@ function openPoiModal(latlng, existing) {
     document.getElementById('poiColorLabel')?.classList.add('hidden');
     document.getElementById('poiColorPicker')?.classList.add('hidden');
     document.getElementById('poiColorPicker')?.classList.remove('flex');
+    document.getElementById('poiSizeLabel')?.classList.add('hidden');
+    const sr2 = document.getElementById('poiEditSizeRow'); if (sr2) { sr2.classList.add('hidden'); sr2.classList.remove('flex'); }
     if (delBtn) delBtn.classList.add('hidden');
     if (confirmBtn) confirmBtn.textContent = 'Guardar POI';
   }
@@ -3421,7 +3429,7 @@ function confirmPoi() {
   if (editingPoiId) {
     const idx = pois.findIndex(p => p.id === editingPoiId);
     if (idx >= 0) {
-      pois[idx] = { ...pois[idx], name, note, color: safeColor(poiColor, themeColor) };
+      pois[idx] = { ...pois[idx], name, note, color: safeColor(poiColor, themeColor), size: POI_SIZES[poiEditSize] ? poiEditSize : (pois[idx].size || 'm') };
     }
   } else if (pendingPoi) {
     const created = {
@@ -4724,6 +4732,17 @@ function fmtAxisLen(m, total) {
   const km = m / 1000;
   return new Intl.NumberFormat('es-AR', { maximumFractionDigits: total / 1000 >= 100 ? 0 : 2 }).format(km) + ' km';
 }
+/** Color del gráfico de perfil: si el color de la medición es muy oscuro, se mezcla con blanco para que se distinga del fondo */
+function profileInk(hex) {
+  const m = /^#?([0-9a-f]{6})$/i.exec(String(hex || ''));
+  if (!m) return hex;
+  const n = parseInt(m[1], 16), c = [n >> 16 & 255, n >> 8 & 255, n & 255];
+  const lin = v => { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); };
+  const lum = 0.2126 * lin(c[0]) + 0.7152 * lin(c[1]) + 0.0722 * lin(c[2]);
+  if (lum >= 0.12) return hex;
+  const t = Math.min(0.9, 0.55 + (0.12 - lum) * 3);
+  return '#' + c.map(v => Math.round(v + (255 - v) * t).toString(16).padStart(2, '0')).join('');
+}
 function drawProfile(body, item, p) {
   const W = 340, H = 180, l = 40, r = 10, t = 12, b = 24;
   const zs = p.z.map(elevConv);
@@ -4739,7 +4758,7 @@ function drawProfile(body, item, p) {
   const pts = p.d.map((d, i) => [X(d), Y(zs[i])]);
   const line = pts.map((q, i) => (i ? 'L' : 'M') + q[0].toFixed(1) + ' ' + q[1].toFixed(1)).join(' ');
   const area = `${line} L${X(total).toFixed(1)} ${H - b} L${l} ${H - b} Z`;
-  const color = safeColor(item.color, '#f59e0b');
+  const color = profileInk(safeColor(item.color, '#f59e0b'));   // un color muy oscuro (negro, azul noche) se aclara para que se vea sobre el fondo negro
   const yTicks = [0, 0.5, 1].map(f => zmin + (zmax - zmin) * f);
   const grid = yTicks.map(v => `<line x1="${l}" x2="${W - r}" y1="${Y(v).toFixed(1)}" y2="${Y(v).toFixed(1)}" stroke="#334155" stroke-width="0.6" stroke-dasharray="3 3"/>
     <text x="${l - 4}" y="${(Y(v) + 3).toFixed(1)}" text-anchor="end" font-size="9" fill="#94a3b8">${nf0.format(v)}</text>`).join('');

@@ -2,7 +2,7 @@
    Separado del HTML para mejor mantenimiento
 */
 
-:root { --app-version: "2026.11.25-v2-72"; }
+:root { --app-version: "2026.11.25-v2-73"; }
 
 .leaflet-control-attribution { font-size: 9px !important; background: rgba(15,23,42,0.7) !important; color: #94a3b8 !important; }
 .leaflet-control-attribution a { color: #94a3b8 !important; }
@@ -650,7 +650,6 @@ body.ui-min #toastContainer {
 #ringRow label { flex: none; font-size: 12px; color: #d9c8a4; margin-right: 2px; }
 #ringRow input { flex: 1 1 0; width: 0; min-width: 0; box-sizing: border-box; height: 40px; border-radius: 9px; border: 1px solid #6b5a3a; background: #12100c; color: #fff; padding: 0 10px; font-size: 16px; }
 #ringRow button { flex: none; width: 44px; height: 40px; border-radius: 9px; border: 1px solid #fb923c; background: transparent; color: #fdba74; font-size: 14px; font-weight: 700; display: grid; place-items: center; }
-#ringRow #ringApply { background: #ea580c; color: #fff; }
 .ring-label span { position: absolute; transform: translate(-50%, -135%); white-space: nowrap; font: 700 13px/1 system-ui, sans-serif; text-shadow: 0 0 3px #000, 0 0 3px #000, 0 0 6px #000; }
 .ring-center span { transform: translate(-50%, 70%); font-size: 11px; font-weight: 600; }
 #ringList, #freeList { position: fixed; left: 66px; right: 10px; bottom: var(--strip-bottom, 12px); z-index: 26; max-height: 55vh; overflow-y: auto; padding: 8px;
@@ -772,8 +771,12 @@ button.poi-color { border-color: rgba(255,255,255,.4); }
 .cg-or { display: flex; align-items: center; gap: 8px; margin: 14px 0 2px; font-size: 10px; text-transform: uppercase; letter-spacing: .05em; color: #64748b; }
 .cg-or::before, .cg-or::after { content: ''; flex: 1; height: 1px; background: #334155; }
 
-/* v2-31: en Modo POI el POI se guarda al dejarlo caer; no hace falta "Guardar POI" en la línea de acción */
-body.ui-min.med2 #mainControls #poiDoneBtn { display: none !important; }
+/* v2-73: Modo POI con ciclo completo: [+] ubica, [Guardar] cierra la serie y libera las demás herramientas */
+.poi-save { background: rgba(245,158,11,.18); color: #fbbf24; border-color: rgba(251,191,36,.35); }
+.poi-save:not(:disabled) { background: #f59e0b; color: #0f172a; border-color: #fbbf24; }
+#mainControls[data-mode="poi"] #poiDoneBtn { display: inline-flex !important; }
+/* [+] activado: línea blanca bien notoria (se quita al desactivarlo) */
+#mainControls[data-mode] #newBtn[aria-pressed="true"], #mainControls[data-mode] #ringNewBtn[aria-pressed="true"], #mainControls[data-mode] #freeNewBtn[aria-pressed="true"] { box-shadow: 0 0 0 2.5px #fff, 0 0 10px rgba(255,255,255,.45) !important; }
 
 /* Etiquetas en el mapa: Ver | Translúcido | Ocultar (Ajustes). No afecta a Consulta ni a la medición en curso. */
 .lbl-pick { background: #1e293b; border-color: #475569; color: #cbd5e1; }

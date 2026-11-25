@@ -14,7 +14,7 @@
   <meta name="apple-mobile-web-app-title" content="Medidor">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <!-- Versión: debe coincidir con APP_VERSION (app.js) y --app-version (styles.css) -->
-  <meta name="app-version" content="2026.11.25-v2-72">
+  <meta name="app-version" content="2026.11.25-v2-73">
 
   <!-- Librerías locales (en este mismo repo) -->
   <link rel="stylesheet" href="leaflet.css" />
@@ -303,8 +303,8 @@
             <button id="poiPlaceHeaderBtn" class="text-xs font-semibold rounded-md inline-flex items-center justify-center gap-1 h-8 px-2 act-btn act-poi bg-amber-500 text-slate-950 border border-amber-400" aria-label="Nuevo POI" disabled>
               <i data-lucide="plus" class="w-3.5 h-3.5"></i> Nuevo POI
             </button>
-            <button id="poiDoneBtn" class="text-xs font-semibold rounded-md inline-flex items-center justify-center gap-1 h-8 px-2 act-btn act-poi bg-amber-500 text-slate-950 border border-amber-400" aria-label="Guardar POI" disabled>
-              <i data-lucide="save" class="w-3.5 h-3.5"></i> Guardar POI
+            <button id="poiDoneBtn" class="act-btn act-poi ringbtn poi-save" aria-label="Guardar POI" title="Guardar los POI ubicados y terminar" disabled>
+              <i data-lucide="save" class="w-3.5 h-3.5"></i>
             </button>
                         <button id="ringNewBtn" type="button" class="act-btn act-ring ringbtn ring-new" aria-label="Nuevo anillo" title="Dejar caer el anillo en la mira"><i data-lucide="plus" class="w-3.5 h-3.5"></i></button>
             <button id="ringSaveBtn" type="button" class="act-btn act-ring ringbtn ring-save" aria-label="Guardar anillo" title="Guardar anillo" disabled><i data-lucide="save" class="w-3.5 h-3.5"></i></button>
@@ -312,7 +312,6 @@
               <label for="ringRadius">Radio</label>
               <input id="ringRadius" type="text" inputmode="decimal" autocomplete="off" value="1" aria-label="Radio del anillo">
               <button id="ringUnit" type="button" aria-label="Cambiar unidad entre metros y kilómetros">km</button>
-              <button id="ringApply" type="button" aria-label="Aplicar radio y ver el anillo completo"><i data-lucide="check" class="w-4 h-4"></i></button>
             </div>
             <div id="ringHist" class="act-ring" role="group" aria-label="Deshacer, rehacer y borrar">
               <button id="ringUndoBtn" type="button" class="act-btn ringbtn ring-neutral" aria-label="Deshacer" title="Deshacer" disabled><i data-lucide="undo-2" class="w-3.5 h-3.5"></i></button>

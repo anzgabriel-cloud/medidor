@@ -769,6 +769,12 @@ function init() {
   document.getElementById('newBtn').onclick = () => {
     if (isLocked) return toast({ type: 'warning', title: 'Medición bloqueada', message: 'Entrá en Editar para modificarla.' });
     if (trackMode) return newTrack();
+    if (drawingActive && !editingId) {   // [+] activo: se desactiva (si hay puntos, pide confirmar el descarte)
+      if (points.length) { document.getElementById('clearBtn').onclick(); return; }
+      setDrawingActive(false);
+      toast({ type: 'info', title: 'Medición cancelada', message: 'Podés elegir otra herramienta.', duration: 1800 });
+      return;
+    }
     stopGpsTracking();
     clearActiveMeasurement({ keepDrawing: true });
     setDrawingActive(true);
@@ -798,9 +804,12 @@ function init() {
   };
   document.getElementById('poiDoneBtn').onclick = () => {
     if (!poiMode || !poiSession.length) return;
-    exitPoiMode(false);
-    setMode('polygon');
-    toast({ type: 'success', title: 'POI listo', message: 'Saliste del modo POI.', duration: 1600 });
+    // Cierra la serie: los POI quedan guardados, se bloquean deshacer/rehacer/borrar y se liberan las demás herramientas
+    const n = poiSession.length;
+    poiSession = []; poiSessionRedo = [];
+    updateUndoRedoUI();
+    document.getElementById('poiDoneBtn').disabled = true;
+    toast({ type: 'success', title: n === 1 ? 'POI guardado' : n + ' POI guardados', message: 'Podés ubicar otros o elegir otra herramienta.', duration: 2000 });
   };
   map.on('move', updatePoiCenterCoords);
   map.on('zoom', updatePoiCenterCoords);
@@ -1752,7 +1761,7 @@ function updateMetrics(areaM2, distM) {
   liveArea = areaM2; liveDist = distM;
   updateLiveBadge();
 }
-const APP_VERSION = '2026.11.25-v2-72';
+const APP_VERSION = '2026.11.25-v2-73';
 let liveSelfIntersect = false; // el polígono se cruza a sí mismo (los marcadores rojos ya lo señalan)
 function updateSelfIntersectWarning(show) {
   const v = !!show;
@@ -2648,7 +2657,7 @@ function updateDrawingUI() {
     if (drawingActive && !isLocked) {
       newBtn.classList.remove('bg-sky-500/20', 'text-sky-300', 'border-sky-500/40');
       newBtn.classList.add('bg-sky-500', 'text-white', 'border-sky-400', 'ring-2', 'ring-sky-400/40');
-      newBtn.title = 'Medición activa · tocá de nuevo para reiniciar';
+      newBtn.title = 'Medición activa · tocá de nuevo para cancelar';
     } else {
       newBtn.classList.add('bg-sky-500/20', 'text-sky-300', 'border-sky-500/40');
       newBtn.classList.remove('bg-sky-500', 'text-white', 'border-sky-400', 'ring-2', 'ring-sky-400/40');

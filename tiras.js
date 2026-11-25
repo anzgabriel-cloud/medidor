@@ -76,7 +76,11 @@
     var ts = typeof trackSession === 'function' && trackSession();
     var fr = !!(window.MedidorRutas && window.MedidorRutas.busy && window.MedidorRutas.busy());
     var rg = !!(window.MedidorAnillos && window.MedidorAnillos.busy && window.MedidorAnillos.busy());
-    var busy = lb || dl || ts || fr || rg;
+    var pb = (typeof poiMode !== 'undefined' && poiMode && typeof poiSession !== 'undefined' && poiSession.length > 0);   // POI ubicados sin pulsar Guardar
+    var busy = lb || dl || ts || fr || rg || pb;
+    function press(id, on) { var e = $(id); if (e) e.setAttribute('aria-pressed', on ? 'true' : 'false'); }
+    press('newBtn', medir && (cur === 'track' ? ts : dl));
+    press('ringNewBtn', rg);
     lockEl('tpSearch', lb || dl); lockEl('tpFolder', lb || dl);
     Object.keys(TOOLS).forEach(function (k) {
       var lock = busy && k !== cur;
@@ -86,7 +90,7 @@
       lockEl(TOOLS[k], lock);
     });
   }
-  setInterval(syncLocks, 350); syncLocks();
+  setInterval(syncLocks, 150); syncLocks();
   function syncMeasure() {
     $('tpMeasure').setAttribute('aria-pressed', $('viewMedirBtn').getAttribute('aria-pressed') === 'true' ? 'true' : 'false');
   }

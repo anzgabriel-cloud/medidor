@@ -245,7 +245,6 @@
   // Confirmar el radio: se ve el anillo completo y la fila de radio se cierra (queda [+] [guardar])
   function confirmRadius() { applyRadius(true); $('ringRadius').blur(); if (draft && draft.r > 0) showRow(false); }
   $('ringRadius').addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); confirmRadius(); } });
-  $('ringApply').onclick = confirmRadius;
   $('ringUnit').onclick = function () { unit = unit === 'km' ? 'm' : 'km'; this.textContent = unit; applyRadius(false); };
   function setRadiusInput(r) {
     var inp = $('ringRadius'); if (!inp) return;

@@ -93,7 +93,7 @@
     // Con 'rows' se muestra el menú ⋯; con 'actions', botones abajo del panel (sin menú)
     $('xMenuBtn').classList.toggle('hidden', !(spec.rows && spec.rows.length));
     var ab = $('xActions'); ab.innerHTML = '';
-    var grouped = (spec.actions || []).some(function (a) { return a.right; });   // con 'right': los demás se agrupan a la izquierda y ese queda a la derecha
+    var grouped = true;   // siempre: los botones se agrupan a la izquierda y el que tenga 'right' queda a la derecha
     (spec.actions || []).forEach(function (a) {
       var b = document.createElement('button'); b.type = 'button';
       b.className = (grouped ? (a.right ? 'ml-auto ' : '') + 'flex items-center justify-center gap-1.5 px-4' : 'flex-1 flex items-center justify-center gap-1.5 px-3') + ' py-2 rounded-lg bg-slate-800 border border-slate-600 text-xs font-semibold ' + (a.cls || 'text-slate-200');

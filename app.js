@@ -794,9 +794,11 @@ function init() {
     if (r && r.width) {
       const pin = document.createElement('div');
       pin.className = 'poi-drop';
-      pin.style.left = (r.left + r.width / 2 - 11) + 'px';
-      pin.style.top = (r.top + r.height / 2 - 34) + 'px';
-      pin.innerHTML = `<svg viewBox="0 0 22 34" width="22" height="34"><path d="M11 33.2 C11 33.2 1.4 20.2 1.4 12.4 C1.4 6.4 5.6 1.6 11 1.6 C16.4 1.6 20.6 6.4 20.6 12.4 C20.6 20.2 11 33.2 11 33.2 Z" fill="${safeColor(poiColor, '#f59e0b')}" stroke="#fff" stroke-width="1.6"/><circle cx="11" cy="12.2" r="3.2" fill="#fff"/></svg>`;
+      const pk = poiK(settings.poiSize);   // cae con el tamaño elegido
+      const pw = Math.round(22 * pk), ph = Math.round(34 * pk);
+      pin.style.left = (r.left + r.width / 2 - pw / 2) + 'px';
+      pin.style.top = (r.top + r.height / 2 - ph) + 'px';
+      pin.innerHTML = `<svg viewBox="0 0 22 34" width="${pw}" height="${ph}"><path d="M11 33.2 C11 33.2 1.4 20.2 1.4 12.4 C1.4 6.4 5.6 1.6 11 1.6 C16.4 1.6 20.6 6.4 20.6 12.4 C20.6 20.2 11 33.2 11 33.2 Z" fill="${safeColor(poiColor, '#f59e0b')}" stroke="#fff" stroke-width="1.6"/><circle cx="11" cy="12.2" r="3.2" fill="#fff"/></svg>`;
       document.body.appendChild(pin);
       setTimeout(() => pin.remove(), 1500);
     }
@@ -1761,7 +1763,7 @@ function updateMetrics(areaM2, distM) {
   liveArea = areaM2; liveDist = distM;
   updateLiveBadge();
 }
-const APP_VERSION = '2026.11.25-v2-73';
+const APP_VERSION = '2026.11.25-v2-74';
 let liveSelfIntersect = false; // el polígono se cruza a sí mismo (los marcadores rojos ya lo señalan)
 function updateSelfIntersectWarning(show) {
   const v = !!show;

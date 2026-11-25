@@ -226,7 +226,8 @@
     var inp = $('ringRadius');
     unit = 'km'; $('ringUnit').textContent = 'km'; inp.value = '1';
     applyRadius(false);
-    try { inp.focus(); inp.select(); } catch (e) {}
+    // sin foco automático: el teclado no tapa el panel; se abre solo si se toca el campo de radio
+    try { if (document.activeElement && document.activeElement.blur) document.activeElement.blur(); } catch (e) {}
   };
   function parseRadius() {
     var v = parseFloat(String($('ringRadius').value).replace(',', '.'));

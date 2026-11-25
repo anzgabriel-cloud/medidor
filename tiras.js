@@ -62,35 +62,24 @@
   }
   // --- Bloqueo: con una medición en curso, lo que la interrumpiría queda desactivado (el POI sigue libre durante un recorrido) ---
   function lockEl(id, on) { var e = $(id); if (!e) return; if (on) { e.setAttribute('data-locked', '1'); e.setAttribute('aria-disabled', 'true'); } else { e.removeAttribute('data-locked'); e.removeAttribute('aria-disabled'); } }
-  // Al entrar en Modo medición no se traba nada: recién al tocar una herramienta las demás quedan desactivadas.
-  // Tocar de nuevo la herramienta activa (sin nada en curso) las libera; tocarla otra vez las traba.
-  var picked = false, released = false;
-  Object.keys(TOOLS).forEach(function (k) {
-    var b = $(TOOLS[k]); if (!b) return;
-    b.addEventListener('click', function (ev) {
-      if (!ev.isTrusted) return;   // solo toques reales: la entrada automática a la última herramienta no cuenta
-      if ($('viewMedirBtn').getAttribute('aria-pressed') !== 'true') return;
-      var cur = (typeof poiMode !== 'undefined' && poiMode) ? 'poi' : (typeof trackMode !== 'undefined' && trackMode) ? 'track' : ($('mainControls') ? $('mainControls').getAttribute('data-mode') : '');
-      var busy = (typeof lineBusy === 'function' && lineBusy()) || (typeof trackSession === 'function' && trackSession());
-      if (picked && !released && k === cur && !busy) {
-        released = true;
-        if (typeof toast === 'function') toast({ type: 'info', title: 'Herramientas liberadas', message: 'Elegí otra. Se traban de nuevo al seleccionarla.', duration: 2200 });
-      } else { released = false; picked = true; }
-    }, true);
-  });
+  // Los botones de las otras herramientas se desactivan desde que se pulsa [+] (o se coloca algo) y hasta guardar o cancelar.
+  // Excepción: durante la grabación de un recorrido, Ubicar POI sigue libre.
+  var hadPts = false;   // si la medición tenía puntos y se vació (Limpiar), la sesión de [+] termina
   function syncLocks() {
+    var medir = $('viewMedirBtn').getAttribute('aria-pressed') === 'true';
+    var cur = (typeof poiMode !== 'undefined' && poiMode) ? 'poi' : (typeof trackMode !== 'undefined' && trackMode) ? 'track' : ($('mainControls') ? $('mainControls').getAttribute('data-mode') : '');
     var lb = typeof lineBusy === 'function' && lineBusy();
+    var np = (typeof points !== 'undefined') ? points.length : 0;
+    if (hadPts && np === 0 && typeof editingId !== 'undefined' && !editingId && typeof drawingActive !== 'undefined' && drawingActive && typeof setDrawingActive === 'function') setDrawingActive(false);
+    hadPts = np > 0;
+    var dl = medir && (cur === 'line' || cur === 'polygon') && typeof drawingActive !== 'undefined' && drawingActive;   // [+] pulsado
     var ts = typeof trackSession === 'function' && trackSession();
     var fr = !!(window.MedidorRutas && window.MedidorRutas.busy && window.MedidorRutas.busy());
-    var busy = lb || ts;   // el borrador de una ruta a mano alzada se conserva al cambiar de herramienta: no cuenta como trabado
-    var cur = (typeof poiMode !== 'undefined' && poiMode) ? 'poi' : (typeof trackMode !== 'undefined' && trackMode) ? 'track' : ($('mainControls') ? $('mainControls').getAttribute('data-mode') : '');
-    lockEl('tpSearch', lb); lockEl('tpFolder', lb);
-    // Herramienta elegida en Modo medición: las demás quedan desactivadas (salvo que se las libere tocando de nuevo la activa)
-    var medirOn = $('viewMedirBtn').getAttribute('aria-pressed') === 'true';
-    if (!medirOn) { picked = false; released = false; }
-    var chosen = medirOn && picked && !!cur && !released;
+    var rg = !!(window.MedidorAnillos && window.MedidorAnillos.busy && window.MedidorAnillos.busy());
+    var busy = lb || dl || ts || fr || rg;
+    lockEl('tpSearch', lb || dl); lockEl('tpFolder', lb || dl);
     Object.keys(TOOLS).forEach(function (k) {
-      var lock = ((busy || chosen) && k !== cur);
+      var lock = busy && k !== cur;
       if (ts && k === cur) lock = false;                   // el botón del recorrido en curso nunca se bloquea a sí mismo
       if (k === 'poi' && ts) lock = false;                 // ubicar un POI sobre la marcha, sin cortar la grabación
       if (k === 'track' && ts && cur === 'poi') lock = false;   // y volver al recorrido

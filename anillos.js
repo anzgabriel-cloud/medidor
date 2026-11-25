@@ -151,6 +151,7 @@
   }
   var sig = function (x) { return x.lat.toFixed(6) + ',' + x.lng.toFixed(6) + ',' + Math.round(x.r); };
   window.MedidorAnillos = {
+    busy: function () { return !!(ringMode && draft); },
     list: function () { return rings.map(function (a) { return { lat: a.lat, lng: a.lng, r: a.r, color: a.color, ang: a.ang }; }); },
     add: function (items) {
       var n = 0, d = 0, have = {}; rings.forEach(function (a) { have[sig(a)] = 1; });

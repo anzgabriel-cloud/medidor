@@ -903,6 +903,8 @@ document.getElementById('closePoiBtn').onclick = (e) => { e.preventDefault(); e.
       if (poiMode) {
         poiColor = btn.dataset.color;
         themeColor = btn.dataset.color;
+        document.documentElement.style.setProperty('--theme-color', themeColor);   // los puntos de la próxima medición salen del color elegido
+        applyLabelTint(themeColor);
       } else {
         themeColor = btn.dataset.color;
         poiColor = btn.dataset.color;
@@ -1763,7 +1765,7 @@ function updateMetrics(areaM2, distM) {
   liveArea = areaM2; liveDist = distM;
   updateLiveBadge();
 }
-const APP_VERSION = '2026.11.25-v2-76';
+const APP_VERSION = '2026.11.25-v2-77';
 let liveSelfIntersect = false; // el polígono se cruza a sí mismo (los marcadores rojos ya lo señalan)
 function updateSelfIntersectWarning(show) {
   const v = !!show;
@@ -2577,6 +2579,7 @@ function clearActiveMeasurement(opts = {}) {
 /** Marca el modo activo en el panel para que los botones de acción tomen su color */
 function updateModeTheme() {
   try { syncLineBusy(); } catch (e) {}
+  try { if (document.documentElement.style.getPropertyValue('--theme-color').trim() !== themeColor) { document.documentElement.style.setProperty('--theme-color', themeColor); applyLabelTint(themeColor); } } catch (e) {}   // el color de los puntos siempre sigue al color elegido
   const m = poiMode ? 'poi' : (trackMode ? 'track' : mode);
   const mc = document.getElementById('mainControls');
   mc?.setAttribute('data-mode', m);

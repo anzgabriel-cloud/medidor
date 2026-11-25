@@ -1,3 +1,4 @@
+window.MV = window.MV || {}; window.MV.rutas = '2026.11.25-v2-78';   // versión: debe coincidir con app.js (se controla al iniciar)
 /* Ruta a mano alzada: croquis / guía visual para seguir con el punto azul del GPS (no es una medición de precisión).
    Un dedo dibuja, dos dedos mueven y hacen zoom. Cada apoyar-y-levantar es un "tramo"; cada tramo nuevo se une
    (imán) al final del anterior, así la ruta queda continua hasta [Guardar]. Se guarda aparte ('medidor_rutas'),
@@ -17,7 +18,13 @@
   var wasDragging = false, wasDbl = false;
   strokes = loadDraft();
 
-  function load() { try { var a = JSON.parse(localStorage.getItem(KEY) || '[]'); return Array.isArray(a) ? a : []; } catch (e) { return []; } }
+  function load() {
+    try {
+      var a = JSON.parse(localStorage.getItem(KEY) || '[]');
+      var okPt = function (p) { return Array.isArray(p) ? (Number.isFinite(p[0]) && Number.isFinite(p[1])) : !!(p && Number.isFinite(p.lat) && Number.isFinite(p.lng)); };
+      return Array.isArray(a) ? a.filter(function (x) { return x && Array.isArray(x.pts) && x.pts.length >= 2 && x.pts.every(okPt); }) : [];   // descarta registros dañados
+    } catch (e) { return []; }
+  }
   function persist() { try { localStorage.setItem(KEY, JSON.stringify(saved)); } catch (e) {} }
   function loadDraft() {
     try {

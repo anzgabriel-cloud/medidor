@@ -1,3 +1,4 @@
+window.MV = window.MV || {}; window.MV.tiras = '2026.11.25-v2-78';   // versión: debe coincidir con app.js (se controla al iniciar)
 // Interfaz mínima: dos tiras de íconos que manejan los botones y paneles que ya existen.
 (function () {
   'use strict';
@@ -90,7 +91,7 @@
       lockEl(TOOLS[k], lock);
     });
   }
-  setInterval(syncLocks, 150); syncLocks();
+  setInterval(function () { if (!document.hidden) syncLocks(); }, 150); syncLocks();
   function syncMeasure() {
     $('tpMeasure').setAttribute('aria-pressed', $('viewMedirBtn').getAttribute('aria-pressed') === 'true' ? 'true' : 'false');
   }

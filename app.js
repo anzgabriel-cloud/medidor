@@ -977,8 +977,9 @@ function checkAppVersion() {
     if (css !== APP_VERSION) bad.push('styles.css');
     if (typeof BACKUP_VERSION === 'undefined' || BACKUP_VERSION !== APP_VERSION) bad.push('backup.js');
     if (typeof wmmDeclination !== 'function') bad.push('wmm.js');
+    ['tiras', 'rutas', 'anillos', 'tarjetas'].forEach(n => { if (!window.MV || window.MV[n] !== APP_VERSION) bad.push(n + '.js'); });
     if (bad.length) {
-      toast({ type: 'warning', title: 'Actualización incompleta', message: `Falta actualizar ${bad.join(' y ')} (la app es ${APP_VERSION}). Subí index.html, styles.css, app.js, backup.js y wmm.js juntos y recargá.`, duration: 15000 });
+      toast({ type: 'warning', title: 'Actualización incompleta', message: `Falta actualizar ${bad.join(' y ')} (la app es ${APP_VERSION}). Subí todos los archivos de la app juntos y recargá.`, duration: 15000 });
     }
   } catch (e) {}
 }
@@ -1765,7 +1766,7 @@ function updateMetrics(areaM2, distM) {
   liveArea = areaM2; liveDist = distM;
   updateLiveBadge();
 }
-const APP_VERSION = '2026.11.25-v2-77';
+const APP_VERSION = '2026.11.25-v2-78';
 let liveSelfIntersect = false; // el polígono se cruza a sí mismo (los marcadores rojos ya lo señalan)
 function updateSelfIntersectWarning(show) {
   const v = !!show;
@@ -3643,22 +3644,6 @@ function renderPoiList() {
   syncNavButtons();
 }
 
-/** Parte visible de un segmento (px) dentro de un rectángulo: devuelve su punto medio, o el punto del rectángulo más cercano si queda fuera */
-function visibleMidpoint(a, b, rect) {
-  const dx = b.x - a.x, dy = b.y - a.y;
-  let t0 = 0, t1 = 1, ok = true;
-  const clip = (p, q) => {
-    if (p === 0) { if (q < 0) ok = false; return; }
-    const r = q / p;
-    if (p < 0) { if (r > t1) ok = false; else if (r > t0) t0 = r; }
-    else { if (r < t0) ok = false; else if (r < t1) t1 = r; }
-  };
-  clip(-dx, a.x - rect.left); clip(dx, rect.right - a.x);
-  clip(-dy, a.y - rect.top); clip(dy, rect.bottom - a.y);
-  if (ok && t0 <= t1) { const t = (t0 + t1) / 2; return { x: a.x + dx * t, y: a.y + dy * t }; }
-  const mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2;
-  return { x: Math.min(Math.max(mx, rect.left), rect.right), y: Math.min(Math.max(my, rect.top), rect.bottom) };
-}
 /** ¿Estás parado en este POI? (dentro del radio de llegada) */
 function standingOnPoi(p) {
   const ll = userLL();

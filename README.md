@@ -4,7 +4,12 @@ Estructura de archivos:
 
 - **index.html** — Estructura HTML limpia. Solo markup y enlaces a CSS/JS.
 - **styles.css** — Todos los estilos (antes embebidos). Agrupados con los comentarios originales.
-- **app.js** — Toda la lógica JavaScript (~3300 líneas).
+- **app.js** — Lógica principal: mediciones (superficie, distancia, recorrido GPS), POI, listas, búsqueda, perfil de elevación, ajustes (~5000 líneas).
+- **tiras.js** — Barras de íconos (Ajustes/Capas/GPS, Buscar/Medir/Carpeta, herramientas de medición) y la lógica de bloqueo de botones.
+- **rutas.js** — Rutas/senderos a mano alzada (borrador, estilo de línea, consulta, perfil).
+- **anillos.js** — Anillos con radio (crear, editar, consulta).
+- **tarjetas.js** — Tarjeta de Consulta compartida (acciones agrupadas a la izquierda; `right:true` queda a la derecha).
+- **tailwind-3.4.16.js** — Tailwind local (si falta, se usa el de internet).
 - **wmm.js** — Modelo magnético WMM2025 (declinación sin conexión, coeficientes oficiales de NOAA).
 - **backup.js** — Exportación e importación de copias de seguridad en GeoJSON, KML y GPX (escritores y lectores, sin dependencias de la app).
 - **sw.js** — Service worker: guarda la app completa desde la primera visita y permite usarla sin conexión.
@@ -38,14 +43,15 @@ El código mantiene los comentarios de sección originales para facilitar la nav
 
 ## Versión (para no mezclar archivos)
 
-La versión está escrita en tres lugares y deben coincidir; si no, la app avisa «Actualización incompleta»:
+La versión está escrita en varios lugares y deben coincidir; si no, la app avisa «Actualización incompleta»:
 
 - `index.html` → `<meta name="app-version" content="…">`
 - `styles.css` → `:root { --app-version: "…"; }`
 - `app.js` → `const APP_VERSION = '…';`
 - `backup.js` → `const BACKUP_VERSION = '…';`
+- `tiras.js`, `rutas.js`, `anillos.js`, `tarjetas.js` → primera línea `window.MV.<nombre> = '…';`
 
-Al publicar cambios de versión, subir siempre `index.html`, `styles.css`, `app.js` y `backup.js` juntos (y `wmm.js` si cambió; la app avisa si falta) (y `sw.js` / `manifest` / íconos solo si cambiaron).
+Al publicar cambios de versión, subir siempre `index.html`, `styles.css`, `app.js`, `backup.js`, `tiras.js`, `rutas.js`, `anillos.js` y `tarjetas.js` juntos (y `wmm.js` si cambió; la app avisa si falta) (y `sw.js` / `manifest` / íconos solo si cambiaron).
 
 ## Instalar en el iPhone (pantalla completa)
 

@@ -1,3 +1,4 @@
+window.MV = window.MV || {}; window.MV.anillos = '2026.11.25-v2-78';   // versión: debe coincidir con app.js (se controla al iniciar)
 /* Anillos con radio: círculo alrededor de un punto (1 m a 100 km o más), solo visual.
    Flujo: herramienta anillo → mira en el centro del mapa → [+] deja caer el anillo → se escribe el radio → [guardar].
    Se guarda aparte (localStorage 'medidor_anillos'); la lista está en Guardados > Anillos. */
@@ -17,7 +18,12 @@
   var sessionIds = [];         // anillos guardados en esta sesión del modo (para deshacer)
   var redoStack = [];          // { kind:'draft', d } | { kind:'saved', r }
 
-  function load() { try { var a = JSON.parse(localStorage.getItem(KEY) || '[]'); return Array.isArray(a) ? a : []; } catch (e) { return []; } }
+  function load() {
+    try {
+      var a = JSON.parse(localStorage.getItem(KEY) || '[]');
+      return Array.isArray(a) ? a.filter(function (x) { return x && Number.isFinite(x.lat) && Number.isFinite(x.lng) && Number.isFinite(x.r) && x.r > 0; }) : [];   // descarta registros dañados
+    } catch (e) { return []; }
+  }
   function persist() { try { localStorage.setItem(KEY, JSON.stringify(rings)); } catch (e) {} }
   function getMap() { try { return (typeof map !== 'undefined' && map && map.getContainer) ? map : null; } catch (e) { return null; } }
   function fmt(r) {

@@ -233,6 +233,7 @@
   // API de datos (copias de seguridad y "Borrar todo")
   var sig = function (x) { var p = x.pts; return p.length + ':' + p[0][0] + ',' + p[0][1] + ':' + p[p.length - 1][0] + ',' + p[p.length - 1][1]; };
   window.MedidorRutas = {
+    busy: function () { return !!(active && (strokes.length || drawing)); },
     list: function () { return saved.map(function (r) { return { pts: r.pts, name: r.name || '', note: r.note || '', style: r.style === 'dot' ? 'dot' : 'dash', color: r.color, date: r.date || new Date(r.ts || Date.now()).toLocaleDateString('es-AR'), dist: r.dist || 0 }; }); },
     add: function (items) {
       var n = 0, d = 0, have = {}; saved.forEach(function (r) { have[sig(r)] = 1; });

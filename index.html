@@ -14,7 +14,7 @@
   <meta name="apple-mobile-web-app-title" content="Medidor">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <!-- Versión: debe coincidir con APP_VERSION (app.js) y --app-version (styles.css) -->
-  <meta name="app-version" content="2026.11.24-v2-65">
+  <meta name="app-version" content="2026.11.24-v2-66">
 
   <!-- Librerías locales (en este mismo repo) -->
   <link rel="stylesheet" href="leaflet.css" />
@@ -227,7 +227,8 @@
     <div id="compassCaption" class="text-[11px] font-extrabold px-2 py-0.5 rounded-md whitespace-nowrap pointer-events-none" style="background:rgba(2,6,23,.92);border:1px solid #00ff66;color:#00ff66;margin-top:-1px">Sin rumbo…</div>
     <div id="navBox" class="hidden pointer-events-none" aria-live="off">
       <div class="nav-body"></div>
-      <div class="nav-foot"><span>Navegación</span><button id="navStopBtn" type="button" class="nav-stop pointer-events-auto" aria-label="Dejar de navegar"><i></i></button></div>
+      <div class="nav-foot"><span>Navegando <svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true" style="display:inline-block;vertical-align:-2px"><polygon points="3 11 22 2 13 21 11 13 3 11"/></svg></span></div>
+      <div class="nav-hang"><button id="navStopBtn" type="button" class="nav-stop pointer-events-auto" aria-label="Dejar de navegar"><i></i></button></div>
     </div>
   </div>
   <div id="liveReadout" aria-live="off"></div>

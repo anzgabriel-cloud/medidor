@@ -2,7 +2,7 @@
    Separado del HTML para mejor mantenimiento
 */
 
-:root { --app-version: "2026.11.24-v2-65"; }
+:root { --app-version: "2026.11.24-v2-66"; }
 
 .leaflet-control-attribution { font-size: 9px !important; background: rgba(15,23,42,0.7) !important; color: #94a3b8 !important; }
 .leaflet-control-attribution a { color: #94a3b8 !important; }
@@ -642,15 +642,15 @@ body.ui-min #toastContainer {
 #modeRingBtn[aria-pressed="true"] { background: #ea580c !important; color: #fff !important; border-color: transparent !important; opacity: 1 !important; }
 .ringbtn { display: none; align-items: center; justify-content: center; border: 1px solid; font-weight: 600; }
 .ringbtn:disabled { cursor: default; }
-.ring-new { background: #f97316; color: #431407; border-color: #fb923c; }
-.ring-save { background: rgba(16,185,129,.25); color: #6ee7b7; border-color: rgba(16,185,129,.5); }
+.ring-new { background: #ea580c; color: #fff; border-color: #fb923c; }
+.ring-save { background: #ea580c; color: #fff; border-color: #fb923c; }
 .ring-clear { background: rgba(239,68,68,.15); color: #fca5a5; border-color: rgba(239,68,68,.35); }
 #mainControls[data-mode="ring"] #ringRow { display: flex !important; flex: 0 0 100%; max-width: 100%; min-width: 0; box-sizing: border-box; align-items: center; gap: 4px; margin-top: 4px; }
 #mainControls[data-mode="ring"] #ringRow.off { display: none !important; }
 #ringRow label { flex: none; font-size: 12px; color: #d9c8a4; margin-right: 2px; }
 #ringRow input { flex: 1 1 0; width: 0; min-width: 0; box-sizing: border-box; height: 40px; border-radius: 9px; border: 1px solid #6b5a3a; background: #12100c; color: #fff; padding: 0 10px; font-size: 16px; }
-#ringRow button { flex: none; width: 44px; height: 40px; border-radius: 9px; border: 1px solid #d97706; background: transparent; color: #fbbf24; font-size: 14px; font-weight: 700; display: grid; place-items: center; }
-#ringRow #ringApply { background: rgba(217,119,6,.3); }
+#ringRow button { flex: none; width: 44px; height: 40px; border-radius: 9px; border: 1px solid #fb923c; background: transparent; color: #fdba74; font-size: 14px; font-weight: 700; display: grid; place-items: center; }
+#ringRow #ringApply { background: #ea580c; color: #fff; }
 .ring-label span { position: absolute; transform: translate(-50%, -135%); white-space: nowrap; font: 700 13px/1 system-ui, sans-serif; text-shadow: 0 0 3px #000, 0 0 3px #000, 0 0 6px #000; }
 .ring-center span { transform: translate(-50%, 70%); font-size: 11px; font-weight: 600; }
 #ringList, #freeList { position: fixed; left: 66px; right: 10px; bottom: var(--strip-bottom, 12px); z-index: 26; max-height: 55vh; overflow-y: auto; padding: 8px;
@@ -730,7 +730,9 @@ body.ui-min #toastContainer {
 #navBox .nav-body .cap-grid { align-self: center; }
 #navBox .nav-dist { display: flex; justify-content: center; align-items: baseline; gap: 14px; margin-top: 1px; color: #fff; }
 #navBox .nav-dist em { margin-left: 0; }
-#navBox .nav-foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+#navBox .nav-foot { display: flex; align-items: center; justify-content: flex-start; gap: 8px; padding-right: 44px; min-height: 22px; }
+/* Depósito colgante: la pestaña con el botón de detener cuelga del borde inferior derecho del recuadro */
+#navBox .nav-hang { position: absolute; right: 8px; top: 100%; margin-top: -2px; padding: 5px 9px 6px; background: rgba(2,6,23,.92); border: 2px solid; border-color: inherit; border-top-color: transparent; border-radius: 0 0 12px 12px; box-shadow: 0 4px 8px rgba(0,0,0,.5); pointer-events: none; }
 #navBox .nav-foot span { color: #38bdf8; font-size: 13px; font-weight: 800; }
 .nav-arrow-wrap { background: none; border: 0; }
 .nav-arrow { position: absolute; left: 0; top: 0; width: 76px; height: 76px; pointer-events: none; }
@@ -810,16 +812,16 @@ body.lbl-off .dist-label, body.lbl-off .poi-label, body.lbl-off .item-name-tag {
 body:has(#infoPanel:not(.hidden)) .strip, body:has(#xInfo:not(.hidden)) .strip { opacity: 0; visibility: hidden; pointer-events: none; }
 
 .info-tgrow .info-tg { font-size: 10.5px; padding-left: 0; padding-right: 0; }
-body.line-busy #tpSearch, body.line-busy #tpFolder { opacity: .35; }
 #infoActions .poi-act-profile { grid-column: 4; }
 #infoActions .poi-act-profile svg, #infoActions .poi-act-profile i { color: #fbbf24; }
 
 /* La regla de "Mediciones" toma el color del modo elegido (cada modo con su color) */
-body:has(#mainControls[data-mode="polygon"]) #tpMeasure[aria-pressed="true"] { background: rgba(5,150,105,.32); color: #6ee7b7; }
-body:has(#mainControls[data-mode="line"]) #tpMeasure[aria-pressed="true"] { background: rgba(14,165,233,.32); color: #7dd3fc; }
-body:has(#mainControls[data-mode="track"]) #tpMeasure[aria-pressed="true"] { background: rgba(220,38,38,.32); color: #fca5a5; }
-body:has(#mainControls[data-mode="ring"]) #tpMeasure[aria-pressed="true"] { background: rgba(234,88,12,.36); color: #fdba74; }
-body:has(#mainControls[data-mode="free"]) #tpMeasure[aria-pressed="true"] { background: rgba(124,58,237,.38); color: #c4b5fd; }
+body:has(#mainControls[data-mode="poi"]) #tpMeasure[aria-pressed="true"] { background: #f59e0b; color: #0f172a; }
+body:has(#mainControls[data-mode="polygon"]) #tpMeasure[aria-pressed="true"] { background: #059669; color: #fff; }
+body:has(#mainControls[data-mode="line"]) #tpMeasure[aria-pressed="true"] { background: #0284c7; color: #fff; }
+body:has(#mainControls[data-mode="track"]) #tpMeasure[aria-pressed="true"] { background: #f43f5e; color: #fff; }
+body:has(#mainControls[data-mode="ring"]) #tpMeasure[aria-pressed="true"] { background: #ea580c; color: #fff; }
+body:has(#mainControls[data-mode="free"]) #tpMeasure[aria-pressed="true"] { background: #7c3aed; color: #fff; }
 
 .prof-loading svg { width: 34px; height: 34px; animation: hourglassFlip 1.7s ease-in-out infinite; }
 .free-draw.free-pan, .free-draw.free-pan * { cursor: grab !important; }
@@ -827,3 +829,6 @@ body:has(#mainControls[data-mode="free"]) #tpMeasure[aria-pressed="true"] { back
 #saveStyleRow button { width: 56px; height: 40px; border-radius: 10px; display: grid; place-items: center; border: 1px solid rgba(167,139,250,.35); background: rgba(124,58,237,.14); color: #c4b5fd; opacity: .6; }
 #saveStyleRow button[aria-pressed="true"] { opacity: 1; background: rgba(124,58,237,.45); border-color: #a78bfa; color: #fff; box-shadow: 0 0 0 1.5px #a78bfa inset; }
 #saveStyleRow svg { width: 28px; height: 8px; }
+
+/* Herramientas bloqueadas: mientras hay una medición en curso se desactivan de verdad (no responden y se ven apagadas) */
+[data-locked="1"] { opacity: .35 !important; pointer-events: none !important; filter: grayscale(.4); }

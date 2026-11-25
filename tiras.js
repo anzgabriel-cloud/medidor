@@ -60,6 +60,23 @@
     if (!TOOLS[k]) k = 'poi';
     click(TOOLS[k]);
   }
+  // --- Bloqueo: con una medición en curso, lo que la interrumpiría queda desactivado (el POI sigue libre durante un recorrido) ---
+  function lockEl(id, on) { var e = $(id); if (!e) return; if (on) { e.setAttribute('data-locked', '1'); e.setAttribute('aria-disabled', 'true'); } else { e.removeAttribute('data-locked'); e.removeAttribute('aria-disabled'); } }
+  function syncLocks() {
+    var lb = typeof lineBusy === 'function' && lineBusy();
+    var ts = typeof trackSession === 'function' && trackSession();
+    var fr = !!(window.MedidorRutas && window.MedidorRutas.busy && window.MedidorRutas.busy());
+    var busy = lb || ts || fr;
+    var cur = (typeof poiMode !== 'undefined' && poiMode) ? 'poi' : (typeof trackMode !== 'undefined' && trackMode) ? 'track' : ($('mainControls') ? $('mainControls').getAttribute('data-mode') : '');
+    lockEl('tpSearch', lb); lockEl('tpFolder', lb);
+    Object.keys(TOOLS).forEach(function (k) {
+      var lock = busy && k !== cur;
+      if (k === 'poi' && ts) lock = false;                 // ubicar un POI sobre la marcha, sin cortar la grabación
+      if (k === 'track' && ts && cur === 'poi') lock = false;   // y volver al recorrido
+      lockEl(TOOLS[k], lock);
+    });
+  }
+  setInterval(syncLocks, 350); syncLocks();
   function syncMeasure() {
     $('tpMeasure').setAttribute('aria-pressed', $('viewMedirBtn').getAttribute('aria-pressed') === 'true' ? 'true' : 'false');
   }

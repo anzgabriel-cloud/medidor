@@ -102,11 +102,6 @@
       metrics: [[{ label: 'Radio', value: nf.format(R.v), unit: R.u, sub: lenSub(r), cls: 'text-orange-300' }, { label: 'Diámetro', value: nf.format(Di.v), unit: Di.u, sub: lenSub(2 * r) }],
                 [{ label: 'Circunferencia', value: nf.format(Ci.v), unit: Ci.u, sub: lenSub(2 * Math.PI * r) }, { label: 'Superficie', value: nf.format(A.v), unit: A.u, sub: areaSub(area), cls: 'text-emerald-400' }]],
       extra: 'Centro de radio: ' + fmtCoord(a.lat, a.lng),
-      rows: [
-        { icon: 'crosshair', label: 'Ir', cls: 'text-slate-200', run: go },
-        { icon: 'copy', label: 'Copiar centro', cls: 'text-sky-300', run: function () { copyToClipboard(a.lat.toFixed(6) + ', ' + a.lng.toFixed(6), null); } },
-        { icon: 'eye-off', label: 'Ocultar', cls: 'text-slate-200', run: function () { a.hidden = true; persist(); renderSaved(); window.MedidorConsulta.close(); } }
-      ],
       actions: [
         { icon: 'pencil', label: 'Editar', cls: 'text-slate-200', run: function () { editRing(a); } },
         { icon: 'trash-2', label: 'Borrar', cls: 'text-red-400', run: function () {

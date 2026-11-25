@@ -1751,7 +1751,7 @@ function updateMetrics(areaM2, distM) {
   liveArea = areaM2; liveDist = distM;
   updateLiveBadge();
 }
-const APP_VERSION = '2026.11.24-v2-65';
+const APP_VERSION = '2026.11.24-v2-66';
 let liveSelfIntersect = false; // el polígono se cruza a sí mismo (los marcadores rojos ya lo señalan)
 function updateSelfIntersectWarning(show) {
   const v = !!show;
@@ -2694,11 +2694,16 @@ function setMode(m) {
   redraw();
 }
 
+/** Recorrido en curso (grabando, en pausa o grabado sin guardar): se puede ubicar un POI sin cortarlo */
+function trackSession() { return trackMode && (gpsWatchId !== null || points.length > 0); }
 function enterPoiMode() {
   ensureMedir();
   if (isLocked) return;
-  if (gpsWatchId !== null) stopGpsTracking();
-  else if (trackMode) { trackMode = false; setGpsBtnState(false); refreshTrackBar(); }
+  const keepTrack = trackSession();
+  if (!keepTrack) {
+    if (gpsWatchId !== null) stopGpsTracking();
+    else if (trackMode) { trackMode = false; setGpsBtnState(false); refreshTrackBar(); }
+  }
   poiMode = true;
   poiColor = themeColor;
   poiSession = [];
@@ -2712,6 +2717,7 @@ function enterPoiMode() {
   if (polyBtn) polyBtn.className = off;
   if (lineBtn) lineBtn.className = off;
   if (poiBtn) poiBtn.className = on + ' bg-amber-500 text-slate-950';
+  if (keepTrack) { const tb = document.getElementById('modeTrackBtn'); if (tb) tb.className = off; }
   setPoiAim(true);
   updateModeTheme();
   const nb = document.getElementById('newBtn');
@@ -2726,6 +2732,11 @@ function exitPoiMode(openList) {
   const nb = document.getElementById('newBtn');
   if (nb) nb.disabled = false;
   updateModeTheme();
+  if (trackSession()) {          // se vuelve al recorrido sin tocarlo
+    setGpsBtnState(false);
+    refreshTrackBar();
+    return;
+  }
   setMode(mode);
   if (openList !== false) { /* stay on map */ }
 }
@@ -4877,6 +4888,7 @@ function updateTrackButtons() {
 function enterTrackMode() {
   ensureMedir();
   if (isLocked) return toast({ type: 'warning', title: 'Medición bloqueada', message: 'Entrá en Editar para modificarla.' });
+  if (poiMode && trackSession()) { exitPoiMode(false); return; }   // desde POI se vuelve al recorrido en curso
   if (poiMode) exitPoiMode(false);
   setDrawingActive(false);
   trackMode = true;

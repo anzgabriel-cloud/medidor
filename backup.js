@@ -3,7 +3,7 @@
 //   mediciones: { name, mode: 'polygon' | 'line', color: '#rrggbb', date, points: [{ lat, lng }] }
 //   POI:        { name, note, color: '#rrggbb', size: 's'|'m'|'l', lat, lng, elev? }
 //   anillos:    { lat, lng, r (metros), color }        rutas a mano alzada: { pts: [[lat, lng]], color, date }
-const BACKUP_VERSION = '2026.11.24-v2-67';
+const BACKUP_VERSION = '2026.11.24-v2-68';
 const BACKUP_FORMATS = {
   geojson: {
     label: 'GeoJSON', ext: 'geojson', mime: 'application/geo+json',
@@ -30,6 +30,7 @@ const bkValidLL = (lat, lng) => Number.isFinite(lat) && Number.isFinite(lng) && 
 const bkToday = () => new Date().toLocaleDateString('es-AR');
 const bkFix = (n) => (+n).toFixed(7).replace(/\.?0+$/, '');   // ≈ 1 cm, sin ceros de más
 const bkRingLabel = (r) => r >= 1000 ? (Math.round(r / 10) / 100) + ' km' : Math.round(r) + ' m';
+const bkIsTrack = (m) => m.track === true && !bkIsPoly(m);   // recorrido grabado (línea)
 const bkIsPoly = (m) => m.mode === 'polygon' && m.points.length >= 3;   // 2 puntos no forman polígono
 
 // ---------- exportación ----------
@@ -40,7 +41,7 @@ function buildGeoJSON(saved, pois, ex) {
     if (poly) coords.push(coords[0]);
     return {
       type: 'Feature',
-      properties: { name: m.name, note: m.note || '', mode: poly ? 'polygon' : 'line', color: m.color, date: m.date },
+      properties: { name: m.name, note: m.note || '', mode: poly ? 'polygon' : 'line', ...(bkIsTrack(m) ? { track: true } : {}), color: m.color, date: m.date },
       geometry: poly ? { type: 'Polygon', coordinates: [coords] } : { type: 'LineString', coordinates: coords }
     };
   });
@@ -86,7 +87,7 @@ function buildKML(saved, pois, ex) {
       `<description>${bkEsc(m.note || '')}</description>`,
       `<Style><LineStyle><color>${bkKmlColor(m.color, 'ff')}</color><width>3</width></LineStyle>` +
         (poly ? `<PolyStyle><color>${bkKmlColor(m.color, '59')}</color></PolyStyle>` : '') + '</Style>',
-      `<ExtendedData>${data('mode', poly ? 'polygon' : 'line')}${data('color', bkColor(m.color, '#00ff66'))}${data('date', m.date || '')}</ExtendedData>`,
+      `<ExtendedData>${data('mode', poly ? 'polygon' : 'line')}${bkIsTrack(m) ? data('track', '1') : ''}${data('color', bkColor(m.color, '#00ff66'))}${data('date', m.date || '')}</ExtendedData>`,
       poly
         ? `<Polygon><outerBoundaryIs><LinearRing><coordinates>${ring.join(' ')}</coordinates></LinearRing></outerBoundaryIs></Polygon>`
         : `<LineString><tessellate>1</tessellate><coordinates>${ring.join(' ')}</coordinates></LineString>`,
@@ -145,7 +146,7 @@ function buildGPX(saved, pois, ex) {
     out.push('<trk>',
       `<name>${bkEsc(m.name)}</name>`,
       `<desc>${bkEsc((m.date || '') + (m.note ? ' | ' + m.note : ''))}</desc>`,
-      `<type>${poly ? 'polygon' : 'line'}</type>`,
+      `<type>${poly ? 'polygon' : bkIsTrack(m) ? 'track' : 'line'}</type>`,
       `<extensions><md:color>${bkColor(m.color, '#00ff66')}</md:color></extensions>`,
       '<trkseg>',
       ...pts.map(p => `<trkpt lat="${bkFix(p.lat)}" lon="${bkFix(p.lng)}"/>`),
@@ -180,7 +181,7 @@ function buildBackup(fmt, saved, pois, ex) {
 function bkNewModel() { return { measures: [], pois: [], rings: [], routes: [], holes: 0, invalid: 0 }; }
 
 const bkDateRe = /^\d{1,2}\/\d{1,2}\/\d{4}$/;
-function bkAddMeasure(model, { name, note, color, date, coords, poly, suffix }) {
+function bkAddMeasure(model, { name, note, color, date, coords, poly, suffix, track }) {
   // coords: [[lng, lat], ...]
   let c = (coords || []).filter(x => Array.isArray(x) && bkValidLL(+x[1], +x[0])).map(x => [+x[0], +x[1]]);
   if (poly && c.length > 1 && c[0][0] === c[c.length - 1][0] && c[0][1] === c[c.length - 1][1]) c = c.slice(0, -1);
@@ -188,6 +189,7 @@ function bkAddMeasure(model, { name, note, color, date, coords, poly, suffix }) 
   model.measures.push({
     name: String(name || 'Importado') + (suffix || ''),
     mode: poly ? 'polygon' : 'line',
+    ...(track && !poly ? { track: true } : {}),
     note: bkDateRe.test(String(note || '').trim()) ? '' : String(note || '').slice(0, 2000),
     color: bkColor(color, '#00ff66'),
     date: String(date || bkToday()).replace(/[<>&"']/g, '').slice(0, 40),
@@ -219,7 +221,7 @@ function parseGeoJSON(text) {
   features.forEach(f => {
     if (!f.geometry || !f.geometry.coordinates) { model.invalid++; return; }
     const t = f.geometry.type, g = f.geometry.coordinates, p = f.properties || {};
-    const base = { name: p.name, note: typeof p.note === 'string' ? p.note : '', color: p.color, date: typeof p.date === 'string' ? p.date : null };
+    const base = { name: p.name, note: typeof p.note === 'string' ? p.note : '', color: p.color, date: typeof p.date === 'string' ? p.date : null, track: p.track === true };
     const multi = (arr, fn) => (Array.isArray(arr) ? arr : []).forEach((x, i) => fn(x, ` (${i + 1})`));
     if (t === 'Point' && p.kind === 'ring') bkAddRing(model, { lat: g[1], lng: g[0], r: p.radius, color: p.color });
     else if (t === 'LineString' && p.kind === 'route') bkAddRoute(model, { coords: g, color: p.color, date: base.date, name: p.name, note: base.note, style: p.style });
@@ -284,7 +286,7 @@ function parseKML(text) {
       if (ext.kind === 'ring') { bkAddRing(model, { lat: c && c[1], lng: c && c[0], r: ext.radius, color }); return; }
       bkAddPoi(model, { name, note: desc, color, size: ext.size, lat: c && c[1], lng: c && c[0], suffix: sfx(n) });
     });
-    lines.forEach(ln => { n++; found++; if (ext.kind === 'route') { bkAddRoute(model, { coords: bkCoords(bkChildText(ln, 'coordinates')), color, date, name, note: desc, style: ext.style }); return; } bkAddMeasure(model, { name, note: desc, color, date, coords: bkCoords(bkChildText(ln, 'coordinates')), poly: false, suffix: sfx(n) }); });
+    lines.forEach(ln => { n++; found++; if (ext.kind === 'route') { bkAddRoute(model, { coords: bkCoords(bkChildText(ln, 'coordinates')), color, date, name, note: desc, style: ext.style }); return; } bkAddMeasure(model, { name, note: desc, color, date, coords: bkCoords(bkChildText(ln, 'coordinates')), poly: false, suffix: sfx(n), track: ext.track === '1' }); });
     polys.forEach(pg => {
       n++; found++;
       if (bkKids(pg, 'innerBoundaryIs').length) { model.holes++; return; }
@@ -323,7 +325,7 @@ function parseGPX(text) {
     const note = dm ? (dm[2] || '') : bkPlain(desc);
     if (bkChildText(t, 'type') === 'route') { segs.forEach(s => bkAddRoute(model, { coords: pts(s, 'trkpt'), color: colorOf(t), date, name: bkChildText(t, 'name'), note, style: (bkKids(t, 'style')[0] || {}).textContent })); if (!segs.length) model.invalid++; return; }
     segs.forEach((s, i) => bkAddMeasure(model, {
-      name: bkChildText(t, 'name'), note, color: colorOf(t), date, coords: pts(s, 'trkpt'), poly,
+      name: bkChildText(t, 'name'), note, color: colorOf(t), date, coords: pts(s, 'trkpt'), poly, track: bkChildText(t, 'type') === 'track',
       suffix: segs.length > 1 ? ` (${i + 1})` : ''
     }));
     if (!segs.length) model.invalid++;

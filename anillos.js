@@ -98,7 +98,7 @@
     clearHl();
     hlLayer = L.circle([a.lat, a.lng], { radius: r, fill: false, color: '#fff', weight: 8, opacity: 0.55, interactive: false }).addTo(m);
     window.MedidorConsulta.open({
-      color: a.color, title: 'Anillo ' + fmt(r), meta: 'Radio desde un punto · ' + d,
+      kind: 'ring', color: a.color, title: 'Anillo ' + fmt(r), meta: 'Radio desde un punto · ' + d,
       metrics: [[{ label: 'Radio', value: nf.format(R.v), unit: R.u, sub: lenSub(r), cls: 'text-orange-300' }, { label: 'Diámetro', value: nf.format(Di.v), unit: Di.u, sub: lenSub(2 * r) }],
                 [{ label: 'Circunferencia', value: nf.format(Ci.v), unit: Ci.u, sub: lenSub(2 * Math.PI * r) }, { label: 'Superficie', value: nf.format(A.v), unit: A.u, sub: areaSub(area), cls: 'text-emerald-400' }]],
       extra: 'Centro de radio: ' + fmtCoord(a.lat, a.lng),

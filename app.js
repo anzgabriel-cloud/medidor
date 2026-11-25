@@ -126,6 +126,7 @@ function sanitizeSaved(s) {
   s.id = safeId(s.id);
   s.mode = s.mode === 'line' ? 'line' : 'polygon';
   if (s.mode === 'polygon' && s.points.length < 3) s.mode = 'line';
+  s.track = s.mode === 'line' && s.track === true;   // recorrido grabado (se lista aparte de las distancias)
   s.color = safeColor(s.color);
   s.name = String(s.name ?? 'Medición').slice(0, 200);
   s.date = String(s.date ?? '').slice(0, 40);
@@ -776,7 +777,7 @@ function init() {
   };
   document.getElementById('layerBtn').onclick = cycleLayer;
   document.getElementById('locateBtn').onclick = locateMe;
-  document.getElementById('savedBtn').onclick = openSaved;
+  document.getElementById('savedBtn').onclick = () => openSaved();
   document.getElementById('poiBtn').onclick = openPoiDrawer;
   document.getElementById('poiPlaceHeaderBtn').onclick = () => {
     if (!poiMode || !map) return;
@@ -1751,7 +1752,7 @@ function updateMetrics(areaM2, distM) {
   liveArea = areaM2; liveDist = distM;
   updateLiveBadge();
 }
-const APP_VERSION = '2026.11.24-v2-67';
+const APP_VERSION = '2026.11.24-v2-68';
 let liveSelfIntersect = false; // el polígono se cruza a sí mismo (los marcadores rojos ya lo señalan)
 function updateSelfIntersectWarning(show) {
   const v = !!show;
@@ -3852,7 +3853,7 @@ function commitSave(name, note) {
     }
   }
   if (!item) {
-    item = { id: Date.now().toString(), name, note: note || '', mode: savedMode, color: safeColor(themeColor), date: new Date().toLocaleDateString('es-AR'), points: pts, visible: true };
+    item = { id: Date.now().toString(), name, note: note || '', mode: savedMode, ...(savedMode === 'line' && trackMode ? { track: true } : {}), color: safeColor(themeColor), date: new Date().toLocaleDateString('es-AR'), points: pts, visible: true };
     saved.push(item);
   }
   persist();
@@ -3876,6 +3877,7 @@ function persist() {
   try {
     localStorage.setItem('medidor_v2', JSON.stringify(saved));
     document.getElementById('savedBadge').textContent = saved.length;
+    updateKindCounts();
     const btn = document.getElementById('savedBtn');
     if (btn) btn.disabled = saved.length === 0;
     try { refreshBackupUI(); } catch (e2) {}
@@ -3901,12 +3903,32 @@ function loadSaved() {
     }
   } catch (e) {}
   document.getElementById('savedBadge').textContent = saved.length;
+  updateKindCounts();
   const btn = document.getElementById('savedBtn');
   if (btn) btn.disabled = saved.length === 0;
   setTimeout(() => refreshLockedLayers(), 300);
 }
 
-function openSaved() {
+// Listas separadas por tipo: superficies, distancias y recorridos no se mezclan
+const SAVED_KINDS = {
+  polygon: { title: 'Superficies', empty: 'Sin superficies guardadas', ph: 'Buscar superficie por nombre' },
+  line: { title: 'Distancias', empty: 'Sin distancias guardadas', ph: 'Buscar distancia por nombre' },
+  track: { title: 'Recorridos', empty: 'Sin recorridos guardados', ph: 'Buscar recorrido por nombre' }
+};
+let savedKind = 'polygon';
+const savedKindOf = (s) => s.mode === 'polygon' ? 'polygon' : (s.track ? 'track' : 'line');
+const savedOfKind = () => saved.filter(s => savedKindOf(s) === savedKind);
+function updateKindCounts() {
+  Object.keys(SAVED_KINDS).forEach(k => {
+    const n = document.getElementById('fm' + k[0].toUpperCase() + k.slice(1) + 'N');
+    if (n) n.textContent = String(saved.filter(s => savedKindOf(s) === k).length);
+  });
+}
+function openSaved(kind) {
+  if (SAVED_KINDS[kind]) savedKind = kind;
+  const K = SAVED_KINDS[savedKind];
+  const h = document.getElementById('savedTitle'); if (h) h.textContent = K.title;
+  const si = document.getElementById('savedSearch'); if (si) { si.placeholder = K.ph; si.value = ''; savedFilter = ''; }
   renderSaved();
   updateBackupInfo();
   document.getElementById('savedDrawer').classList.remove('hidden');
@@ -3966,7 +3988,7 @@ function refreshListsByDistance(force) {
   if (!force && now - listRefreshAt < 4000) return;
   listRefreshAt = now;
   const open = (id) => { const el = document.getElementById(id); return el && !el.classList.contains('hidden'); };
-  if (open('savedDrawer')) refreshOneList('savedList', applyFilter(sortByProximity(saved, savedDistance), savedFilter), renderSaved);
+  if (open('savedDrawer')) refreshOneList('savedList', applyFilter(sortByProximity(savedOfKind(), savedDistance), savedFilter), renderSaved);
   if (open('poiDrawer')) { refreshOneList('poiList', applyFilter(sortByProximity(pois, (p, ll) => ({ d: ll.distanceTo(L.latLng(p.lat, p.lng)), inside: false })), poiFilter), renderPoiList); syncNavButtons(); }
 }
 function refreshOneList(listId, rows, rerender) {
@@ -4156,11 +4178,12 @@ async function deleteSavedItem(item) {
 function renderSaved() {
   const list = document.getElementById('savedList');
   list.innerHTML = '';
-  if (!saved.length) {
-    list.innerHTML = '<div class="text-center py-10 text-slate-500 text-xs">Sin mediciones guardadas</div>';
+  updateKindCounts();
+  if (!savedOfKind().length) {
+    list.innerHTML = `<div class="text-center py-10 text-slate-500 text-xs">${SAVED_KINDS[savedKind].empty}</div>`;
     return;
   }
-  const rows = applyFilter(sortByProximity(saved, savedDistance), savedFilter);
+  const rows = applyFilter(sortByProximity(savedOfKind(), savedDistance), savedFilter);
   list.dataset.order = rows.map(r => r.it.id).join('|');
   if (!rows.length) { list.innerHTML = `<div class="text-center py-10 text-slate-500 text-xs">Sin resultados para «${escapeHtml(savedFilter)}»</div>`; return; }
   if (!userLL()) list.insertAdjacentHTML('beforeend', `<div class="text-[10px] text-slate-500 px-1 pb-1">${NO_GPS_HINT}</div>`);
@@ -4174,7 +4197,6 @@ function renderSaved() {
           <div class="flex items-center gap-1.5">
             <span class="w-2.5 h-2.5 rounded-full flex-shrink-0" style="background:${safeColor(item.color)}"></span>
             <span class="font-bold text-xs truncate">${escapeHtml(item.name)}</span>
-            <span class="text-[10px] px-1.5 py-0.5 rounded bg-slate-800 text-slate-400 uppercase flex-shrink-0">${escapeHtml(item.mode)}</span>
           </div>
           <span class="text-[11px] text-slate-500 mt-0.5">${item.points.length} pts · ${escapeHtml(item.date)}${dist ? ' · <span data-dist="' + item.id + '" class="text-sky-400">' + distLabel(dist) + '</span>' : ''}</span>
         </div>
@@ -4338,7 +4360,7 @@ function applyBackupModel(model) {
     sigs.add(sg);
     saved.push({
       id: Date.now().toString() + Math.random().toString(16).slice(2),
-      name: m.name, note: m.note || '', mode: m.mode, color: m.color, date: m.date || today,
+      name: m.name, note: m.note || '', mode: m.mode, ...(m.track ? { track: true } : {}), color: m.color, date: m.date || today,
       points: m.points, visible: true
     });
     count++;

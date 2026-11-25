@@ -69,8 +69,16 @@
     var busy = lb || ts || fr;
     var cur = (typeof poiMode !== 'undefined' && poiMode) ? 'poi' : (typeof trackMode !== 'undefined' && trackMode) ? 'track' : ($('mainControls') ? $('mainControls').getAttribute('data-mode') : '');
     lockEl('tpSearch', lb); lockEl('tpFolder', lb);
+    // Medición seleccionada (Consulta abierta): solo queda activo el botón de su mismo tipo
+    var sel = '';
+    try {
+      if (window.MedidorConsulta && window.MedidorConsulta.isOpen()) sel = window.MedidorConsulta.kind();
+      else if (typeof inspectItem !== 'undefined' && inspectItem) sel = inspectItem.mode === 'polygon' ? 'polygon' : (inspectItem.track ? 'track' : 'line');
+      else if (typeof inspectPoi !== 'undefined' && inspectPoi) sel = 'poi';
+    } catch (e) { sel = ''; }
     Object.keys(TOOLS).forEach(function (k) {
-      var lock = busy && k !== cur;
+      var lock = (busy && k !== cur) || (!!sel && k !== sel);
+      if (ts && k === cur) lock = false;                   // el botón del recorrido en curso nunca se bloquea a sí mismo
       if (k === 'poi' && ts) lock = false;                 // ubicar un POI sobre la marcha, sin cortar la grabación
       if (k === 'track' && ts && cur === 'poi') lock = false;   // y volver al recorrido
       lockEl(TOOLS[k], lock);
@@ -97,13 +105,15 @@
     updatePop();
   };
   $('fmPoi').onclick = function () { closeFolder(); click('poiBtn'); };
-  $('fmSaved').onclick = function () { closeFolder(); click('savedBtn'); };
+  ['polygon', 'line', 'track'].forEach(function (k) {
+    $('fm' + k.charAt(0).toUpperCase() + k.slice(1)).onclick = function () { closeFolder(); if (typeof openSaved === 'function') openSaved(k); };
+  });
   function mirror(from, to) {
     var a = $(from), b = $(to); if (!a || !b) return;
     var sync = function () { b.textContent = a.textContent; };
     new MutationObserver(sync).observe(a, { childList: true, characterData: true, subtree: true }); sync();
   }
-  mirror('poiBadge', 'fmPoiN'); mirror('savedBadge', 'fmSavedN');
+  mirror('poiBadge', 'fmPoiN');
   document.addEventListener('pointerdown', function (e) {
     if (!$('folderMenu').classList.contains('hidden') && !e.target.closest('#folderMenu, #tpFolder')) closeFolder();
   }, true);

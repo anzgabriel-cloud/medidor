@@ -169,6 +169,7 @@
           openProfile({ id: rt.id, mode: 'line', name: rt.name || 'Ruta/Sendero a mano alzada', color: rt.color, points: pts.map(function (p) { return { lat: p[0], lng: p[1] }; }) });
         } }
       ],
+      kind: 'free',
       onClose: clearHl
     };
     window.MedidorConsulta.open(spec);

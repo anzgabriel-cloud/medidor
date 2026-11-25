@@ -123,5 +123,5 @@
     Object.keys(patch || {}).forEach(function (k) { spec[k] = patch[k]; });
     $('xMetrics').innerHTML = metricsHtml(spec.metrics, spec.extra);
   }
-  window.MedidorConsulta = { open: open, close: close, update: update, isOpen: function () { return !!cur; } };
+  window.MedidorConsulta = { open: open, close: close, update: update, isOpen: function () { return !!cur; }, kind: function () { return cur ? (cur.kind || '') : ''; } };
 })();

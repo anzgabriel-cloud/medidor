@@ -14,7 +14,7 @@
   <meta name="apple-mobile-web-app-title" content="Medidor">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <!-- Versión: debe coincidir con APP_VERSION (app.js) y --app-version (styles.css) -->
-  <meta name="app-version" content="2026.11.24-v2-67">
+  <meta name="app-version" content="2026.11.24-v2-68">
 
   <!-- Librerías locales (en este mismo repo) -->
   <link rel="stylesheet" href="leaflet.css" />
@@ -166,7 +166,9 @@
   </nav>
   <div id="folderMenu" class="hidden" role="menu" aria-label="Guardados">
     <button type="button" id="fmPoi" role="menuitem"><i data-lucide="map-pin"></i><span>POI</span><b id="fmPoiN">0</b></button>
-    <button type="button" id="fmSaved" role="menuitem"><i data-lucide="ruler"></i><span>Mediciones</span><b id="fmSavedN">0</b></button>
+    <button type="button" id="fmPolygon" role="menuitem"><i data-lucide="pentagon"></i><span>Superficies</span><b id="fmPolygonN">0</b></button>
+    <button type="button" id="fmLine" role="menuitem"><i data-lucide="ruler"></i><span>Distancias</span><b id="fmLineN">0</b></button>
+    <button type="button" id="fmTrack" role="menuitem"><i data-lucide="route"></i><span>Recorridos</span><b id="fmTrackN">0</b></button>
     <button type="button" id="fmRing" role="menuitem"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="1.3"/><path d="M13 12h7"/></svg><span>Anillos</span><b id="fmRingN">0</b></button>
     <button type="button" id="fmFree" role="menuitem"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="5.5" cy="19.5" r="2.5"/><path d="M8 19.5h8a3.5 3.5 0 0 0 0-7h-4"/><path d="M10 12.8l.9-3 8.3-8.3a1.9 1.9 0 0 1 2.7 2.7L13.7 12.5z" transform="translate(-.2 1.6)"/><path d="M17.3 5.4l2.8 2.8"/></svg><span>Rutas</span><b id="fmFreeN">0</b></button>
   </div>
@@ -358,7 +360,7 @@
         <div class="flex items-center gap-2">
           <i data-lucide="folder" class="w-5 h-5 text-amber-400"></i>
           <div class="leading-tight">
-            <h2 class="font-bold text-base">Mediciones Guardadas</h2>
+            <h2 id="savedTitle" class="font-bold text-base">Superficies</h2>
             <p class="text-[10px] text-slate-400">Ordenados por cercanía a tu ubicación (GPS)</p>
           </div>
         </div>

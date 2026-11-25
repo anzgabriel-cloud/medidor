@@ -49,11 +49,11 @@
     L.circleMarker(c, { radius: 5, color: '#fff', weight: 2, fillColor: col, fillOpacity: 1, interactive: false }).addTo(g);
     var mid = L.latLng((a.lat + e.lat) / 2, (a.lng + e.lng) / 2);
     L.marker(mid, { interactive: false, keyboard: false, icon: L.divIcon({
-      className: 'ring-label', html: '<span style="color:' + col + '">' + fmt(a.r) + '</span>', iconSize: [0, 0]
+      className: 'ring-label', html: '<span style="border-color:' + col + '">' + fmt(a.r) + '</span>', iconSize: [0, 0]
     }) }).addTo(g);
     if (firstAtCenter(a)) {   // etiqueta del centro (una sola por centro, aunque haya anillos concéntricos)
       L.marker(c, { interactive: false, keyboard: false, icon: L.divIcon({
-        className: 'ring-label ring-center', html: '<span style="color:' + col + '">Centro de radio</span>', iconSize: [0, 0]
+        className: 'ring-label ring-center', html: '<span style="border-color:' + col + '">Centro de radio</span>', iconSize: [0, 0]
       }) }).addTo(g);
     }
     g.addTo(m);

@@ -62,6 +62,19 @@
   }
   // --- Bloqueo: con una medición en curso, lo que la interrumpiría queda desactivado (el POI sigue libre durante un recorrido) ---
   function lockEl(id, on) { var e = $(id); if (!e) return; if (on) { e.setAttribute('data-locked', '1'); e.setAttribute('aria-disabled', 'true'); } else { e.removeAttribute('data-locked'); e.removeAttribute('aria-disabled'); } }
+  var released = false, relCur = '';
+  // Tocar de nuevo la herramienta activa (sin nada en curso) libera o vuelve a trabar las demás para cambiar de herramienta
+  Object.keys(TOOLS).forEach(function (k) {
+    var b = $(TOOLS[k]); if (!b) return;
+    b.addEventListener('click', function () {
+      var cur = (typeof poiMode !== 'undefined' && poiMode) ? 'poi' : (typeof trackMode !== 'undefined' && trackMode) ? 'track' : ($('mainControls') ? $('mainControls').getAttribute('data-mode') : '');
+      var busy = (typeof lineBusy === 'function' && lineBusy()) || (typeof trackSession === 'function' && trackSession()) || !!(window.MedidorRutas && window.MedidorRutas.busy && window.MedidorRutas.busy());
+      if (k === cur && !busy && $('viewMedirBtn').getAttribute('aria-pressed') === 'true') {
+        released = !released; relCur = cur;
+        if (released && typeof toast === 'function') toast({ type: 'info', title: 'Herramientas liberadas', message: 'Elegí otra. Se vuelven a trabar al seleccionarla.', duration: 2200 });
+      }
+    }, true);
+  });
   function syncLocks() {
     var lb = typeof lineBusy === 'function' && lineBusy();
     var ts = typeof trackSession === 'function' && trackSession();
@@ -69,15 +82,12 @@
     var busy = lb || ts || fr;
     var cur = (typeof poiMode !== 'undefined' && poiMode) ? 'poi' : (typeof trackMode !== 'undefined' && trackMode) ? 'track' : ($('mainControls') ? $('mainControls').getAttribute('data-mode') : '');
     lockEl('tpSearch', lb); lockEl('tpFolder', lb);
-    // Medición seleccionada (Consulta abierta): solo queda activo el botón de su mismo tipo
-    var sel = '';
-    try {
-      if (window.MedidorConsulta && window.MedidorConsulta.isOpen()) sel = window.MedidorConsulta.kind();
-      else if (typeof inspectItem !== 'undefined' && inspectItem) sel = inspectItem.mode === 'polygon' ? 'polygon' : (inspectItem.track ? 'track' : 'line');
-      else if (typeof inspectPoi !== 'undefined' && inspectPoi) sel = 'poi';
-    } catch (e) { sel = ''; }
+    // Herramienta elegida en Modo medición: las demás quedan desactivadas (salvo que se las libere tocando de nuevo la activa)
+    var medirOn = $('viewMedirBtn').getAttribute('aria-pressed') === 'true';
+    if (!medirOn || (released && cur !== relCur)) released = false;
+    var chosen = medirOn && !!cur && !released;
     Object.keys(TOOLS).forEach(function (k) {
-      var lock = (busy && k !== cur) || (!!sel && k !== sel);
+      var lock = ((busy || chosen) && k !== cur);
       if (ts && k === cur) lock = false;                   // el botón del recorrido en curso nunca se bloquea a sí mismo
       if (k === 'poi' && ts) lock = false;                 // ubicar un POI sobre la marcha, sin cortar la grabación
       if (k === 'track' && ts && cur === 'poi') lock = false;   // y volver al recorrido

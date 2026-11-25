@@ -605,8 +605,12 @@ function init() {
   map = L.map('map', { zoomControl: false, attributionControl: true, tapTolerance: 25, maxZoom: 22 })
     .setView([startLat, startLng], startZoom);
   map.attributionControl.setPrefix('');
+  map.getContainer().addEventListener('pointerdown', () => { navUserTouchT = Date.now(); }, { passive: true });
+  map.getContainer().addEventListener('wheel', () => { navUserTouchT = Date.now(); }, { passive: true });
   // Las superficies guardadas van en un plano propio, debajo de líneas, rutas y anillos: así el relleno de una superficie no tapa lo que hay dentro
   map.createPane('areaPane').style.zIndex = 395;
+  // El punto azul del GPS y su flecha van en un plano propio, por encima de marcadores, etiquetas y mediciones
+  { const up = map.createPane('userPane'); up.style.zIndex = 660; up.style.pointerEvents = 'none'; }
   // Capa de mapa: la primera vez satélite; después, la última que usaste (así no se cargan mosaicos de una capa que no usás)
   try { const s = localStorage.getItem('medidor_capa'); if (s && tiles[s]) currentTiles = s; } catch (e) {}
   tileLayer = makeTileLayer(tiles[currentTiles]).addTo(map);
@@ -1766,7 +1770,7 @@ function updateMetrics(areaM2, distM) {
   liveArea = areaM2; liveDist = distM;
   updateLiveBadge();
 }
-const APP_VERSION = '2026.11.25-v2-78';
+const APP_VERSION = '2026.11.25-v2-79';
 let liveSelfIntersect = false; // el polígono se cruza a sí mismo (los marcadores rojos ya lo señalan)
 function updateSelfIntersectWarning(show) {
   const v = !!show;
@@ -1940,7 +1944,7 @@ function syncLabelUI() {
 function syncNorthUI() {
   document.querySelectorAll('.north-pick').forEach(b => b.setAttribute('aria-pressed', b.dataset.north === compassNorth ? 'true' : 'false'));
 }
-let compassSensor = { h: null, t: 0 };     // rumbo verdadero según el sensor
+let compassSensor = { h: null, t: 0, acc: null };     // rumbo verdadero según el sensor
 let compassGps = { h: null, speed: 0, t: 0 };
 let compassShown = 0, compassSeeded = false, compassTimer = null, compassOn = false, compassLastTxt = '';
 const wrap360 = (d) => ((d % 360) + 360) % 360;
@@ -1973,15 +1977,20 @@ function onDeviceOrientation(e) {
   else if (e.absolute === true && typeof e.alpha === 'number') h = wrap360(360 - e.alpha);                          // Android (norte magnético)
   if (h === null) return;
   const ll = userLL() || (map && map.getCenter ? map.getCenter() : { lat: -34.6, lng: -58.4 });
-  compassSensor = { h: wrap360(h + magneticDeclination(ll.lat, ll.lng)), t: Date.now() };   // verdadero = magnético + declinación (Este +)
+  const acc = (typeof e.webkitCompassAccuracy === 'number') ? e.webkitCompassAccuracy : null;   // iOS: error estimado en grados (-1 = sin calibrar)
+  compassSensor = { h: wrap360(h + magneticDeclination(ll.lat, ll.lng)), t: Date.now(), acc };   // verdadero = magnético + declinación (Este +)
 }
 /** Rumbo a mostrar: GPS si vas rápido (vehículo), si no el sensor; el GPS lento sirve de respaldo */
+let headSrc = 'sensor';   // fuente actual (con histéresis para no saltar entre GPS y sensor al ir cerca del umbral)
+const sensorPoor = () => compassSensor.acc !== null && (compassSensor.acc < 0 || compassSensor.acc > 40);
 function pickHeading() {
   const now = Date.now();
   const gpsOk = compassGps.h !== null && now - compassGps.t < 5000;
   const senOk = compassSensor.h !== null && now - compassSensor.t < 3000;
-  if (gpsOk && compassGps.speed >= 2.5) return { h: compassGps.h, src: 'GPS' };
-  if (senOk) return { h: compassSensor.h, src: 'sensor' };
+  // GPS cuando te movés rápido (3 m/s para empezar, hasta bajar de 1,8 m/s); lento, el sensor
+  if (gpsOk && (compassGps.speed >= 3 || (headSrc === 'GPS' && compassGps.speed >= 1.8))) { headSrc = 'GPS'; return { h: compassGps.h, src: 'GPS' }; }
+  headSrc = 'sensor';
+  if (senOk) return { h: compassSensor.h, src: 'sensor', poor: sensorPoor() };
   if (gpsOk && compassGps.speed >= 1) return { h: compassGps.h, src: 'GPS' };
   return null;
 }
@@ -2913,7 +2922,7 @@ function updateUserLocation(lat, lng, accuracy) {
       iconSize: [48, 48],
       iconAnchor: [24, 24]
     });
-    userLocMarker = L.marker(ll, { icon, interactive: false, zIndexOffset: 1500 }).addTo(map);
+    userLocMarker = L.marker(ll, { icon, interactive: false, pane: 'userPane', zIndexOffset: 1500 }).addTo(map);
   } else {
     userLocMarker.setLatLng(ll);
   }
@@ -2934,6 +2943,16 @@ function updateUserLocation(lat, lng, accuracy) {
   try { refreshListsByDistance(); } catch (e) {}
 }
 
+/** Al navegar a un POI, el punto azul no debe salirse de la pantalla: si sale de la zona segura (sin tapar con los paneles),
+ *  el mapa se corre lo mínimo para traerlo de vuelta. Si moviste el mapa vos, se espera unos segundos antes de volver a seguirte. */
+let navUserTouchT = 0;
+function keepUserInView() {
+  if (!navPoi || !userLocMarker || !map) return;
+  if (Date.now() - navUserTouchT < 8000) return;
+  try {
+    map.panInside(userLocMarker.getLatLng(), { paddingTopLeft: [70, 150], paddingBottomRight: [40, 200], animate: true, duration: 0.6 });
+  } catch (e) {}
+}
 function startUserLocationWatch(centerOnFirst) {
   if (!navigator.geolocation) return;
   let didCenter = !centerOnFirst;
@@ -2944,7 +2963,7 @@ function startUserLocationWatch(centerOnFirst) {
     noteGpsHeading(pos.coords);
     noteGpsSpeed(pos.coords);
     updateUserLocation(lat, lng, acc);
-    if (navPoi) updateNavLine();
+    if (navPoi) { updateNavLine(); keepUserInView(); }
     if (!didCenter) {
       didCenter = true;
       map.flyTo([lat, lng], Math.max(map.getZoom(), 16), { duration: 1.0 });
@@ -3658,19 +3677,27 @@ function capGrid(v, m, third, rv, rm) {
 }
 /** Flecha de rumbo alrededor del punto azul del GPS: apunta hacia donde mirás. Siempre es azul (como el punto GPS);
  *  al navegar a un POI, cuando se alinea con la cuerda toma el color de la cuerda (el del POI) */
-let navArrow = null, navBrg = null;
+let navArrow = null, navBrg = null, arrowRot = null, poorToastT = 0;
 function updateNavArrow() {
   if (!userLocMarker) { if (navArrow) { map.removeLayer(navArrow); navArrow = null; } return; }
   const p = pickHeading();
   if (!p) { if (navArrow) navArrow.getElement() && (navArrow.getElement().style.display = 'none'); return; }
   if (!navArrow) {
     const icon = L.divIcon({ className: 'nav-arrow-wrap', iconSize: [0, 0], html: '<div class="nav-arrow"><svg viewBox="0 0 64 64" width="76" height="76"><polygon points="32,5 41,22 32,18 23,22" stroke="#fff" stroke-width="1.5" stroke-linejoin="round"/></svg></div>' });
-    navArrow = L.marker(userLocMarker.getLatLng(), { icon, interactive: false, keyboard: false, zIndexOffset: 850 }).addTo(map);
+    navArrow = L.marker(userLocMarker.getLatLng(), { icon, interactive: false, keyboard: false, pane: 'userPane', zIndexOffset: 850 }).addTo(map);
   } else navArrow.setLatLng(userLocMarker.getLatLng());
   const el = navArrow.getElement(); if (!el) return;
   el.style.display = '';
   const box = el.querySelector('.nav-arrow');
-  box.style.transform = `translate(-50%,-50%) rotate(${p.h.toFixed(1)}deg)`;
+  // suavizado: camina por el camino más corto (350° → 10° no da la vuelta entera) y filtra el temblor del sensor
+  if (arrowRot === null) arrowRot = p.h;
+  arrowRot += shortDiff(wrap360(arrowRot), p.h) * (p.src === 'GPS' ? 0.6 : 0.3);
+  box.style.transform = `translate(-50%,-50%) rotate(${arrowRot.toFixed(1)}deg)`;
+  box.classList.toggle('poor', !!p.poor);   // brújula del teléfono sin calibrar: la flecha se ve apagada
+  if (p.poor && Date.now() - poorToastT > 300000) {
+    poorToastT = Date.now();
+    toast({ type: 'warning', title: 'Brújula imprecisa', message: 'Calibrala moviendo el teléfono dibujando un 8 en el aire, lejos de metales e imanes.', duration: 6000 });
+  }
   const aligned = !!navPoi && navBrg !== null && Math.abs(shortDiff(p.h, navBrg)) <= 10;
   box.style.setProperty('--nav-c', navPoi ? safeColor(navPoi.color, '#38bdf8') : '#4285F4');
   box.classList.toggle('aligned', aligned);
@@ -3746,6 +3773,7 @@ function startNavToPoi(p) {
     startUserLocationWatch(true);
   } else {
     updateNavLine();
+    navUserTouchT = 0; keepUserInView();
   }
   toast({ type: 'success', title: 'Navegando', message: `Hacia «${p.name}». Para cancelar tocá el botón rojo de la etiqueta.`, duration: 2600 });
 }

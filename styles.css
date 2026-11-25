@@ -2,7 +2,7 @@
    Separado del HTML para mejor mantenimiento
 */
 
-:root { --app-version: "2026.11.25-v2-78"; }
+:root { --app-version: "2026.11.25-v2-79"; }
 
 .leaflet-control-attribution { font-size: 9px !important; background: rgba(15,23,42,0.7) !important; color: #94a3b8 !important; }
 .leaflet-control-attribution a { color: #94a3b8 !important; }
@@ -737,6 +737,7 @@ body.ui-min #toastContainer {
 .nav-arrow { position: absolute; left: 0; top: 0; width: 76px; height: 76px; pointer-events: none; }
 .nav-arrow svg { display: block; fill: #4285F4; transition: fill .15s; filter: drop-shadow(0 1px 2px rgba(0,0,0,.7)); }
 .nav-arrow.aligned svg { fill: var(--nav-c, #4285F4); }
+.nav-arrow.poor svg { opacity: .4; }
 
 /* v2-25: Consulta de POI con las acciones a la vista */
 #infoActions { display: grid; grid-template-columns: repeat(4, 1fr); margin-top: 2px; }

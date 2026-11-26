@@ -1,4 +1,4 @@
-window.MV = window.MV || {}; window.MV.tiras = '2026.11.26-v2-82';   // versión: debe coincidir con app.js (se controla al iniciar)
+window.MV = window.MV || {}; window.MV.tiras = '2026.11.26-v2-84';   // versión: debe coincidir con app.js (se controla al iniciar)
 // Interfaz mínima: dos tiras de íconos que manejan los botones y paneles que ya existen.
 (function () {
   'use strict';
@@ -65,6 +65,7 @@ window.MV = window.MV || {}; window.MV.tiras = '2026.11.26-v2-82';   // versión
   function lockEl(id, on) { var e = $(id); if (!e) return; if (on) { e.setAttribute('data-locked', '1'); e.setAttribute('aria-disabled', 'true'); } else { e.removeAttribute('data-locked'); e.removeAttribute('aria-disabled'); } }
   // Los botones de las otras herramientas se desactivan desde que se pulsa [+] (o se coloca algo) y hasta guardar o cancelar.
   // Excepción: durante la grabación de un recorrido, Ubicar POI sigue libre.
+  var wasNav = false;
   var hadPts = false;   // si la medición tenía puntos y se vació (Limpiar), la sesión de [+] termina
   function syncLocks() {
     var medir = $('viewMedirBtn').getAttribute('aria-pressed') === 'true';
@@ -82,7 +83,10 @@ window.MV = window.MV || {}; window.MV.tiras = '2026.11.26-v2-82';   // versión
     function press(id, on) { var e = $(id); if (e) e.setAttribute('aria-pressed', on ? 'true' : 'false'); }
     press('newBtn', medir && (cur === 'track' ? ts : dl));
     press('ringNewBtn', rg);
-    lockEl('tpSearch', lb || dl); lockEl('tpFolder', lb || dl);
+    var nv = (typeof navPoi !== 'undefined' && !!navPoi);   // navegando hacia un POI: Buscar, Medir y Listas quedan inactivos
+    if (nv && !wasNav) { closeAll(); if (!busy) leaveMeasure(); }   // al empezar a navegar se cierran los paneles abiertos
+    wasNav = nv;
+    lockEl('tpSearch', lb || dl || nv); lockEl('tpFolder', lb || dl || nv); lockEl('tpMeasure', nv);
     Object.keys(TOOLS).forEach(function (k) {
       var lock = busy && k !== cur;
       if (ts && k === cur) lock = false;                   // el botón del recorrido en curso nunca se bloquea a sí mismo

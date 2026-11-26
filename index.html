@@ -14,7 +14,7 @@
   <meta name="apple-mobile-web-app-title" content="Medidor">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <!-- Versión: debe coincidir con APP_VERSION (app.js) y --app-version (styles.css) -->
-  <meta name="app-version" content="2026.11.26-v2-87">
+  <meta name="app-version" content="2026.11.26-v2-88">
 
   <!-- Librerías locales (en este mismo repo) -->
   <link rel="stylesheet" href="leaflet.css" />
@@ -618,9 +618,13 @@
 
       <div class="set-rule"></div>
       <label class="text-[10px] uppercase tracking-wide text-slate-500">Mapas guardados (sin conexión)</label>
-      <div id="tileInfo" class="text-[11px] text-slate-400 mt-1 mb-2"></div>
-      <button id="tileClearBtn" type="button" class="w-full py-2 rounded-xl text-xs font-semibold text-red-300 border border-red-500/30 bg-red-500/10 flex items-center justify-center gap-1.5 disabled:opacity-40">
-        <i data-lucide="trash-2" class="w-3.5 h-3.5"></i> Borrar mosaicos guardados
+      <div id="tileInfoSat" class="text-[11px] text-slate-400 mt-1 mb-1"></div>
+      <button id="tileClearSat" type="button" class="w-full py-2 rounded-xl text-xs font-semibold text-red-300 border border-red-500/30 bg-red-500/10 flex items-center justify-center gap-1.5 disabled:opacity-40">
+        <i data-lucide="trash-2" class="w-3.5 h-3.5"></i> Borrar mosaicos satelitales
+      </button>
+      <div id="tileInfoOsm" class="text-[11px] text-slate-400 mt-2 mb-1"></div>
+      <button id="tileClearOsm" type="button" class="w-full py-2 rounded-xl text-xs font-semibold text-red-300 border border-red-500/30 bg-red-500/10 flex items-center justify-center gap-1.5 disabled:opacity-40">
+        <i data-lucide="trash-2" class="w-3.5 h-3.5"></i> Borrar mosaicos de OpenStreetMap
       </button>
       <div class="text-[11px] text-slate-500 mt-1 mb-0">La app guarda los mosaicos de mapa que ya viste para que carguen rápido y sirvan sin señal. Si ocupan mucho lugar, podés borrarlos.</div>
 

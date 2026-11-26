@@ -897,7 +897,8 @@ document.getElementById('closePoiBtn').onclick = (e) => { e.preventDefault(); e.
   syncNorthUI();
   document.querySelectorAll('.lbl-pick').forEach(b => b.onclick = () => setLabelMode(b.dataset.lbl));
   syncLabelUI();
-  document.getElementById('tileClearBtn').onclick = clearTileCache;
+  document.getElementById('tileClearSat').onclick = () => clearTileCache('sat');
+  document.getElementById('tileClearOsm').onclick = () => clearTileCache('osm');
   document.getElementById('dataResetBtn').onclick = resetAllData;
 
   document.querySelectorAll('.color-swatch').forEach(btn => {
@@ -1791,7 +1792,7 @@ function updateMetrics(areaM2, distM) {
   liveArea = areaM2; liveDist = distM;
   updateLiveBadge();
 }
-const APP_VERSION = '2026.11.26-v2-87';
+const APP_VERSION = '2026.11.26-v2-88';
 let liveSelfIntersect = false; // el polígono se cruza a sí mismo (los marcadores rojos ya lo señalan)
 function updateSelfIntersectWarning(show) {
   const v = !!show;
@@ -4553,41 +4554,46 @@ async function resetAllData() {
 }
 
 // ========== MOSAICOS GUARDADOS (caché del service worker) ==========
-async function tileCacheInfo() {
-  if (!('caches' in window)) return null;
-  const names = (await caches.keys()).filter(n => /-tiles$/.test(n));
-  let count = 0;
-  for (const n of names) { const c = await caches.open(n); count += (await c.keys()).length; }
-  return { names, count };
+const TILE_KINDS = {
+  sat: { name: 'medidor-v1-tiles-sat', label: 'Satélite', max: 3000, info: 'tileInfoSat', btn: 'tileClearSat' },
+  osm: { name: 'medidor-v1-tiles-osm', label: 'OpenStreetMap', max: 2500, info: 'tileInfoOsm', btn: 'tileClearOsm' }
+};
+async function tileCount(name) {
+  if (!(await caches.has(name))) return 0;
+  return (await (await caches.open(name)).keys()).length;
 }
 async function refreshTileInfo() {
-  const el = document.getElementById('tileInfo');
-  const btn = document.getElementById('tileClearBtn');
-  if (!el) return;
+  for (const k of Object.keys(TILE_KINDS)) {
+    const t = TILE_KINDS[k], el = document.getElementById(t.info), btn = document.getElementById(t.btn);
+    if (!el) continue;
+    try {
+      if (!('caches' in window)) { el.textContent = 'Este navegador no permite caché de mosaicos.'; if (btn) btn.disabled = true; continue; }
+      const n = await tileCount(t.name);
+      el.textContent = `${t.label}: ${n ? n + ' mosaico(s) guardado(s)' : 'sin mosaicos guardados'} (tope ${t.max}).`;
+      if (btn) btn.disabled = !n;
+    } catch (e) { el.textContent = ''; }
+  }
   try {
-    const info = await tileCacheInfo();
-    if (!info) { el.textContent = 'Este navegador no permite caché de mosaicos.'; if (btn) btn.disabled = true; return; }
-    let usage = '';
     if (navigator.storage && navigator.storage.estimate) {
       const est = await navigator.storage.estimate();
-      if (est && est.usage) usage = ` · almacenamiento total de la app: ${(est.usage / 1048576).toFixed(1)} MB`;
+      const el = document.getElementById('tileInfoOsm');
+      if (el && est && est.usage) el.textContent += ` Almacenamiento total de la app: ${(est.usage / 1048576).toFixed(1)} MB.`;
     }
-    el.textContent = info.count ? `${info.count} mosaico(s) guardado(s)${usage}.` : 'No hay mosaicos guardados.';
-    if (btn) btn.disabled = !info.count;
-  } catch (e) { el.textContent = ''; }
+  } catch (e) {}
 }
-async function clearTileCache() {
-  const info = await tileCacheInfo();
-  if (!info || !info.count) { refreshTileInfo(); return; }
+async function clearTileCache(kind) {
+  const t = TILE_KINDS[kind]; if (!t) return;
+  const n = await tileCount(t.name);
+  if (!n) { refreshTileInfo(); return; }
   const ok = await confirmToast({
-    title: 'Borrar mosaicos guardados',
-    message: `Se borran ${info.count} mosaicos del mapa guardados para uso sin conexión. Tus mediciones y POI no se tocan. Los mosaicos se vuelven a bajar cuando navegás el mapa con internet.`,
+    title: 'Borrar mosaicos de ' + t.label,
+    message: `Se borran ${n} mosaicos de ${t.label} guardados para uso sin conexión. Los de la otra capa, tus mediciones y POI no se tocan. Los mosaicos se vuelven a bajar cuando navegás el mapa con internet.`,
     confirmLabel: 'Borrar', danger: true
   });
   if (!ok) return;
   try {
-    await Promise.all(info.names.map(n => caches.delete(n)));
-    toast({ type: 'success', title: 'Mosaicos borrados', message: 'Se liberó el espacio de los mapas guardados.' });
+    await caches.delete(t.name);
+    toast({ type: 'success', title: 'Mosaicos borrados', message: 'Se liberó el espacio de ' + t.label + '.' });
   } catch (e) {
     toast({ type: 'error', title: 'No se pudo borrar', message: 'Probá de nuevo.' });
   }

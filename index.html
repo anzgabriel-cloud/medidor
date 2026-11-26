@@ -14,7 +14,7 @@
   <meta name="apple-mobile-web-app-title" content="Medidor">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <!-- Versión: debe coincidir con APP_VERSION (app.js) y --app-version (styles.css) -->
-  <meta name="app-version" content="2026.11.26-v2-86">
+  <meta name="app-version" content="2026.11.26-v2-87">
 
   <!-- Librerías locales (en este mismo repo) -->
   <link rel="stylesheet" href="leaflet.css" />
@@ -38,6 +38,9 @@
             <i data-lucide="search" class="w-4 h-4 text-amber-400 mr-2 flex-shrink-0"></i>
             <input id="searchInput" type="text" placeholder="Buscar por lugar o coordenadas" enterkeyhint="search"
               class="bg-transparent border-none outline-none text-xs sm:text-sm w-full text-slate-100 placeholder-slate-400" autocomplete="off">
+            <button id="pasteSearchBtn" type="button" class="text-amber-400 p-1 bg-transparent border-none" aria-label="Pegar coordenadas del portapapeles" title="Pegar coordenadas">
+              <i data-lucide="clipboard-paste" class="w-4 h-4"></i>
+            </button>
             <button id="clearSearchBtn" class="hidden text-slate-400 p-1" aria-label="Limpiar búsqueda">
               <i data-lucide="x" class="w-4 h-4"></i>
             </button>

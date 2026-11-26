@@ -923,10 +923,29 @@ document.getElementById('closePoiBtn').onclick = (e) => { e.preventDefault(); e.
   const searchInput = document.getElementById('searchInput');
   const clearBtn = document.getElementById('clearSearchBtn');
   const searchBox = document.getElementById('searchResults');
+  const pasteBtn = document.getElementById('pasteSearchBtn');
+  // Pegar coordenadas: el navegador no permite saber qué hay copiado sin que lo toques, así que el botón está siempre y valida al tocarlo
+  pasteBtn.onclick = async () => {
+    let t = '';
+    try { t = (await navigator.clipboard.readText()) || ''; } catch (e) {
+      toast({ type: 'info', title: 'No se pudo leer el portapapeles', message: 'Permití «Pegar» cuando el iPhone lo pregunte, o pegá a mano en el campo.', duration: 3000 });
+      return;
+    }
+    t = t.trim();
+    if (!t || !looksLikeCoordinates(t)) {
+      toast({ type: 'info', title: 'Sin coordenadas', message: 'Lo copiado no parece una coordenada.', duration: 2200 });
+      return;
+    }
+    searchBox.classList.add('hidden');
+    openCoordModal();
+    const f = document.getElementById('cgFree');
+    if (f) { f.value = t; f.dispatchEvent(new Event('input', { bubbles: true })); }
+  };
   let searchTimer = null;
   searchInput.oninput = () => {
     const q = searchInput.value.trim();
     clearBtn.classList.toggle('hidden', !q);
+    pasteBtn.classList.toggle('hidden', !!q);
     clearTimeout(searchTimer);
     if (q.length < 3) { searchSeq++; searchBox.classList.add('hidden'); return; }
     searchTimer = setTimeout(() => doSearch(q), 600);
@@ -942,6 +961,7 @@ document.getElementById('closePoiBtn').onclick = (e) => { e.preventDefault(); e.
     searchInput.value = '';
     searchSeq++;
     clearBtn.classList.add('hidden');
+    pasteBtn.classList.remove('hidden');
     searchBox.classList.add('hidden');
     clearGotoMarker();
   };
@@ -1771,7 +1791,7 @@ function updateMetrics(areaM2, distM) {
   liveArea = areaM2; liveDist = distM;
   updateLiveBadge();
 }
-const APP_VERSION = '2026.11.26-v2-86';
+const APP_VERSION = '2026.11.26-v2-87';
 let liveSelfIntersect = false; // el polígono se cruza a sí mismo (los marcadores rojos ya lo señalan)
 function updateSelfIntersectWarning(show) {
   const v = !!show;

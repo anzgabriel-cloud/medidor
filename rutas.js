@@ -1,4 +1,4 @@
-window.MV = window.MV || {}; window.MV.rutas = '2026.11.25-v2-80';   // versión: debe coincidir con app.js (se controla al iniciar)
+window.MV = window.MV || {}; window.MV.rutas = '2026.11.26-v2-81';   // versión: debe coincidir con app.js (se controla al iniciar)
 /* Ruta a mano alzada: croquis / guía visual para seguir con el punto azul del GPS (no es una medición de precisión).
    Un dedo dibuja, dos dedos mueven y hacen zoom. Cada apoyar-y-levantar es un "tramo"; cada tramo nuevo se une
    (imán) al final del anterior, así la ruta queda continua hasta [Guardar]. Se guarda aparte ('medidor_rutas'),
@@ -70,7 +70,7 @@ window.MV = window.MV || {}; window.MV.rutas = '2026.11.25-v2-80';   // versión
   var lstyle = (function () { try { return localStorage.getItem('medidor_ruta_estilo') === 'dot' ? 'dot' : 'dash'; } catch (e) { return 'dash'; } })();
   function dashOf(s) { return s === 'dot' ? '1,11' : '9,6'; }
   // Flechas de sentido: inicio rojo, final azul (apuntan en el sentido en que se dibujó)
-  var RED = '#ef4444', BLUE = '#3b82f6';
+  var RED = '#800020', BLUE = '#1e40af';   // bordó y azul oscuro: se distinguen del punto azul del GPS y su flecha
   function bearingDeg(a, b) { var dx = (b[1] - a[1]) * Math.cos((a[0] + b[0]) / 2 * Math.PI / 180), dy = b[0] - a[0]; return Math.atan2(dx, dy) * 180 / Math.PI; }
   function arrowMarker(pts, atEnd, fill) {
     var m = getMap(); if (!m || pts.length < 2) return null;

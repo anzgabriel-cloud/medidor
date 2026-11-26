@@ -2,7 +2,7 @@
    Separado del HTML para mejor mantenimiento
 */
 
-:root { --app-version: "2026.11.25-v2-80"; }
+:root { --app-version: "2026.11.26-v2-81"; }
 
 .leaflet-control-attribution { font-size: 9px !important; background: rgba(15,23,42,0.7) !important; color: #94a3b8 !important; }
 .leaflet-control-attribution a { color: #94a3b8 !important; }
@@ -824,6 +824,7 @@ body:has(#mainControls[data-mode="poi"]) #tpMeasure[aria-pressed="true"] { backg
 body:has(#mainControls[data-mode="polygon"]) #tpMeasure[aria-pressed="true"] { background: #059669; color: #fff; }
 body:has(#mainControls[data-mode="line"]) #tpMeasure[aria-pressed="true"] { background: #0284c7; color: #fff; }
 body:has(#mainControls[data-mode="track"]) #tpMeasure[aria-pressed="true"] { background: #f43f5e; color: #fff; }
+#modeTrackBtn.bg-rose-500 { background-color: #f43f5e !important; border-color: #fb7185 !important; }
 body:has(#mainControls[data-mode="ring"]) #tpMeasure[aria-pressed="true"] { background: #ea580c; color: #fff; }
 body:has(#mainControls[data-mode="free"]) #tpMeasure[aria-pressed="true"] { background: #7c3aed; color: #fff; }
 

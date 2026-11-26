@@ -1771,7 +1771,7 @@ function updateMetrics(areaM2, distM) {
   liveArea = areaM2; liveDist = distM;
   updateLiveBadge();
 }
-const APP_VERSION = '2026.11.25-v2-80';
+const APP_VERSION = '2026.11.26-v2-81';
 let liveSelfIntersect = false; // el polígono se cruza a sí mismo (los marcadores rojos ya lo señalan)
 function updateSelfIntersectWarning(show) {
   const v = !!show;
@@ -4900,7 +4900,7 @@ function setGpsBtnState(active) {
   const on = 'w-full flex items-center gap-2 py-2 px-2 rounded-lg text-xs font-bold text-white shadow min-h-[36px]';
   const off = 'w-full flex items-center gap-2 py-2 px-2 rounded-lg text-xs font-bold text-slate-300 bg-slate-800/70 border border-slate-600/50 min-h-[36px]';
   const selected = trackMode || active;
-  gpsBtn.className = selected ? on + ' bg-rose-500/80' : off;
+  gpsBtn.className = selected ? on + ' bg-rose-500' : off;   // sólido: mismo rojo que los botones del recorrido
   gpsBtn.title = 'Modo recorrido';
   gpsBtn.setAttribute('aria-label', 'Modo recorrido');
   gpsBtn.disabled = false;

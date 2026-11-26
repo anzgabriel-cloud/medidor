@@ -610,6 +610,7 @@ function init() {
   // Las superficies guardadas van en un plano propio, debajo de líneas, rutas y anillos: así el relleno de una superficie no tapa lo que hay dentro
   map.createPane('areaPane').style.zIndex = 395;
   // El punto azul del GPS y su flecha van en un plano propio, por encima de marcadores, etiquetas y mediciones
+  { const np = map.createPane('navPane'); np.style.zIndex = 655; np.style.pointerEvents = 'none'; }   // la cuerda de navegación, justo debajo del punto GPS
   { const up = map.createPane('userPane'); up.style.zIndex = 660; up.style.pointerEvents = 'none'; }
   // Capa de mapa: la primera vez satélite; después, la última que usaste (así no se cargan mosaicos de una capa que no usás)
   try { const s = localStorage.getItem('medidor_capa'); if (s && tiles[s]) currentTiles = s; } catch (e) {}
@@ -1770,7 +1771,7 @@ function updateMetrics(areaM2, distM) {
   liveArea = areaM2; liveDist = distM;
   updateLiveBadge();
 }
-const APP_VERSION = '2026.11.25-v2-79';
+const APP_VERSION = '2026.11.25-v2-80';
 let liveSelfIntersect = false; // el polígono se cruza a sí mismo (los marcadores rojos ya lo señalan)
 function updateSelfIntersectWarning(show) {
   const v = !!show;
@@ -3785,7 +3786,7 @@ function updateNavLine() {
   const dist = from.distanceTo(to);
   const color = safeColor(navPoi.color, '#38bdf8');
   if (!navLine) {
-    navLine = L.polyline([from, to], { color, weight: 3, dashArray: '8,6', interactive: false }).addTo(map);
+    navLine = L.polyline([from, to], { color, weight: 3, dashArray: '8,6', interactive: false, pane: 'navPane' }).addTo(map);
   } else {
     navLine.setLatLngs([from, to]);
     navLine.setStyle({ color });

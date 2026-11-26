@@ -1771,7 +1771,7 @@ function updateMetrics(areaM2, distM) {
   liveArea = areaM2; liveDist = distM;
   updateLiveBadge();
 }
-const APP_VERSION = '2026.11.26-v2-81';
+const APP_VERSION = '2026.11.26-v2-82';
 let liveSelfIntersect = false; // el polígono se cruza a sí mismo (los marcadores rojos ya lo señalan)
 function updateSelfIntersectWarning(show) {
   const v = !!show;
@@ -2353,7 +2353,25 @@ async function copyToClipboard(text, anchor) {
   return ok;
 }
 
+/** Destello al seleccionar un POI: tres pulsos y un aro fijo mientras la tarjeta está abierta (haya o no etiquetas visibles) */
+let poiFlashMarker = null;
+function clearPoiFlash() { if (poiFlashMarker && map) map.removeLayer(poiFlashMarker); poiFlashMarker = null; }
+function flashPoi(p) {
+  clearPoiFlash();
+  if (!map) return;
+  const k = poiK(p.size), D = Math.round(44 * k + 26), top = -Math.round(21.8 * k + D / 2);
+  const c = safeColor(p.color, '#f59e0b');
+  poiFlashMarker = L.marker([p.lat, p.lng], {
+    icon: L.divIcon({
+      className: 'poi-flash',
+      html: `<span class="halo" style="--pc:${c};width:${D}px;height:${D}px;left:${-D / 2}px;top:${top}px"></span><span class="ring" style="--pc:${c};width:${D}px;height:${D}px;left:${-D / 2}px;top:${top}px"></span><span class="ring r2" style="--pc:${c};width:${D}px;height:${D}px;left:${-D / 2}px;top:${top}px"></span>`,
+      iconSize: [0, 0], iconAnchor: [0, 0]
+    }),
+    interactive: false, keyboard: false, zIndexOffset: 1100
+  }).addTo(map);
+}
 function showPoiInfo(p) {
+  flashPoi(p);
   clearInspectLayers();   // quita etiquetas y arcos de una medición consultada antes
   inspectItem = null;
   inspectPoi = p;
@@ -2365,28 +2383,40 @@ function showPoiInfo(p) {
   document.getElementById('infoNote')?.classList.add('hidden');
   setInfoActions(p, null);
   let distHtml = '<div class="text-[11px] text-slate-500">Sin ubicación</div>';
+  let brgHtml = '';
   if (userLocMarker) {
     const from = userLocMarker.getLatLng();
     const dist = from.distanceTo(L.latLng(p.lat, p.lng));
     const txt = fmtLenShort(dist);
     distHtml = `<div class="text-lg font-bold text-sky-400">${txt}</div>`;
+    // rumbo desde tu ubicación hasta el POI (V = verdadero, M = magnético) y su recíproco (del POI hacia vos)
+    if (dist > 1) {
+      const brg = trueBearing(from, L.latLng(p.lat, p.lng));
+      const mag = magneticBearing(brg, magneticDeclination(from.lat, from.lng));
+      brgHtml = `<div class="flex-none pl-3 border-l-2 border-slate-700">
+        <div class="text-[10px] text-slate-400 uppercase">Rumbo</div>
+        ${capGrid(`${brg0(brg)}° V`, `${brg0(mag)}° M`, bearingCardinal(brg), `${brg0(wrap360(brg + 180))}° V`, `${brg0(wrap360(mag + 180))}° M`)}
+      </div>`;
+    }
   }
   distHtml = distHtml.replace('text-lg', 'text-base');
   // Una sola tarjeta compacta: distancia | altitud | coordenadas
   document.getElementById('infoMetrics').innerHTML = `
-    <div class="col-span-2 bg-slate-950/80 rounded-xl px-2.5 py-2 border border-slate-800 flex items-start gap-3">
+    <div class="col-span-2 bg-slate-950/80 rounded-xl px-2.5 py-2 border border-slate-800">
+     <div class="flex items-start gap-3">
       <div class="flex-none">
         <div class="text-[10px] text-slate-400 uppercase">Distancia</div>
         ${distHtml}
-      </div>
+      </div>${brgHtml}
       <div id="infoElev" class="flex-none min-w-0 pl-3 border-l-2 border-slate-700"></div>
-      <div class="flex-1 min-w-0 pl-3 border-l-2 border-slate-700">
+     </div>
+     <div class="mt-1.5 pt-1.5 border-t border-slate-800">
         <div class="flex items-center justify-between">
           <div class="text-[10px] text-slate-400 uppercase">Coordenadas</div>
           <button id="infoCopyPoiCoords" type="button" class="flex items-center justify-center w-7 h-6 -mt-1 -mr-1 rounded-md border border-slate-600 bg-slate-800 text-sky-300 active:bg-slate-700" aria-label="Copiar coordenadas" title="Copiar coordenadas"><i data-lucide="copy" class="w-3.5 h-3.5"></i></button>
         </div>
-        ${fmtCoordLines(p.lat, p.lng).map(t => `<div class="text-[11px] leading-snug font-mono text-slate-200 break-all">${escapeHtml(t)}</div>`).join('')}
-      </div>
+        <div class="flex flex-wrap" style="column-gap:1rem">${fmtCoordLines(p.lat, p.lng).map(t => `<div class="text-[11px] leading-snug font-mono text-slate-200">${escapeHtml(t)}</div>`).join('')}</div>
+     </div>
     </div>`;
   document.getElementById('infoCopyPoiCoords').onclick = (e) => copyToClipboard(`${(+p.lat).toFixed(6)}, ${(+p.lng).toFixed(6)}`, e.currentTarget);   // decimal: lo entiende cualquier mapa
   loadInfoElevForPoi(p);
@@ -2399,6 +2429,7 @@ function showPoiInfo(p) {
 }
 
 function hideMeasurementInfo() {
+  clearPoiFlash();
   closeInfoMenu();
   document.getElementById('infoPanel').classList.add('hidden');
   inspectPoi = null;

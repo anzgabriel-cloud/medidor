@@ -1,4 +1,4 @@
-window.MV = window.MV || {}; window.MV.tiras = '2026.11.26-v2-84';   // versión: debe coincidir con app.js (se controla al iniciar)
+window.MV = window.MV || {}; window.MV.tiras = '2026.11.26-v2-85';   // versión: debe coincidir con app.js (se controla al iniciar)
 // Interfaz mínima: dos tiras de íconos que manejan los botones y paneles que ya existen.
 (function () {
   'use strict';

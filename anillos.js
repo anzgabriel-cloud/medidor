@@ -1,4 +1,4 @@
-window.MV = window.MV || {}; window.MV.anillos = '2026.11.26-v2-84';   // versión: debe coincidir con app.js (se controla al iniciar)
+window.MV = window.MV || {}; window.MV.anillos = '2026.11.26-v2-85';   // versión: debe coincidir con app.js (se controla al iniciar)
 /* Anillos con radio: círculo alrededor de un punto (1 m a 100 km o más), solo visual.
    Flujo: herramienta anillo → mira en el centro del mapa → [+] deja caer el anillo → se escribe el radio → [guardar].
    Se guarda aparte (localStorage 'medidor_anillos'); la lista está en Guardados > Anillos. */

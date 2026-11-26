@@ -1771,7 +1771,7 @@ function updateMetrics(areaM2, distM) {
   liveArea = areaM2; liveDist = distM;
   updateLiveBadge();
 }
-const APP_VERSION = '2026.11.26-v2-84';
+const APP_VERSION = '2026.11.26-v2-85';
 let liveSelfIntersect = false; // el polígono se cruza a sí mismo (los marcadores rojos ya lo señalan)
 function updateSelfIntersectWarning(show) {
   const v = !!show;
@@ -2267,7 +2267,7 @@ function showMeasurementInfo(item) {
   const noteBox = document.getElementById('infoNote');
   if (noteBox) { noteBox.textContent = item.note || ''; noteBox.classList.toggle('hidden', !item.note); }
   const metrics = document.getElementById('infoMetrics');
-  let topHtml = '';
+  let topHtml = '', bottomHtml = '';
   if (stats.isPoly) {
     topHtml = `
       <div class="flex-1 min-w-0">
@@ -2301,7 +2301,7 @@ function showMeasurementInfo(item) {
       const decl = magneticDeclination((pts[0].lat + pts[pts.length - 1].lat) / 2, (pts[0].lng + pts[pts.length - 1].lng) / 2);
       const mag = magneticBearing(brg, decl);
       bearingHtml = `
-        <div class="flex-1 min-w-0 pl-3 border-l-2 border-slate-700">
+        <div class="w-full mt-1.5 pt-1.5 border-t border-slate-800 flex items-center gap-3">
           <div class="text-[10px] text-slate-400 uppercase">Rumbo</div>
           ${capGrid(`${brg0(brg)}° V`, `${brg0(mag)}° M`, bearingCardinal(brg), `${brg0(wrap360(brg + 180))}° V`, `${brg0(wrap360(mag + 180))}° M`)}
         </div>`;
@@ -2311,12 +2311,13 @@ function showMeasurementInfo(item) {
         <div class="text-[10px] text-slate-400 uppercase">Distancia</div>
         <div class="text-base font-bold text-sky-400">${fmt.format(lenMain(stats.total).v)} <span class="text-xs font-normal">${lenMain(stats.total).u}</span></div>
         <div class="text-[11px] text-slate-500">${lenSub(stats.total)}</div>
-      </div>${bearingHtml}
+      </div>
       <div id="infoElev" class="flex-1 min-w-0 pl-3 border-l-2 border-slate-700 text-[11px] text-slate-300"></div>`;
+    bottomHtml = bearingHtml;
   }
   // Una sola tarjeta: datos arriba y altitud abajo
   metrics.innerHTML = `<div class="col-span-2 bg-slate-950/80 rounded-xl px-2.5 py-2 border border-slate-800">
-    <div class="flex items-start gap-3">${topHtml}</div>
+    <div class="flex items-start gap-3">${topHtml}</div>${bottomHtml}
   </div>`;
   inspectPoi = null;
   document.getElementById('infoToggles')?.classList.remove('hidden');
@@ -2393,7 +2394,7 @@ function showPoiInfo(p) {
     if (dist > 1) {
       const brg = trueBearing(from, L.latLng(p.lat, p.lng));
       const mag = magneticBearing(brg, magneticDeclination(from.lat, from.lng));
-      brgHtml = `<div class="flex-none pl-3 border-l-2 border-slate-700">
+      brgHtml = `<div class="mt-1.5 pt-1.5 border-t border-slate-800 flex items-center gap-3">
         <div class="text-[10px] text-slate-400 uppercase">Rumbo</div>
         ${capGrid(`${brg0(brg)}° V`, `${brg0(mag)}° M`, bearingCardinal(brg), `${brg0(wrap360(brg + 180))}° V`, `${brg0(wrap360(mag + 180))}° M`)}
       </div>`;
@@ -2407,9 +2408,9 @@ function showPoiInfo(p) {
       <div class="flex-none">
         <div class="text-[10px] text-slate-400 uppercase">Distancia</div>
         ${distHtml}
-      </div>${brgHtml}
+      </div>
       <div id="infoElev" class="flex-none min-w-0 pl-3 border-l-2 border-slate-700"></div>
-     </div>
+     </div>${brgHtml}
      <div class="mt-1.5 pt-1.5 border-t border-slate-800">
         <div class="flex items-center justify-between">
           <div class="text-[10px] text-slate-400 uppercase">Coordenadas</div>

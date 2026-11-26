@@ -1771,7 +1771,7 @@ function updateMetrics(areaM2, distM) {
   liveArea = areaM2; liveDist = distM;
   updateLiveBadge();
 }
-const APP_VERSION = '2026.11.26-v2-85';
+const APP_VERSION = '2026.11.26-v2-86';
 let liveSelfIntersect = false; // el polígono se cruza a sí mismo (los marcadores rojos ya lo señalan)
 function updateSelfIntersectWarning(show) {
   const v = !!show;
@@ -2249,6 +2249,7 @@ function updateInfoToggleUI() {
 }
 
 function showMeasurementInfo(item) {
+  if (inspectItem !== item) flashShape(item);   // solo al seleccionar, no al refrescar la tarjeta
   inspectItem = item;
   inspectStraight = false;
   const polyItem = item.mode === 'polygon' || item.mode === 'line';
@@ -2354,22 +2355,38 @@ async function copyToClipboard(text, anchor) {
   return ok;
 }
 
-/** Destello al seleccionar un POI: tres pulsos y un aro fijo mientras la tarjeta está abierta (haya o no etiquetas visibles) */
-let poiFlashMarker = null;
-function clearPoiFlash() { if (poiFlashMarker && map) map.removeLayer(poiFlashMarker); poiFlashMarker = null; }
+/** Destello al seleccionar cualquier elemento (POI, superficie, distancia, recorrido, ruta, anillo): UN solo destello que se retira solo.
+ *  flashGeo(capa) recibe una capa Leaflet vectorial ya creada (blanca, sin interacción) y la anima una vez. */
+let selFlashLayer = null, selFlashT = 0;
+function clearSelFlash() { clearTimeout(selFlashT); if (selFlashLayer && map) map.removeLayer(selFlashLayer); selFlashLayer = null; }
+function flashGeo(layer) {
+  clearSelFlash();
+  if (!layer || !map) return;
+  selFlashLayer = layer.addTo(map);
+  selFlashT = setTimeout(clearSelFlash, 1100);
+}
+window.flashGeo = flashGeo;
+function flashShape(item) {
+  const ll = (item.points || []).map(q => [q.lat, q.lng]);
+  if (ll.length < 2) return;
+  const o = { color: '#fff', weight: 10, opacity: 1, fill: false, interactive: false, className: 'sel-flash', lineJoin: 'round', lineCap: 'round' };
+  flashGeo(item.mode === 'polygon' && ll.length >= 3 ? L.polygon(ll, o) : L.polyline(ll, o));
+}
+const clearPoiFlash = clearSelFlash;
 function flashPoi(p) {
-  clearPoiFlash();
+  clearSelFlash();
   if (!map) return;
   const k = poiK(p.size), D = Math.round(44 * k + 26), top = -Math.round(21.8 * k + D / 2);
   const c = safeColor(p.color, '#f59e0b');
-  poiFlashMarker = L.marker([p.lat, p.lng], {
+  selFlashLayer = L.marker([p.lat, p.lng], {
     icon: L.divIcon({
       className: 'poi-flash',
-      html: `<span class="halo" style="--pc:${c};width:${D}px;height:${D}px;left:${-D / 2}px;top:${top}px"></span><span class="ring" style="--pc:${c};width:${D}px;height:${D}px;left:${-D / 2}px;top:${top}px"></span><span class="ring r2" style="--pc:${c};width:${D}px;height:${D}px;left:${-D / 2}px;top:${top}px"></span>`,
+      html: `<span class="ring" style="--pc:${c};width:${D}px;height:${D}px;left:${-D / 2}px;top:${top}px"></span>`,
       iconSize: [0, 0], iconAnchor: [0, 0]
     }),
     interactive: false, keyboard: false, zIndexOffset: 1100
   }).addTo(map);
+  selFlashT = setTimeout(clearSelFlash, 1100);
 }
 function showPoiInfo(p) {
   flashPoi(p);
@@ -2430,7 +2447,7 @@ function showPoiInfo(p) {
 }
 
 function hideMeasurementInfo() {
-  clearPoiFlash();
+  clearSelFlash();
   closeInfoMenu();
   document.getElementById('infoPanel').classList.add('hidden');
   inspectPoi = null;

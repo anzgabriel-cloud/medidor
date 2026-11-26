@@ -3,7 +3,7 @@
 //   mediciones: { name, mode: 'polygon' | 'line', color: '#rrggbb', date, points: [{ lat, lng }] }
 //   POI:        { name, note, color: '#rrggbb', size: 's'|'m'|'l', lat, lng, elev? }
 //   anillos:    { lat, lng, r (metros), color }        rutas a mano alzada: { pts: [[lat, lng]], color, date }
-const BACKUP_VERSION = '2026.11.26-v2-85';
+const BACKUP_VERSION = '2026.11.26-v2-86';
 const BACKUP_FORMATS = {
   geojson: {
     label: 'GeoJSON', ext: 'geojson', mime: 'application/geo+json',

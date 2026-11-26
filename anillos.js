@@ -1,4 +1,4 @@
-window.MV = window.MV || {}; window.MV.anillos = '2026.11.26-v2-85';   // versión: debe coincidir con app.js (se controla al iniciar)
+window.MV = window.MV || {}; window.MV.anillos = '2026.11.26-v2-86';   // versión: debe coincidir con app.js (se controla al iniciar)
 /* Anillos con radio: círculo alrededor de un punto (1 m a 100 km o más), solo visual.
    Flujo: herramienta anillo → mira en el centro del mapa → [+] deja caer el anillo → se escribe el radio → [guardar].
    Se guarda aparte (localStorage 'medidor_anillos'); la lista está en Guardados > Anillos. */
@@ -102,7 +102,7 @@ window.MV = window.MV || {}; window.MV.anillos = '2026.11.26-v2-85';   // versi�
     var d = a.ts ? new Date(a.ts).toLocaleDateString('es-AR') : '';
     var go = function () { try { m.fitBounds(L.latLng(a.lat, a.lng).toBounds(r * 2), { padding: [30, 30] }); } catch (e) {} };
     clearHl();
-    hlLayer = L.circle([a.lat, a.lng], { radius: r, fill: false, color: '#fff', weight: 8, opacity: 0.55, interactive: false }).addTo(m);
+    if (window.flashGeo) window.flashGeo(L.circle([a.lat, a.lng], { radius: r, fill: false, color: '#fff', weight: 10, opacity: 1, interactive: false, className: 'sel-flash' }));
     window.MedidorConsulta.open({
       kind: 'ring', color: a.color, title: 'Anillo ' + fmt(r), meta: 'Radio desde un punto · ' + d,
       metrics: [[{ label: 'Radio', value: nf.format(R.v), unit: R.u, sub: lenSub(r), cls: 'text-orange-300' }, { label: 'Diámetro', value: nf.format(Di.v), unit: Di.u, sub: lenSub(2 * r) }],

@@ -1,4 +1,4 @@
-window.MV = window.MV || {}; window.MV.rutas = '2026.11.26-v2-85';   // versión: debe coincidir con app.js (se controla al iniciar)
+window.MV = window.MV || {}; window.MV.rutas = '2026.11.26-v2-86';   // versión: debe coincidir con app.js (se controla al iniciar)
 /* Ruta a mano alzada: croquis / guía visual para seguir con el punto azul del GPS (no es una medición de precisión).
    Un dedo dibuja, dos dedos mueven y hacen zoom. Cada apoyar-y-levantar es un "tramo"; cada tramo nuevo se une
    (imán) al final del anterior, así la ruta queda continua hasta [Guardar]. Se guarda aparte ('medidor_rutas'),
@@ -157,7 +157,7 @@ window.MV = window.MV || {}; window.MV.rutas = '2026.11.26-v2-85';   // versión
     var T = lenMain(total);
     var d = rt.ts ? new Date(rt.ts).toLocaleDateString('es-AR') : (rt.date || '');
     clearHl();
-    hlLayer = L.polyline(pts, { color: '#fff', weight: 9, opacity: 0.5, interactive: false }).addTo(m);
+    if (window.flashGeo) window.flashGeo(L.polyline(pts, { color: '#fff', weight: 10, opacity: 1, interactive: false, className: 'sel-flash', lineJoin: 'round', lineCap: 'round' }));
     var spec = {
       color: rt.color, title: rt.name || 'Ruta/Sendero a mano alzada', hideLabel: true, meta: pts.length + ' puntos · ' + d + ' · distancia aproximada',
       metrics: [[{ label: 'Distancia', value: '≈ ' + nf.format(T.v), unit: T.u, sub: lenSub(total), cls: 'text-violet-300' },

@@ -34,7 +34,7 @@
 </div>
 <div class="row">
   <div><label>Altura real (m)</label><input id="ref" value="3776" inputmode="decimal"></div>
-  <div><label>Radio de búsqueda (m)</label><input id="rad" value="240" inputmode="decimal"></div>
+  <div><label>Radio de búsqueda (m)</label><input id="rad" value="800" inputmode="decimal"></div>
 </div>
 <button id="go">Probar todas las fuentes</button>
 
@@ -57,9 +57,9 @@
     return (isFinite(a) && isFinite(b) && Math.abs(a) <= 90 && Math.abs(b) <= 180) ? { lat: a, lng: b } : null;
   }
 
-  // Rejilla de 9×9 puntos alrededor del centro (el punto más alto de la rejilla ≈ la cumbre real aunque las coordenadas tengan unos metros de error)
+  // Rejilla de 21×21 puntos alrededor del centro (el punto más alto de la rejilla ≈ la cumbre real aunque las coordenadas tengan unos metros de error)
   function grid(c, radius) {
-    const pts = [], n = 4, step = radius / n;
+    const pts = [], n = 10, step = radius / n;   // 21 × 21 = 441 puntos
     const kLat = 111320, kLng = 111320 * Math.cos(c.lat * Math.PI / 180);
     for (let i = -n; i <= n; i++) for (let j = -n; j <= n; j++) {
       pts.push({ lat: c.lat + (i * step) / kLat, lng: c.lng + (j * step) / kLng, di: i * step, dj: j * step });
@@ -84,7 +84,8 @@
     for (let i = 0; i < pts.length; i += 100) {
       const ch = pts.slice(i, i + 100);
       const u = 'https://api.opentopodata.org/v1/' + ds + '?locations=' + ch.map(p => p.lat.toFixed(6) + ',' + p.lng.toFixed(6)).join('|');
-      const r = await fetch(u); if (!r.ok) throw new Error('HTTP ' + r.status);
+      let r; try { r = await fetch(u); } catch (e) { throw new Error('el navegador bloqueó el pedido (servicio gratuito no accesible desde la web)'); }
+      if (!r.ok) throw new Error('HTTP ' + r.status);
       const j = await r.json(); if (j.status !== 'OK') throw new Error(j.error || j.status);
       out.push(...j.results.map(x => x.elevation));
       await sleep(1100);   // límite del servicio público: 1 pedido por segundo
@@ -136,9 +137,12 @@
     const center = vals[ci];
     let mi = 0; vals.forEach((v, i) => { if (v > vals[mi]) mi = i; });
     const dist = Math.round(Math.hypot(pts[mi].di, pts[mi].dj));
+    const ang = (Math.atan2(pts[mi].dj, pts[mi].di) * 180 / Math.PI + 360) % 360;   // 0° = norte
+    const card = dist < 5 ? '' : ' al ' + ['N','NE','E','SE','S','SO','O','NO'][Math.round(ang / 45) % 8];
+    console.log(name, pts[mi].lat.toFixed(5), pts[mi].lng.toFixed(5));
     const tr = document.createElement('tr');
     tr.innerHTML = '<td>' + name + '</td><td>' + Math.round(center) + ' m</td><td class="' + cls(center - ref) + '">' + sgn(center - ref) + '</td>' +
-      '<td>' + Math.round(vals[mi]) + ' m <small>(a ' + dist + ' m)</small></td><td class="' + cls(vals[mi] - ref) + '">' + sgn(vals[mi] - ref) + '</td>';
+      '<td>' + Math.round(vals[mi]) + ' m <small>(a ' + dist + ' m' + card + ')</small><br><small>' + pts[mi].lat.toFixed(5) + ', ' + pts[mi].lng.toFixed(5) + '</small></td><td class="' + cls(vals[mi] - ref) + '">' + sgn(vals[mi] - ref) + '</td>';
     $('t').querySelector('tbody').appendChild(tr);
   }
   function addFail(name, err) {
@@ -153,7 +157,7 @@
   };
 
   $('go').onclick = async () => {
-    const c = parseCoord($('coord').value); const ref = parseFloat(String($('ref').value).replace(',', '.')); const rad = parseFloat($('rad').value) || 240;
+    const c = parseCoord($('coord').value); const ref = parseFloat(String($('ref').value).replace(',', '.')); const rad = parseFloat($('rad').value) || 800;
     if (!c || !isFinite(ref)) { log('Revisá las coordenadas y la altura real.'); return; }
     $('t').hidden = false; $('t').querySelector('tbody').innerHTML = ''; $('log').textContent = '';
     $('go').disabled = true;
@@ -164,8 +168,8 @@
       ['AWS Terrain z13', () => terrarium(13, pts)],
       ['AWS Terrain z14', () => terrarium(14, pts)],
       ['OpenTopo SRTM 30 m', () => openTopo('srtm30m', pts)],
-      ['OpenTopo ASTER 30 m', () => openTopo('aster30m', pts)],
-      ['OpenTopo Mapzen', () => openTopo('mapzen', pts)]
+      
+
     ];
     for (const [name, fn] of jobs) {
       log('Consultando ' + name + '…');

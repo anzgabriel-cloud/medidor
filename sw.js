@@ -6,10 +6,14 @@ const APP_CACHE = VERSION + '-app';
 // Mosaicos separados por tipo: cada uno con su depósito y su tope, así uno no desplaza al otro
 const TILE_CACHE_SAT = VERSION + '-tiles-sat';   // foto satelital (Esri): mosaicos más pesados
 const TILE_CACHE_OSM = VERSION + '-tiles-osm';   // OpenStreetMap: más livianos
+const TILE_CACHE_DEM = VERSION + '-tiles-dem';   // mosaicos de terreno (altitud) de AWS
+const MAX_TILES_DEM = 400;
 const TILE_CACHE_OLD = VERSION + '-tiles';       // depósito único anterior: se migra al activar
 const MAX_TILES_SAT = 3000;
 const MAX_TILES_OSM = 2500;
 const TILE_HOSTS = ['server.arcgisonline.com', 'tile.openstreetmap.org'];
+const DEM_PATH = '/elevation-tiles-prod/terrarium/';   // s3.amazonaws.com
+const isDem = (u) => u.hostname === 's3.amazonaws.com' && u.pathname.indexOf(DEM_PATH) === 0;
 const LIB_HOSTS = ['cdn.tailwindcss.com'];
 // OpenStreetMap reparte los mosaicos en subdominios (a., b., c.tile.openstreetmap.org): hay que aceptar también esos
 const isTileHost = (h) => TILE_HOSTS.some(t => h === t || h.endsWith('.' + t));
@@ -53,7 +57,7 @@ async function trim(cache, max) {
   if (keys.length > max) await Promise.all(keys.slice(0, keys.length - max).map(k => cache.delete(k)));
 }
 const tileCacheFor = (host) => host.endsWith('openstreetmap.org') ? TILE_CACHE_OSM : TILE_CACHE_SAT;
-const tileMaxFor = (name) => name === TILE_CACHE_OSM ? MAX_TILES_OSM : MAX_TILES_SAT;
+const tileMaxFor = (name) => name === TILE_CACHE_OSM ? MAX_TILES_OSM : (name === TILE_CACHE_DEM ? MAX_TILES_DEM : MAX_TILES_SAT);
 
 // Reparte los mosaicos del depósito único anterior en los dos nuevos (por su servidor) y lo elimina.
 // Si algo falla, el depósito viejo se deja y se reintenta en la próxima activación.
@@ -141,6 +145,7 @@ self.addEventListener('fetch', (e) => {
   if (req.method !== 'GET') return;
   const url = new URL(req.url);
   if (url.hostname === 'nominatim.openstreetmap.org') return; // búsqueda: siempre en línea
+  if (isDem(url)) { e.respondWith(cacheFirst(req, TILE_CACHE_DEM, true)); return; }
   if (isTileHost(url.hostname)) {
     e.respondWith(cacheFirst(req, tileCacheFor(url.hostname), true));
   } else if (LIB_HOSTS.includes(url.hostname)) {

@@ -149,7 +149,7 @@ const SETTINGS_KEY = 'medidor_settings';
 const GPS_STEPS = [1, 2, 3, 5, 10, 20, 50, 100, 1000];   // distancia mínima entre puntos al grabar (m)
 const SAT_ZOOMS = ['auto', '16', '17', '18'];
 const POI_SIZES = { s: 0.72, m: 1, l: 1.4 };   // chico / actual / grande
-const DEFAULT_SETTINGS = { units: 'metric', coords: 'dec', gpsMaxAcc: 20, gpsMinStep: 3, satZoom: 'auto', poiSize: 'm' };
+const DEFAULT_SETTINGS = { units: 'metric', coords: 'dec', gpsMaxAcc: 20, gpsMinStep: 3, satZoom: 'auto', poiSize: 'm', elevOffset: 0 };
 let settings = { ...DEFAULT_SETTINGS };
 function loadSettings() {
   try {
@@ -161,6 +161,7 @@ function loadSettings() {
       if (GPS_STEPS.includes(+r.gpsMinStep)) settings.gpsMinStep = +r.gpsMinStep;
       if (SAT_ZOOMS.includes(String(r.satZoom))) settings.satZoom = String(r.satZoom);
       if (POI_SIZES[r.poiSize]) settings.poiSize = r.poiSize;
+      if (isFinite(+r.elevOffset) && Math.abs(+r.elevOffset) <= 300) settings.elevOffset = +r.elevOffset;
     }
   } catch (e) {}
 }
@@ -340,6 +341,26 @@ function initSettingsUI() {
     else { inp.value = declSign < 0 ? '−' : '+'; inp.focus(); updateDeclSignUI(); }   // campo vacío: queda el signo elegido, falta el número
   });
   document.getElementById('setDeclAuto').onclick = () => { setDeclOverride(null); refreshSettingsUI(); applySettings(); };
+  // Altitud: corrección manual y calibración con un punto de cota conocida
+  const offIn = document.getElementById('setElevOff');
+  const refreshElevUI = () => {
+    const o = +settings.elevOffset || 0;
+    offIn.value = o ? (o > 0 ? '+' : '') + o : '';
+    document.getElementById('setElevHint').textContent = o ? `Corrección activa: ${o > 0 ? '+' : ''}${o} m sobre todas las alturas del modelo.` : 'Sin corrección: se muestran las alturas del modelo tal cual.';
+  };
+  const setElevOff = (v) => { settings.elevOffset = Math.max(-300, Math.min(300, Math.round(v * 10) / 10)); saveSettings(); refreshElevUI(); };
+  refreshElevUI();
+  offIn.onchange = () => { const v = parseFloat(offIn.value.replace(',', '.').replace('−', '-')); setElevOff(isFinite(v) ? v : 0); };
+  document.getElementById('setElevOffClear').onclick = () => setElevOff(0);
+  document.getElementById('setElevCalBtn').onclick = async () => {
+    const r = parseCoordText(document.getElementById('setElevCalCoord').value);
+    const real = parseFloat(String(document.getElementById('setElevCalH').value).replace(',', '.'));
+    if (r.error || r.empty || !isFinite(real)) { toast({ type: 'info', title: 'Faltan datos', message: 'Poné las coordenadas del punto y su altura real en metros.', duration: 2600 }); return; }
+    const v = (await fetchElevations([L.latLng(r.lat, r.lng)], { raw: true }))[0];
+    if (typeof v !== 'number') { toast({ type: 'info', title: 'Sin conexión', message: 'No se pudo consultar la altura del modelo. Probá de nuevo con internet.', duration: 2600 }); return; }
+    setElevOff(real - v);
+    toast({ type: 'success', title: 'Corrección calculada', message: `El modelo da ${Math.round(v)} m y la real es ${Math.round(real)} m: corrección ${settings.elevOffset > 0 ? '+' : ''}${settings.elevOffset} m.`, duration: 4500 });
+  };
   document.getElementById('setGpsAcc').onchange = (e) => { settings.gpsMaxAcc = +e.target.value; saveSettings(); };
   document.getElementById('setGpsStep').onchange = (e) => { settings.gpsMinStep = +e.target.value; saveSettings(); };
   document.getElementById('setSatZoom').onchange = (e) => {
@@ -903,8 +924,11 @@ document.getElementById('closePoiBtn').onclick = (e) => { e.preventDefault(); e.
     e.onkeydown = (ev) => { if (ev.key === 'Enter' || ev.key === ' ') toggle(ev); };
   });
   syncKindEyes();
+  document.getElementById('elevTestBtn').onclick = runElevTest;
+  document.getElementById('elevTestCenter').onclick = () => { const c = map.getCenter(); document.getElementById('elevTestLL').value = c.lat.toFixed(5) + ', ' + c.lng.toFixed(5); document.getElementById('elevTestReal').value = ''; };
   document.getElementById('tileClearSat').onclick = () => clearTileCache('sat');
   document.getElementById('tileClearOsm').onclick = () => clearTileCache('osm');
+  document.getElementById('tileClearDem').onclick = () => clearTileCache('dem');
   document.getElementById('dataResetBtn').onclick = resetAllData;
 
   document.querySelectorAll('.color-swatch').forEach(btn => {
@@ -1798,7 +1822,7 @@ function updateMetrics(areaM2, distM) {
   liveArea = areaM2; liveDist = distM;
   updateLiveBadge();
 }
-const APP_VERSION = '2026.11.26-v2-94';
+const APP_VERSION = '2026.11.27-v2-95';
 let liveSelfIntersect = false; // el polígono se cruza a sí mismo (los marcadores rojos ya lo señalan)
 function updateSelfIntersectWarning(show) {
   const v = !!show;
@@ -4639,7 +4663,8 @@ async function resetAllData() {
 // ========== MOSAICOS GUARDADOS (caché del service worker) ==========
 const TILE_KINDS = {
   sat: { name: 'medidor-v1-tiles-sat', label: 'Satélite', max: 3000, info: 'tileInfoSat', btn: 'tileClearSat' },
-  osm: { name: 'medidor-v1-tiles-osm', label: 'OpenStreetMap', max: 2500, info: 'tileInfoOsm', btn: 'tileClearOsm' }
+  osm: { name: 'medidor-v1-tiles-osm', label: 'OpenStreetMap', max: 2500, info: 'tileInfoOsm', btn: 'tileClearOsm' },
+  dem: { name: 'medidor-v1-tiles-dem', label: 'Terreno (altitud)', max: 400, info: 'tileInfoDem', btn: 'tileClearDem' }
 };
 async function tileCount(name) {
   if (!(await caches.has(name))) return 0;
@@ -4659,7 +4684,7 @@ async function refreshTileInfo() {
   try {
     if (navigator.storage && navigator.storage.estimate) {
       const est = await navigator.storage.estimate();
-      const el = document.getElementById('tileInfoOsm');
+      const el = document.getElementById('tileInfoDem');
       if (el && est && est.usage) el.textContent += ` Almacenamiento total de la app: ${(est.usage / 1048576).toFixed(1)} MB.`;
     }
   } catch (e) {}
@@ -4683,14 +4708,76 @@ async function clearTileCache(kind) {
   refreshTileInfo();
 }
 
+// ========== PRUEBA DE FUENTES DE ALTITUD (Ajustes) ==========
+// Mosaicos "terrarium" de AWS (Terrain Tiles): la altura va codificada en el color: (R·256 + G + B/256) − 32768 m
+const _terrTiles = {};
+function terrTile(z, x, y) {
+  const k = z + '/' + x + '/' + y;
+  if (_terrTiles[k]) return _terrTiles[k];
+  return (_terrTiles[k] = new Promise((res, rej) => {
+    const img = new Image(); img.crossOrigin = 'anonymous';
+    const t = setTimeout(() => rej(new Error('tiempo agotado')), 12000);
+    img.onload = () => {
+      clearTimeout(t);
+      try {
+        const c = document.createElement('canvas'); c.width = c.height = 256;
+        const g = c.getContext('2d', { willReadFrequently: true }); g.drawImage(img, 0, 0);
+        res(g.getImageData(0, 0, 256, 256).data);
+      } catch (e) { rej(new Error('bloqueado (CORS)')); }
+    };
+    img.onerror = () => { clearTimeout(t); rej(new Error('no se pudo bajar')); };
+    img.src = `https://s3.amazonaws.com/elevation-tiles-prod/terrarium/${k}.png`;
+  }).catch(e => { delete _terrTiles[k]; throw e; }));
+}
+async function terrPixel(z, gx, gy) {
+  const n = 2 ** z, tx = Math.floor(gx / 256), ty = Math.floor(gy / 256);
+  const d = await terrTile(z, ((tx % n) + n) % n, Math.min(n - 1, Math.max(0, ty)));
+  const i = ((gy - ty * 256) * 256 + (gx - tx * 256)) * 4;
+  return d[i] * 256 + d[i + 1] + d[i + 2] / 256 - 32768;
+}
+/** Altura interpolada (bilineal entre los 4 píxeles vecinos) en un punto, a un nivel de zoom */
+async function terrElevation(lat, lng, z) {
+  const n = 2 ** z * 256;
+  const px = (lng + 180) / 360 * n - 0.5;
+  const py = (1 - Math.asinh(Math.tan(lat * Math.PI / 180)) / Math.PI) / 2 * n - 0.5;
+  const x0 = Math.floor(px), y0 = Math.floor(py), fx = px - x0, fy = py - y0;
+  const [a, b, c, d] = await Promise.all([terrPixel(z, x0, y0), terrPixel(z, x0 + 1, y0), terrPixel(z, x0, y0 + 1), terrPixel(z, x0 + 1, y0 + 1)]);
+  return (a * (1 - fx) + b * fx) * (1 - fy) + (c * (1 - fx) + d * fx) * fy;
+}
+async function runElevTest() {
+  const out = document.getElementById('elevTestOut'), btn = document.getElementById('elevTestBtn');
+  const nums = (document.getElementById('elevTestLL').value.match(/-?\d+(?:[.,]\d+)?/g) || []).map(s => parseFloat(s.replace(',', '.')));
+  if (nums.length < 2 || Math.abs(nums[0]) > 90 || Math.abs(nums[1]) > 180) { out.textContent = 'Escribí latitud y longitud, por ejemplo: -39.6389, -71.5000'; return; }
+  const [lat, lng] = nums;
+  const realTxt = document.getElementById('elevTestReal').value.replace(',', '.');
+  const real = realTxt.trim() === '' ? null : parseFloat(realTxt);
+  btn.disabled = true; out.textContent = 'Consultando…';
+  const rows = [];
+  const add = (label, v, err) => rows.push(typeof v === 'number' && isFinite(v)
+    ? `${label.padEnd(26)} ${v.toFixed(1).padStart(8)} m` + (real !== null && isFinite(real) ? `  (${(v - real >= 0 ? '+' : '') + (v - real).toFixed(1)} m)` : '')
+    : `${label.padEnd(26)} ${err || 'sin dato'}`);
+  const j = async (url, f) => { try { const ctl = new AbortController(); setTimeout(() => ctl.abort(), 9000); const r = await fetch(url, { signal: ctl.signal }); if (!r.ok) return [null, 'error ' + r.status]; return [f(await r.json()), '']; } catch (e) { return [null, 'sin respuesta']; } };
+  const [om, omE] = await j(`https://api.open-meteo.com/v1/elevation?latitude=${lat}&longitude=${lng}`, r => r.elevation && r.elevation[0]);
+  add('Open-Meteo (Copernicus 90 m, la actual)', om, omE);
+  const [st, stE] = await j(`https://api.opentopodata.org/v1/srtm30m?locations=${lat},${lng}`, r => r.results && r.results[0] && r.results[0].elevation);
+  add('Open Topo Data (SRTM 30 m)', st, stE);
+  for (const z of [12, 13, 14]) {
+    try { add(`AWS terrain z${z} (~${Math.round(40075017 * Math.cos(lat * Math.PI / 180) / (2 ** z * 256))} m/px)`, await terrElevation(lat, lng, z)); }
+    catch (e) { add(`AWS terrain z${z}`, null, e.message); }
+  }
+  out.textContent = (real !== null && isFinite(real) ? `Altura real: ${real} m (entre paréntesis, la diferencia)\n` : '') + rows.join('\n');
+  btn.disabled = false;
+}
+
 // ========== ALTITUD (s.n.m.) y PERFIL ==========
-// Fuente: Copernicus DEM GLO-90 (90 m) vía Open-Meteo; respaldo: Open Topo Data (SRTM).
+// Fuente: mosaicos de terreno de AWS (Terrarium, ≈30 m, interpolación bilineal); respaldos: Copernicus GLO-90 (90 m) vía Open-Meteo y Open Topo Data (SRTM).
 // Es un modelo de superficie: precisión de varios metros y, bajo monte, incluye la copa de los árboles.
-const ELEV_CACHE_KEY = 'medidor_elev_v2';   // v2: se descartan alturas guardadas por error como 0 m
+const ELEV_CACHE_KEY = 'medidor_elev_v3';   // v3: nueva fuente (AWS ≈30 m); se descartan las alturas guardadas con la fuente anterior
 let elevCache = null;
 const elevKey = (ll) => (+ll.lat).toFixed(4) + ',' + (+ll.lng).toFixed(4); // ≈ 11 m
 function loadElevCache() {
   if (elevCache) return;
+  try { localStorage.removeItem('medidor_elev_v2'); } catch (e) {}
   try { elevCache = JSON.parse(localStorage.getItem(ELEV_CACHE_KEY)) || {}; } catch (e) { elevCache = {}; }
 }
 function saveElevCache() {
@@ -4704,9 +4791,59 @@ const elevConv = (m) => isImp() ? m * FT : m;
 const elevUnit = () => isImp() ? 'ft' : 'm';
 const fmtElev = (m) => `${nf0.format(elevConv(m))} ${elevUnit()}`;
 
+// --- Mosaicos de terreno AWS (Terrarium): altura = R·256 + G + B/256 − 32768, interpolada entre los 4 píxeles vecinos ---
+const DEM_Z = 12;                        // ≈30 m por píxel en nuestra latitud: coincide con la resolución real del dato de base
+const demTiles = new Map();              // mosaicos decodificados en memoria (se conservan los últimos ~48)
+function demTile(x, y) {
+  const k = x + '/' + y;
+  if (demTiles.has(k)) { const p = demTiles.get(k); demTiles.delete(k); demTiles.set(k, p); return p; }
+  const p = new Promise((resolve) => {
+    const im = new Image(); im.crossOrigin = 'anonymous';
+    const t = setTimeout(() => { im.src = ''; resolve(null); }, 9000);
+    im.onload = () => {
+      clearTimeout(t);
+      try {
+        const c = document.createElement('canvas'); c.width = c.height = 256;
+        const g = c.getContext('2d', { willReadFrequently: true }); g.drawImage(im, 0, 0);
+        resolve(g.getImageData(0, 0, 256, 256).data);
+      } catch (e) { resolve(null); }
+    };
+    im.onerror = () => { clearTimeout(t); resolve(null); };
+    im.src = `https://s3.amazonaws.com/elevation-tiles-prod/terrarium/${DEM_Z}/${x}/${y}.png`;
+  });
+  demTiles.set(k, p);
+  if (demTiles.size > 48) demTiles.delete(demTiles.keys().next().value);
+  p.then(d => { if (!d) demTiles.delete(k); });   // los fallos no se recuerdan: se reintentan
+  return p;
+}
+async function demPixel(px, py) {
+  const n = 1 << DEM_Z;
+  px = ((px % (n * 256)) + n * 256) % (n * 256);
+  py = Math.min(Math.max(py, 0), n * 256 - 1);
+  const d = await demTile(Math.floor(px / 256), Math.floor(py / 256));
+  if (!d) return null;
+  const o = ((py % 256) * 256 + (px % 256)) * 4;
+  return d[o] * 256 + d[o + 1] + d[o + 2] / 256 - 32768;
+}
+async function demHeights(chunk) {
+  const out = [];
+  for (const c of chunk) {
+    const s = Math.sin(c.lat * Math.PI / 180);
+    const X = ((c.lng + 180) / 360) * 256 * (1 << DEM_Z) - 0.5;
+    const Y = (0.5 - Math.log((1 + s) / (1 - s)) / (4 * Math.PI)) * 256 * (1 << DEM_Z) - 0.5;
+    const x0 = Math.floor(X), y0 = Math.floor(Y), fx = X - x0, fy = Y - y0;
+    const [a, b, cc, d] = await Promise.all([demPixel(x0, y0), demPixel(x0 + 1, y0), demPixel(x0, y0 + 1), demPixel(x0 + 1, y0 + 1)]);
+    if ([a, b, cc, d].some(v => v === null || !isFinite(v))) return null;   // algún mosaico no llegó: se usa la otra fuente
+    const h = a * (1 - fx) * (1 - fy) + b * fx * (1 - fy) + cc * (1 - fx) * fy + d * fx * fy;
+    if (h < -500 || h > 9000) return null;                                    // valor imposible: dato dudoso
+    out.push(h);
+  }
+  return out;
+}
 async function requestElevations(chunk) {
   requestElevations.fatal = false;
   if (navigator.onLine === false) return null;
+  try { const dem = await demHeights(chunk); if (dem && dem.length === chunk.length) return dem; } catch (e) { /* se prueba con las otras fuentes */ }
   let rechazado = 0;
   const get = async (url, parse) => {
     for (let intento = 0; intento < 2; intento++) {
@@ -4736,7 +4873,7 @@ async function requestElevations(chunk) {
   return (v && v.length === chunk.length) ? v : null;
 }
 /** Altitudes (m) de una lista de puntos; null donde no se pudo obtener (sin conexión, etc.) */
-async function fetchElevations(lls) {
+async function fetchElevations(lls, opts) {
   loadElevCache();
   const out = new Array(lls.length).fill(null);
   const idx = new Map(), need = [];
@@ -4773,10 +4910,12 @@ async function fetchElevations(lls) {
     failed = again;
   }
   if (need.length) saveElevCache();
+  const off = (opts && opts.raw) ? 0 : (+settings.elevOffset || 0);   // corrección de Ajustes: se suma al valor del modelo, sin tocar la caché
+  if (off) for (let i = 0; i < out.length; i++) if (typeof out[i] === 'number') out[i] += off;
   return out;
 }
 function itemSig(item) {
-  const str = item.mode + '|' + item.points.map(p => (+p.lat).toFixed(6) + ',' + (+p.lng).toFixed(6)).join(';');
+  const str = 'o' + (+settings.elevOffset || 0) + '|' + item.mode + '|' + item.points.map(p => (+p.lat).toFixed(6) + ',' + (+p.lng).toFixed(6)).join(';');
   let h = 5381;
   for (let i = 0; i < str.length; i++) h = ((h << 5) + h + str.charCodeAt(i)) | 0;
   return String(h);

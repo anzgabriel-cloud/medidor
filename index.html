@@ -14,7 +14,7 @@
   <meta name="apple-mobile-web-app-title" content="Medidor">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <!-- Versión: debe coincidir con APP_VERSION (app.js) y --app-version (styles.css) -->
-  <meta name="app-version" content="2026.11.26-v2-94">
+  <meta name="app-version" content="2026.11.27-v2-95">
 
   <!-- Librerías locales (en este mismo repo) -->
   <link rel="stylesheet" href="leaflet.css" />
@@ -585,6 +585,24 @@
       <div id="setDeclHint" class="text-[11px] text-slate-500 mb-0"></div>
 
       <div class="set-rule"></div>
+      <label class="text-[10px] uppercase tracking-wide text-slate-500">Altitud (modelo de terreno)</label>
+      <div class="text-[11px] text-slate-500 mt-1 mb-1">Fuente: mosaicos de terreno de AWS (≈30 m), con Copernicus 90 m de respaldo. Es un modelo: en cumbres afiladas subestima unos metros y bajo monte incluye los árboles.</div>
+      <div class="flex gap-2 mt-1 mb-1">
+        <input id="setElevOff" type="text" inputmode="decimal" placeholder="Corrección (m)"
+          class="flex-1 min-w-0 bg-slate-950 border border-slate-700 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-emerald-500">
+        <button id="setElevOffClear" type="button" class="px-3 py-2 rounded-xl bg-slate-800 border border-slate-600 text-xs font-semibold text-slate-200">Quitar</button>
+      </div>
+      <div id="setElevHint" class="text-[11px] text-slate-500 mb-1"></div>
+      <div class="text-[11px] text-slate-500 mt-2 mb-1">Calibrar con un punto de cota conocida (mejor un lugar llano, como un mojón o una plaza; en cumbres el modelo siempre da menos):</div>
+      <input id="setElevCalCoord" type="text" placeholder="Coordenadas del punto (lat, lng)" autocomplete="off"
+        class="w-full min-w-0 bg-slate-950 border border-slate-700 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-emerald-500 mb-1">
+      <div class="flex gap-2 mb-0">
+        <input id="setElevCalH" type="text" inputmode="decimal" placeholder="Altura real (m)"
+          class="flex-1 min-w-0 bg-slate-950 border border-slate-700 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-emerald-500">
+        <button id="setElevCalBtn" type="button" class="px-3 py-2 rounded-xl bg-slate-800 border border-slate-600 text-xs font-semibold text-slate-200">Calcular</button>
+      </div>
+
+      <div class="set-rule"></div>
       <label class="text-[10px] uppercase tracking-wide text-slate-500">GPS al grabar recorridos</label>
       <div class="grid grid-cols-2 gap-2 mt-1 mb-1">
         <div>
@@ -656,7 +674,24 @@
       <button id="tileClearOsm" type="button" class="w-full py-2 rounded-xl text-xs font-semibold text-red-300 border border-red-500/30 bg-red-500/10 flex items-center justify-center gap-1.5 disabled:opacity-40">
         <i data-lucide="trash-2" class="w-3.5 h-3.5"></i> Borrar mosaicos de OpenStreetMap
       </button>
+      <div id="tileInfoDem" class="text-[11px] text-slate-400 mt-2 mb-1"></div>
+      <button id="tileClearDem" type="button" class="w-full py-2 rounded-xl text-xs font-semibold text-red-300 border border-red-500/30 bg-red-500/10 flex items-center justify-center gap-1.5 disabled:opacity-40">
+        <i data-lucide="trash-2" class="w-3.5 h-3.5"></i> Borrar datos de terreno (altitud)
+      </button>
       <div class="text-[11px] text-slate-500 mt-1 mb-0">La app guarda los mosaicos de mapa que ya viste para que carguen rápido y sirvan sin señal. Si ocupan mucho lugar, podés borrarlos.</div>
+
+      <div class="set-rule"></div>
+      <label class="text-[10px] uppercase tracking-wide text-slate-500">Probar fuentes de altitud (prueba)</label>
+      <div class="text-[11px] text-slate-500 mt-1 mb-2">Compara la altura que da cada fuente en un punto, contra la altura real que conozcas. Por defecto, la cima del volcán Lanín.</div>
+      <input id="elevTestLL" type="text" inputmode="text" autocomplete="off" autocapitalize="off" spellcheck="false" value="-39.6389, -71.5000" placeholder="latitud, longitud"
+        class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-amber-500">
+      <div class="flex gap-2 mt-2">
+        <input id="elevTestReal" type="text" inputmode="decimal" autocomplete="off" value="3376" placeholder="altura real (m)"
+          class="flex-1 min-w-0 bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-amber-500">
+        <button id="elevTestCenter" type="button" class="px-3 py-2 rounded-xl text-xs font-semibold text-slate-200 border border-slate-600 bg-slate-800">Centro del mapa</button>
+      </div>
+      <button id="elevTestBtn" type="button" class="w-full mt-2 py-2 rounded-xl text-xs font-semibold text-amber-200 border border-amber-500/30 bg-amber-500/10">Comparar fuentes</button>
+      <pre id="elevTestOut" class="text-[11px] text-slate-300 mt-2 mb-0 whitespace-pre-wrap font-mono"></pre>
 
       <div class="set-rule"></div>
       <label class="text-[10px] uppercase tracking-wide text-slate-500">Borrar datos</label>

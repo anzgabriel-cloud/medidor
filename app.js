@@ -820,7 +820,7 @@ function init() {
   };
   map.on('move', updatePoiCenterCoords);
   map.on('zoom', updatePoiCenterCoords);
-document.getElementById('closePoiBtn').onclick = (e) => { e.preventDefault(); e.stopPropagation(); document.getElementById('poiDrawer').classList.add('hidden'); };
+document.getElementById('closePoiBtn').onclick = (e) => { e.preventDefault(); e.stopPropagation(); document.getElementById('poiDrawer').classList.add('hidden'); if (window.reopenFolder) window.reopenFolder(); };
   document.getElementById('poiDrawer').onclick = (e) => { if (e.target.id === 'poiDrawer') { document.getElementById('poiDrawer').classList.add('hidden'); } };
   const poiPanel = document.getElementById('poiDrawerPanel');
   if (poiPanel) poiPanel.onclick = (e) => e.stopPropagation();
@@ -845,7 +845,7 @@ document.getElementById('closePoiBtn').onclick = (e) => { e.preventDefault(); e.
     document.getElementById('poiModal').classList.add('hidden');
     deletePoi(id);
   };
-  document.getElementById('closeSavedBtn').onclick = (e) => { e.preventDefault(); e.stopPropagation(); document.getElementById('savedDrawer').classList.add('hidden'); };
+  document.getElementById('closeSavedBtn').onclick = (e) => { e.preventDefault(); e.stopPropagation(); document.getElementById('savedDrawer').classList.add('hidden'); if (window.reopenFolder) window.reopenFolder(); };
   document.getElementById('savedDrawer').onclick = (e) => { if (e.target.id === 'savedDrawer') { document.getElementById('savedDrawer').classList.add('hidden'); } };
   const savedPanel = document.getElementById('savedDrawerPanel');
   if (savedPanel) savedPanel.onclick = (e) => e.stopPropagation();
@@ -1798,7 +1798,7 @@ function updateMetrics(areaM2, distM) {
   liveArea = areaM2; liveDist = distM;
   updateLiveBadge();
 }
-const APP_VERSION = '2026.11.26-v2-93';
+const APP_VERSION = '2026.11.26-v2-94';
 let liveSelfIntersect = false; // el polígono se cruza a sí mismo (los marcadores rojos ya lo señalan)
 function updateSelfIntersectWarning(show) {
   const v = !!show;
@@ -3892,6 +3892,7 @@ const HERE_BTN_CLS = IB + 'bg-slate-800 text-slate-500 border-slate-700 opacity-
 const VIS_ON_CLS = IB + 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30';
 const VIS_OFF_CLS = IB + 'bg-slate-800 text-slate-500 border-slate-700';
 const EDIT_CLS = IB + 'bg-slate-800 text-white border-slate-600';
+window.MVui = { ICO, IB, IB_STYLE, GO_BTN_CLS, VIS_ON_CLS, VIS_OFF_CLS };
 function syncNavButtons() {
   document.querySelectorAll('#poiList [data-nav]').forEach(btn => {
     const p = pois.find(x => x.id === btn.dataset.nav);

@@ -1,4 +1,4 @@
-window.MV = window.MV || {}; window.MV.tarjetas = '2026.11.26-v2-93';   // versión: debe coincidir con app.js (se controla al iniciar)
+window.MV = window.MV || {}; window.MV.tarjetas = '2026.11.26-v2-94';   // versión: debe coincidir con app.js (se controla al iniciar)
 /* Tarjeta de consulta para anillos y rutas a mano alzada: mismo aspecto y lugar que la Consulta de mediciones y POI,
    con el menú de tres puntos. La usan anillos.js y rutas.js (window.MedidorConsulta). */
 (function () {

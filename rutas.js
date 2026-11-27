@@ -1,4 +1,4 @@
-window.MV = window.MV || {}; window.MV.rutas = '2026.11.26-v2-93';   // versión: debe coincidir con app.js (se controla al iniciar)
+window.MV = window.MV || {}; window.MV.rutas = '2026.11.26-v2-94';   // versión: debe coincidir con app.js (se controla al iniciar)
 /* Ruta a mano alzada: croquis / guía visual para seguir con el punto azul del GPS (no es una medición de precisión).
    Un dedo dibuja, dos dedos mueven y hacen zoom. Cada apoyar-y-levantar es un "tramo"; cada tramo nuevo se une
    (imán) al final del anterior, así la ruta queda continua hasta [Guardar]. Se guarda aparte ('medidor_rutas'),
@@ -442,32 +442,40 @@ window.MV = window.MV || {}; window.MV.rutas = '2026.11.26-v2-93';   // versión
 
   // --- Lista de rutas guardadas ---
   function closeList() { $('freeList').classList.add('hidden'); }
+  var listFilter = '';
   function renderList() {
     var box = $('freeItems'); box.innerHTML = '';
-    if (!saved.length) { var p = document.createElement('p'); p.className = 'ring-empty'; p.textContent = 'Todavía no hay rutas guardadas.'; box.appendChild(p); }
-    saved.forEach(function (r) {
-      var row = document.createElement('div'); row.className = 'ring-row';
-      var dot = document.createElement('span'); dot.className = 'ring-dot'; dot.style.background = safeColor(r.color); if (r.hidden) dot.style.opacity = '.3';
-      var nm = document.createElement('div'); nm.className = 'ring-nm'; nm.textContent = r.name || ('Ruta ≈ ' + fmtKm(r.dist || 0));
-      var sm = document.createElement('small'); sm.textContent = (r.name ? '≈ ' + fmtKm(r.dist || 0) + ' · ' : '') + new Date(r.ts).toLocaleDateString('es-AR') + (r.hidden ? ' · oculta' : ''); nm.appendChild(sm);
-      var go = document.createElement('button'); go.type = 'button'; go.className = 'ring-go'; go.textContent = 'Ir'; go.setAttribute('aria-label', 'Ir a la ruta');
-      go.onclick = function () {
+    var U = window.MVui || {};
+    var q = listFilter.trim().toLowerCase();
+    var rows = saved.filter(function (r) { return !q || String(r.name || ('Ruta ≈ ' + fmtKm(r.dist || 0))).toLowerCase().indexOf(q) >= 0; });
+    if (!rows.length) { var p = document.createElement('p'); p.className = 'text-xs text-slate-500 text-center py-4'; p.textContent = q ? 'Sin resultados.' : 'Todavía no hay rutas guardadas.'; box.appendChild(p); }
+    rows.forEach(function (r) {
+      var card = document.createElement('div'); card.className = 'bg-slate-950 border border-slate-800 rounded-xl p-3';
+      var hid = !!r.hidden;
+      card.innerHTML = '<div class="flex items-center gap-2"><span class="w-2.5 h-2.5 rounded-full flex-shrink-0" data-dot></span><div class="flex-1 min-w-0"><div class="font-bold text-xs truncate" data-nm></div><div class="text-[10px] text-slate-500" data-sm></div></div></div><div class="flex items-center gap-1.5 mt-2" data-btns></div>';
+      card.querySelector('[data-dot]').style.background = safeColor(r.color);
+      card.querySelector('[data-nm]').textContent = r.name || ('Ruta ≈ ' + fmtKm(r.dist || 0));
+      card.querySelector('[data-sm]').textContent = (r.name ? '≈ ' + fmtKm(r.dist || 0) + ' · ' : '') + new Date(r.ts).toLocaleDateString('es-AR');
+      var btns = card.querySelector('[data-btns]');
+      function mk(cls, label, html, fn) { var b = document.createElement('button'); b.type = 'button'; b.className = cls; b.style.cssText = U.IB_STYLE || 'height:40px'; b.title = label; b.setAttribute('aria-label', label); if (label === 'Mostrar' || label === 'Ocultar') b.setAttribute('data-vis', '1'); b.innerHTML = html; b.onclick = fn; btns.appendChild(b); return b; }
+      mk(hid ? U.VIS_OFF_CLS : U.VIS_ON_CLS, hid ? 'Mostrar' : 'Ocultar', hid ? U.ICO.eyeOff : U.ICO.eye, function () { r.hidden = !r.hidden; persist(); renderSaved(); renderList(); });
+      mk(U.GO_BTN_CLS, 'Ir', U.ICO.go, function () {
         var m = getMap(); if (!m) return;
         if (r.hidden) { r.hidden = false; persist(); renderSaved(); }
         try { m.fitBounds(L.latLngBounds(r.pts), { padding: [30, 30] }); } catch (e) {}
         closeList();
-      };
-      var eye = document.createElement('button'); eye.type = 'button'; eye.className = 'ring-ic'; eye.textContent = r.hidden ? '○' : '●'; eye.setAttribute('aria-label', r.hidden ? 'Mostrar' : 'Ocultar');
-      eye.onclick = function () { r.hidden = !r.hidden; persist(); renderSaved(); renderList(); };
-      var del = document.createElement('button'); del.type = 'button'; del.className = 'ring-ic'; del.textContent = '✕'; del.setAttribute('aria-label', 'Borrar ruta');
-      del.onclick = function () {
-        if (!window.confirm('¿Borrar esta ruta de ' + fmtKm(r.dist || 0) + '?')) return;
-        saved = saved.filter(function (x) { return x.id !== r.id; }); persist(); renderSaved(); renderList();
-      };
-      row.appendChild(dot); row.appendChild(nm); row.appendChild(go); row.appendChild(eye); row.appendChild(del);
-      box.appendChild(row);
+      });
+      var del = mk(U.IB + 'text-red-500', 'Borrar', '<i data-lucide="trash-2" class="w-5 h-5"></i>', function () {
+        var msg = 'Borrar esta ruta de ' + fmtKm(r.dist || 0) + '?';
+        var run = function () { saved = saved.filter(function (x) { return x.id !== r.id; }); persist(); renderSaved(); renderList(); };
+        if (typeof window.confirmToast === 'function') window.confirmToast({ title: 'Borrar', message: msg, confirmLabel: 'Borrar', danger: true }).then(function (ok) { if (ok) run(); });
+        else if (window.confirm(msg)) run();
+      });
+      box.appendChild(card);
     });
+    if (window.lucide) lucide.createIcons();
   }
+  var sIn = $('freeSearch'); if (sIn) sIn.oninput = function () { listFilter = sIn.value; renderList(); };
   var fm = $('fmFree');
   if (fm) fm.onclick = function () {
     $('folderMenu').classList.add('hidden'); $('tpFolder').setAttribute('aria-expanded', 'false');
@@ -475,7 +483,7 @@ window.MV = window.MV || {}; window.MV.rutas = '2026.11.26-v2-93';   // versión
     var rl = $('ringList'); if (rl) rl.classList.add('hidden');
     renderList(); $('freeList').classList.remove('hidden');
   };
-  $('freeListClose').onclick = closeList;
+  $('freeListClose').onclick = function () { closeList(); if (window.reopenFolder) window.reopenFolder(); };
   document.addEventListener('pointerdown', function (e) {
     var l = $('freeList');
     if (l && !l.classList.contains('hidden') && !e.target.closest('#freeList, #fmFree')) closeList();

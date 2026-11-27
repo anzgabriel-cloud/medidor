@@ -1,4 +1,4 @@
-window.MV = window.MV || {}; window.MV.tiras = '2026.11.26-v2-93';   // versión: debe coincidir con app.js (se controla al iniciar)
+window.MV = window.MV || {}; window.MV.tiras = '2026.11.26-v2-94';   // versión: debe coincidir con app.js (se controla al iniciar)
 // Interfaz mínima: dos tiras de íconos que manejan los botones y paneles que ya existen.
 (function () {
   'use strict';
@@ -24,6 +24,8 @@ window.MV = window.MV || {}; window.MV.tiras = '2026.11.26-v2-93';   // versión
   }
   function closeFolder() { $('folderMenu').classList.add('hidden'); $('tpFolder').setAttribute('aria-expanded', 'false'); updatePop(); }
   function closeAll() { closeSearch(); closeFolder(); }
+  // Al cerrar una lista con «Cerrar» se vuelve al menú de listas
+  window.reopenFolder = function () { closeSearch(); var m = $('folderMenu'); m.classList.remove('hidden'); $('tpFolder').setAttribute('aria-expanded', 'true'); updatePop(); };
   // Si se abre buscar/carpeta estando en medición, se pasa a Ver (así la regla se desmarca)
   function leaveMeasure() { if ($('viewMedirBtn').getAttribute('aria-pressed') === 'true') click('viewVerBtn'); }
   $('tpSearch').onclick = function () {

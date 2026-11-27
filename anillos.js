@@ -1,4 +1,4 @@
-window.MV = window.MV || {}; window.MV.anillos = '2026.11.26-v2-93';   // versión: debe coincidir con app.js (se controla al iniciar)
+window.MV = window.MV || {}; window.MV.anillos = '2026.11.26-v2-94';   // versión: debe coincidir con app.js (se controla al iniciar)
 /* Anillos con radio: círculo alrededor de un punto (1 m a 100 km o más), solo visual.
    Flujo: herramienta anillo → mira en el centro del mapa → [+] deja caer el anillo → se escribe el radio → [guardar].
    Se guarda aparte (localStorage 'medidor_anillos'); la lista está en Guardados > Anillos. */
@@ -295,32 +295,40 @@ window.MV = window.MV || {}; window.MV.anillos = '2026.11.26-v2-93';   // versi�
 
   // --- Lista de anillos guardados ---
   function closeList() { $('ringList').classList.add('hidden'); }
+  var listFilter = '';
   function renderList() {
     var box = $('ringItems'); box.innerHTML = '';
-    if (!rings.length) { var p = document.createElement('p'); p.className = 'ring-empty'; p.textContent = 'Todavía no hay anillos guardados.'; box.appendChild(p); }
-    rings.forEach(function (a) {
-      var row = document.createElement('div'); row.className = 'ring-row';
-      var dot = document.createElement('span'); dot.className = 'ring-dot'; dot.style.background = safeColor(a.color); if (a.hidden) dot.style.opacity = '.3';
-      var nm = document.createElement('div'); nm.className = 'ring-nm'; nm.textContent = 'Radio ' + fmt(a.r);
-      var sm = document.createElement('small'); sm.textContent = a.lat.toFixed(4) + ', ' + a.lng.toFixed(4) + (a.hidden ? ' · oculto' : ''); nm.appendChild(sm);
-      var go = document.createElement('button'); go.type = 'button'; go.className = 'ring-go'; go.textContent = 'Ir'; go.setAttribute('aria-label', 'Ir al anillo');
-      go.onclick = function () {
+    var U = window.MVui || {};
+    var q = listFilter.trim().toLowerCase();
+    var rows = rings.filter(function (r) { return !q || String('Radio ' + fmt(r.r)).toLowerCase().indexOf(q) >= 0; });
+    if (!rows.length) { var p = document.createElement('p'); p.className = 'text-xs text-slate-500 text-center py-4'; p.textContent = q ? 'Sin resultados.' : 'Todavía no hay anillos guardados.'; box.appendChild(p); }
+    rows.forEach(function (r) {
+      var card = document.createElement('div'); card.className = 'bg-slate-950 border border-slate-800 rounded-xl p-3';
+      var hid = !!r.hidden;
+      card.innerHTML = '<div class="flex items-center gap-2"><span class="w-2.5 h-2.5 rounded-full flex-shrink-0" data-dot></span><div class="flex-1 min-w-0"><div class="font-bold text-xs truncate" data-nm></div><div class="text-[10px] text-slate-500" data-sm></div></div></div><div class="flex items-center gap-1.5 mt-2" data-btns></div>';
+      card.querySelector('[data-dot]').style.background = safeColor(r.color);
+      card.querySelector('[data-nm]').textContent = 'Radio ' + fmt(r.r);
+      card.querySelector('[data-sm]').textContent = r.lat.toFixed(4) + ', ' + r.lng.toFixed(4);
+      var btns = card.querySelector('[data-btns]');
+      function mk(cls, label, html, fn) { var b = document.createElement('button'); b.type = 'button'; b.className = cls; b.style.cssText = U.IB_STYLE || 'height:40px'; b.title = label; b.setAttribute('aria-label', label); if (label === 'Mostrar' || label === 'Ocultar') b.setAttribute('data-vis', '1'); b.innerHTML = html; b.onclick = fn; btns.appendChild(b); return b; }
+      mk(hid ? U.VIS_OFF_CLS : U.VIS_ON_CLS, hid ? 'Mostrar' : 'Ocultar', hid ? U.ICO.eyeOff : U.ICO.eye, function () { r.hidden = !r.hidden; persist(); renderSaved(); renderList(); });
+      mk(U.GO_BTN_CLS, 'Ir', U.ICO.go, function () {
         var m = getMap(); if (!m) return;
-        if (a.hidden) { a.hidden = false; persist(); renderSaved(); }
-        try { m.fitBounds(L.latLng(a.lat, a.lng).toBounds(a.r * 2), { padding: [30, 30] }); } catch (e) {}
+        if (r.hidden) { r.hidden = false; persist(); renderSaved(); }
+        try { m.fitBounds(L.latLng(r.lat, r.lng).toBounds(r.r * 2), { padding: [30, 30] }); } catch (e) {}
         closeList();
-      };
-      var eye = document.createElement('button'); eye.type = 'button'; eye.className = 'ring-ic'; eye.textContent = a.hidden ? '○' : '●'; eye.setAttribute('aria-label', a.hidden ? 'Mostrar' : 'Ocultar');
-      eye.onclick = function () { a.hidden = !a.hidden; persist(); renderSaved(); renderList(); };
-      var del = document.createElement('button'); del.type = 'button'; del.className = 'ring-ic'; del.textContent = '✕'; del.setAttribute('aria-label', 'Borrar anillo');
-      del.onclick = function () {
-        if (!window.confirm('¿Borrar el anillo de ' + fmt(a.r) + '?')) return;
-        rings = rings.filter(function (x) { return x.id !== a.id; }); persist(); renderSaved(); renderList();
-      };
-      row.appendChild(dot); row.appendChild(nm); row.appendChild(go); row.appendChild(eye); row.appendChild(del);
-      box.appendChild(row);
+      });
+      var del = mk(U.IB + 'text-red-500', 'Borrar', '<i data-lucide="trash-2" class="w-5 h-5"></i>', function () {
+        var msg = 'Borrar el anillo de ' + fmt(r.r) + '?';
+        var run = function () { rings = rings.filter(function (x) { return x.id !== r.id; }); persist(); renderSaved(); renderList(); };
+        if (typeof window.confirmToast === 'function') window.confirmToast({ title: 'Borrar', message: msg, confirmLabel: 'Borrar', danger: true }).then(function (ok) { if (ok) run(); });
+        else if (window.confirm(msg)) run();
+      });
+      box.appendChild(card);
     });
+    if (window.lucide) lucide.createIcons();
   }
+  var sIn = $('ringSearch'); if (sIn) sIn.oninput = function () { listFilter = sIn.value; renderList(); };
   var fmRing = $('fmRing');
   if (fmRing) fmRing.onclick = function () {
     $('folderMenu').classList.add('hidden'); $('tpFolder').setAttribute('aria-expanded', 'false');
@@ -328,7 +336,7 @@ window.MV = window.MV || {}; window.MV.anillos = '2026.11.26-v2-93';   // versi�
     var fl = $('freeList'); if (fl) fl.classList.add('hidden');
     renderList(); $('ringList').classList.remove('hidden');
   };
-  $('ringListClose').onclick = closeList;
+  $('ringListClose').onclick = function () { closeList(); if (window.reopenFolder) window.reopenFolder(); };
   document.addEventListener('pointerdown', function (e) {
     var l = $('ringList');
     if (l && !l.classList.contains('hidden') && !e.target.closest('#ringList, #fmRing')) closeList();

@@ -2,7 +2,7 @@
    Separado del HTML para mejor mantenimiento
 */
 
-:root { --app-version: "2026.11.26-v2-90"; }
+:root { --app-version: "2026.11.26-v2-91"; }
 
 .leaflet-control-attribution { font-size: 9px !important; background: rgba(15,23,42,0.7) !important; color: #94a3b8 !important; }
 .leaflet-control-attribution a { color: #94a3b8 !important; }
@@ -868,3 +868,14 @@ path.sel-flash { pointer-events: none; opacity: 0; animation: selBlink 1s ease-o
 #folderMenu button.kind-off > i, #folderMenu button.kind-off > svg:first-child, #folderMenu button.kind-off > span:not(.fm-eye), #folderMenu button.kind-off > b { opacity: .45; }
 #tpFolder.has-hidden { position: relative; }
 #tpFolder.has-hidden::after { content: ''; position: absolute; top: 6px; right: 6px; width: 9px; height: 9px; border-radius: 50%; background: #fbbf24; box-shadow: 0 0 0 2px rgba(15, 23, 42, .9); }
+
+/* Listas (POI, Superficies, Distancias, Recorridos): paneles flotantes y compactos junto a las tiras, sin oscurecer ni desenfocar el mapa,
+   para no perder la perspectiva de la pantalla de trabajo (mismo criterio que Anillos y Rutas) */
+#savedDrawer, #poiDrawer { background: transparent !important; -webkit-backdrop-filter: none !important; backdrop-filter: none !important; }
+#savedDrawerPanel, #poiDrawerPanel {
+  position: fixed !important; box-sizing: border-box; left: 66px; right: auto; bottom: var(--strip-bottom, 12px); top: auto;
+  width: min(440px, calc(100vw - 76px)) !important; max-width: none !important; height: auto !important; max-height: 62vh;
+  padding: 10px 12px !important; border: 1.5px solid #d97706 !important; border-radius: 14px !important;
+  background: rgba(15, 23, 42, .96) !important; box-shadow: 0 8px 28px rgba(0, 0, 0, .55) !important;
+}
+#poiDrawerPanel > p { display: none; }   /* texto de ayuda viejo ("tocá el mapa"): los POI se ubican con la mira */

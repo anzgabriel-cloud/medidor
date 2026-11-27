@@ -2,7 +2,7 @@
    Separado del HTML para mejor mantenimiento
 */
 
-:root { --app-version: "2026.11.26-v2-89"; }
+:root { --app-version: "2026.11.26-v2-90"; }
 
 .leaflet-control-attribution { font-size: 9px !important; background: rgba(15,23,42,0.7) !important; color: #94a3b8 !important; }
 .leaflet-control-attribution a { color: #94a3b8 !important; }
@@ -851,3 +851,20 @@ path.sel-flash { pointer-events: none; opacity: 0; animation: selBlink 1s ease-o
 @media (prefers-reduced-motion: reduce) { .poi-flash .ring, path.sel-flash { animation: none; opacity: .8; } }
 
 .cap-grid { white-space: nowrap; }
+
+/* Menú de listas: iconos con el color de cada herramienta + ojo para ver/ocultar el tipo en el mapa */
+#fmPoi svg:not(.e-on):not(.e-off), #fmPoi b { color: #f59e0b; }
+#fmPolygon svg:not(.e-on):not(.e-off), #fmPolygon b { color: #059669; }
+#fmLine svg:not(.e-on):not(.e-off), #fmLine b { color: #0284c7; }
+#fmTrack svg:not(.e-on):not(.e-off), #fmTrack b { color: #f43f5e; }
+#fmFree svg:not(.e-on):not(.e-off), #fmFree b { color: #7c3aed; }
+#fmRing svg:not(.e-on):not(.e-off), #fmRing b { color: #ea580c; }
+#folderMenu .fm-eye { flex: none; width: 40px; height: 40px; margin: 0 -8px 0 2px; display: flex; align-items: center; justify-content: center; border-radius: 10px; }
+#folderMenu .fm-eye:active { background: rgba(148, 163, 184, .25); }
+#folderMenu .fm-eye svg { width: 20px; height: 20px; color: #e2e8f0; }
+#folderMenu .fm-eye .e-off { display: none; }
+#folderMenu .fm-eye.off .e-on { display: none; }
+#folderMenu .fm-eye.off .e-off { display: block; color: #64748b; }
+#folderMenu button.kind-off > i, #folderMenu button.kind-off > svg:first-child, #folderMenu button.kind-off > span:not(.fm-eye), #folderMenu button.kind-off > b { opacity: .45; }
+#tpFolder.has-hidden { position: relative; }
+#tpFolder.has-hidden::after { content: ''; position: absolute; top: 6px; right: 6px; width: 9px; height: 9px; border-radius: 50%; background: #fbbf24; box-shadow: 0 0 0 2px rgba(15, 23, 42, .9); }

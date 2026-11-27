@@ -1,4 +1,4 @@
-window.MV = window.MV || {}; window.MV.anillos = '2026.11.26-v2-89';   // versión: debe coincidir con app.js (se controla al iniciar)
+window.MV = window.MV || {}; window.MV.anillos = '2026.11.26-v2-90';   // versión: debe coincidir con app.js (se controla al iniciar)
 /* Anillos con radio: círculo alrededor de un punto (1 m a 100 km o más), solo visual.
    Flujo: herramienta anillo → mira en el centro del mapa → [+] deja caer el anillo → se escribe el radio → [guardar].
    Se guarda aparte (localStorage 'medidor_anillos'); la lista está en Guardados > Anillos. */
@@ -84,7 +84,8 @@ window.MV = window.MV || {}; window.MV.anillos = '2026.11.26-v2-89';   // versi�
     var m = getMap(); if (!m || !ui) return;
     Object.keys(savedLayers).forEach(function (k) { m.removeLayer(savedLayers[k]); });
     savedLayers = {};
-    rings.forEach(function (a) { if (!a.hidden) savedLayers[a.id] = build(m, a, true); });
+    var kindOff = false; try { kindOff = JSON.parse(localStorage.getItem('medidor_hidden_kinds') || '[]').indexOf('ring') >= 0; } catch (e) {}
+    rings.forEach(function (a) { if (!a.hidden && !kindOff) savedLayers[a.id] = build(m, a, true); });
     var n = $('fmRingN'); if (n) n.textContent = String(rings.length);
   }
   // --- Consulta: tocar el aro en Modo vista abre la tarjeta con datos y menú ⋯ ---
@@ -157,6 +158,7 @@ window.MV = window.MV || {}; window.MV.anillos = '2026.11.26-v2-89';   // versi�
   }
   var sig = function (x) { return x.lat.toFixed(6) + ',' + x.lng.toFixed(6) + ',' + Math.round(x.r); };
   window.MedidorAnillos = {
+    refresh: function () { renderSaved(); },
     busy: function () { return !!(ringMode && draft); },
     list: function () { return rings.map(function (a) { return { lat: a.lat, lng: a.lng, r: a.r, color: a.color, ang: a.ang }; }); },
     add: function (items) {

@@ -897,6 +897,12 @@ document.getElementById('closePoiBtn').onclick = (e) => { e.preventDefault(); e.
   syncNorthUI();
   document.querySelectorAll('.lbl-pick').forEach(b => b.onclick = () => setLabelMode(b.dataset.lbl));
   syncLabelUI();
+  document.querySelectorAll('#folderMenu .fm-eye').forEach(e => {
+    const toggle = (ev) => { ev.stopPropagation(); ev.preventDefault(); setKindHidden(e.dataset.kind, !hiddenKinds.has(e.dataset.kind)); };
+    e.onclick = toggle;
+    e.onkeydown = (ev) => { if (ev.key === 'Enter' || ev.key === ' ') toggle(ev); };
+  });
+  syncKindEyes();
   document.getElementById('tileClearSat').onclick = () => clearTileCache('sat');
   document.getElementById('tileClearOsm').onclick = () => clearTileCache('osm');
   document.getElementById('dataResetBtn').onclick = resetAllData;
@@ -1792,7 +1798,7 @@ function updateMetrics(areaM2, distM) {
   liveArea = areaM2; liveDist = distM;
   updateLiveBadge();
 }
-const APP_VERSION = '2026.11.26-v2-89';
+const APP_VERSION = '2026.11.26-v2-90';
 let liveSelfIntersect = false; // el polígono se cruza a sí mismo (los marcadores rojos ya lo señalan)
 function updateSelfIntersectWarning(show) {
   const v = !!show;
@@ -2526,6 +2532,7 @@ window.MedidorPick = (function () {
 
 function addLockedLayer(item) {
   removeLockedLayer(item.id);
+  if (hiddenKinds.has(item.mode === 'polygon' ? 'polygon' : (item.track ? 'track' : 'line'))) return;   // tipo oculto con el ojo del menú de listas
   const latlngs = item.points.map(p => L.latLng(p.lat, p.lng));
   if (latlngs.length < 2) return;
   const color = item.color || '#00ff66';
@@ -2617,6 +2624,28 @@ function removeLockedLayer(id) {
   }
 }
 
+// --- Ver / ocultar por tipo (el ojo del menú de listas): no toca el "ojo" de cada medición, solo el filtro general ---
+const HIDE_KEY = 'medidor_hidden_kinds';
+let hiddenKinds = new Set((() => { try { const a = JSON.parse(localStorage.getItem(HIDE_KEY) || '[]'); return Array.isArray(a) ? a : []; } catch (e) { return []; } })());
+const kindHidden = (k) => hiddenKinds.has(k);
+function syncKindEyes() {
+  document.querySelectorAll('#folderMenu .fm-eye').forEach(e => {
+    const off = hiddenKinds.has(e.dataset.kind);
+    e.classList.toggle('off', off);
+    e.setAttribute('aria-pressed', off ? 'false' : 'true');
+    const b = e.closest('button'); if (b) b.classList.toggle('kind-off', off);
+  });
+  const f = document.getElementById('tpFolder'); if (f) f.classList.toggle('has-hidden', hiddenKinds.size > 0);
+}
+function setKindHidden(k, hide) {
+  if (hide) hiddenKinds.add(k); else hiddenKinds.delete(k);
+  try { localStorage.setItem(HIDE_KEY, JSON.stringify([...hiddenKinds])); } catch (e) {}
+  syncKindEyes();
+  if (k === 'poi') renderPois();
+  else if (k === 'free') { if (window.MedidorRutas && MedidorRutas.refresh) MedidorRutas.refresh(); }
+  else if (k === 'ring') { if (window.MedidorAnillos && MedidorAnillos.refresh) MedidorAnillos.refresh(); }
+  else refreshLockedLayers();
+}
 function refreshLockedLayers() {
   lockedLayers.forEach(e => e.layers.forEach(l => map.removeLayer(l)));
   lockedLayers = [];
@@ -3668,6 +3697,7 @@ function refreshPoiSizeUI() {
 function renderPois() {
   poiLayers.forEach(l => map.removeLayer(l));
   poiLayers = [];
+  if (hiddenKinds.has('poi')) return;
   pois.forEach(p => {
     if (p.visible === false) return;
     const marker = L.marker([p.lat, p.lng], { icon: poiIcon(p.color, p.size), zIndexOffset: 1200 }).addTo(map);

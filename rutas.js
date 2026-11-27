@@ -1,4 +1,4 @@
-window.MV = window.MV || {}; window.MV.rutas = '2026.11.26-v2-89';   // versión: debe coincidir con app.js (se controla al iniciar)
+window.MV = window.MV || {}; window.MV.rutas = '2026.11.26-v2-90';   // versión: debe coincidir con app.js (se controla al iniciar)
 /* Ruta a mano alzada: croquis / guía visual para seguir con el punto azul del GPS (no es una medición de precisión).
    Un dedo dibuja, dos dedos mueven y hacen zoom. Cada apoyar-y-levantar es un "tramo"; cada tramo nuevo se une
    (imán) al final del anterior, así la ruta queda continua hasta [Guardar]. Se guarda aparte ('medidor_rutas'),
@@ -129,8 +129,9 @@ window.MV = window.MV || {}; window.MV.rutas = '2026.11.26-v2-89';   // versión
     var m = getMap(); if (!m || !ui) return;
     Object.keys(savedLayers).forEach(function (k) { m.removeLayer(savedLayers[k]); });
     savedLayers = {};
+    var kindOff = false; try { kindOff = JSON.parse(localStorage.getItem('medidor_hidden_kinds') || '[]').indexOf('free') >= 0; } catch (e) {}
     saved.forEach(function (r) {
-      if (r.hidden) return;
+      if (r.hidden || kindOff) return;
       var line = L.polyline(r.pts, { color: safeColor(r.color), weight: 4, opacity: 0.9, dashArray: dashOf(r.style), lineCap: 'round', interactive: false });
       var sa = arrowMarker(r.pts, false, RED), ea = arrowMarker(r.pts, true, BLUE);
       // trazo ancho e invisible: facilita tocar la ruta para consultarla
@@ -241,6 +242,7 @@ window.MV = window.MV || {}; window.MV.rutas = '2026.11.26-v2-89';   // versión
   // API de datos (copias de seguridad y "Borrar todo")
   var sig = function (x) { var p = x.pts; return p.length + ':' + p[0][0] + ',' + p[0][1] + ':' + p[p.length - 1][0] + ',' + p[p.length - 1][1]; };
   window.MedidorRutas = {
+    refresh: function () { renderSaved(); },
     busy: function () { return !!(active && (strokes.length || drawing)); },
     list: function () { return saved.map(function (r) { return { pts: r.pts, name: r.name || '', note: r.note || '', style: r.style === 'dot' ? 'dot' : 'dash', color: r.color, date: r.date || new Date(r.ts || Date.now()).toLocaleDateString('es-AR'), dist: r.dist || 0 }; }); },
     add: function (items) {

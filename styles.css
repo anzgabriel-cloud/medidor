@@ -2,7 +2,7 @@
    Separado del HTML para mejor mantenimiento
 */
 
-:root { --app-version: "2026.11.27-v2-97"; }
+:root { --app-version: "2026.11.27-v2-98"; }
 
 .leaflet-control-attribution { font-size: 9px !important; background: rgba(15,23,42,0.7) !important; color: #94a3b8 !important; }
 .leaflet-control-attribution a { color: #94a3b8 !important; }
@@ -37,7 +37,16 @@ select.cg-input:focus {
 }
 .cg-input:focus { border-color: #f59e0b; }
 .cg-input.bad { border-color: #ef4444; }
-.set-rule { height: 2px; background: #64748b; border-radius: 1px; margin: 16px 0 14px; }
+.set-rule { height: 2px; background: #d97706; border-radius: 1px; margin: 16px 0 14px; }
+/* Ajustes: encabezado fijo con atajos, grupos por tema (franja ámbar) y separadores finos ámbar entre ajustes */
+.set-sticky { position: sticky; top: -20px; z-index: 5; margin: -20px -20px 10px; padding: 20px 20px 8px; background: #0f172a; border-bottom: 1px solid rgba(245,158,11,.35); }
+.set-chips { display: flex; gap: 6px; overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+.set-chips::-webkit-scrollbar { display: none; }
+.set-chips button { flex: 0 0 auto; padding: 5px 11px; border-radius: 999px; font-size: 11px; font-weight: 700; color: #fcd34d; background: rgba(245,158,11,.10); border: 1px solid rgba(245,158,11,.45); }
+.set-chips button:active { background: rgba(245,158,11,.3); }
+.set-group { display: flex; align-items: center; gap: 6px; margin: 22px 0 12px; padding: 7px 10px; font-size: 11px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: #fbbf24; background: rgba(245,158,11,.13); border-top: 2px solid #f59e0b; border-radius: 0 0 10px 10px; }
+#setG1 { margin-top: 6px; }
+.set-sep { height: 1px; background: rgba(245,158,11,.38); margin: 15px 0 13px; }
 .cg-label { font-size: 10px; text-transform: uppercase; letter-spacing: .05em; color: #64748b; display: block; margin: 12px 0 4px; }
 .cg-unit { font-size: 12px; color: #94a3b8; }
 /* Botones de acción según el modo: superficie = verde sólido, distancia = azul sólido (texto blanco) */

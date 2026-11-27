@@ -326,6 +326,13 @@ function closeSettings() { document.getElementById('settingsModal').classList.ad
 function initSettingsUI() {
   document.getElementById('settingsBtn').onclick = openSettings;
   document.getElementById('closeSettingsBtn').onclick = closeSettings;
+  // atajos de Ajustes: llevan al grupo (descontando el encabezado fijo)
+  document.querySelectorAll('.set-chips [data-goto]').forEach(b => b.onclick = () => {
+    const g = document.getElementById(b.dataset.goto), box = document.getElementById('settingsModal').firstElementChild, st = document.getElementById('setSticky');
+    if (!g || !box) return;
+    const top = g.getBoundingClientRect().top - box.getBoundingClientRect().top + box.scrollTop - (st ? st.offsetHeight : 0) - 6;
+    box.scrollTo({ top: Math.max(0, top), behavior: 'smooth' });
+  });
   document.getElementById('settingsModal').onclick = (e) => { if (e.target.id === 'settingsModal') closeSettings(); };
   document.querySelectorAll('.set-units').forEach(b => b.onclick = () => {
     settings.units = b.dataset.units; saveSettings(); refreshSettingsUI(); applySettings();
@@ -1828,7 +1835,7 @@ function updateMetrics(areaM2, distM) {
   liveArea = areaM2; liveDist = distM;
   updateLiveBadge();
 }
-const APP_VERSION = '2026.11.27-v2-97';
+const APP_VERSION = '2026.11.27-v2-98';
 let liveSelfIntersect = false; // el polígono se cruza a sí mismo (los marcadores rojos ya lo señalan)
 function updateSelfIntersectWarning(show) {
   const v = !!show;

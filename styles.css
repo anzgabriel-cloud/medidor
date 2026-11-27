@@ -2,7 +2,7 @@
    Separado del HTML para mejor mantenimiento
 */
 
-:root { --app-version: "2026.11.27-v2-96"; }
+:root { --app-version: "2026.11.27-v2-97"; }
 
 .leaflet-control-attribution { font-size: 9px !important; background: rgba(15,23,42,0.7) !important; color: #94a3b8 !important; }
 .leaflet-control-attribution a { color: #94a3b8 !important; }
@@ -479,7 +479,9 @@ button:disabled {
 /* Tarjeta de medidas en vivo (nueva medición / edición): una fila bajo la barra superior */
 #measureCard { position: fixed; z-index: 15; display: none; gap: 0; pointer-events: none; max-width: calc(100vw - 16px);
   background: rgba(11,18,32,0.88); border: 1px solid #475569; border-radius: 12px; box-shadow: 0 2px 10px rgba(0,0,0,.55); overflow: hidden; }
-#measureCard.on { display: flex; }
+#measureCard.on { display: flex; flex-direction: column; }
+#measureCard .mc-row { display: flex; }
+#measureCard .mc-row2 { border-top: 1px solid #334155; }
 #measureCard .mc-cell { padding: 5px 11px; line-height: 1.1; border-left: 1px solid #334155; font-family: system-ui, -apple-system, sans-serif; }
 #measureCard .mc-cell:first-child { border-left: 0; }
 #measureCard .mc-cap { font-size: 8px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: #94a3b8; }
@@ -626,7 +628,6 @@ body.ui-min.med2 #poiSizeRow [data-poi-size="l"] svg { width: 21px !important; h
 /* Tarjeta de medidas en vivo: arriba a la izquierda, sin tapar la brújula (que queda arriba a la derecha) */
 body.ui-min #measureCard {
   top: auto !important; left: auto; right: 12px; bottom: 200px;      /* la posición real la fija positionMeasureCard(): arriba del panel de acción */
-  flex-wrap: nowrap;
 }
 body.ui-min #measureCard .mc-cell { padding: 4px 9px; }
 

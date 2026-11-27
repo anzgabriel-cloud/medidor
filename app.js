@@ -1744,8 +1744,13 @@ function renderMeasureCard() {
     }
   }
   scheduleMeasureElev(measureElevSig());
-  html += cell('Alt. media', mcElev.text, 'mc-alt');
-  if (poly && liveSelfIntersect) html += cell('Atención', 'Se cruza', 'mc-warn');
+  // grabando: la altura media va en una segunda fila (en una sola no entra en pantallas angostas)
+  if (trackMode) html = '<div class="mc-row">' + html + '</div><div class="mc-row mc-row2">' + cell('Alt. media', mcElev.text, 'mc-alt') + '</div>';
+  else {
+    html += cell('Alt. media', mcElev.text, 'mc-alt');
+    if (poly && liveSelfIntersect) html += cell('Atención', 'Se cruza', 'mc-warn');
+    html = '<div class="mc-row">' + html + '</div>';
+  }
   el.innerHTML = html;
   el.classList.add('on');
   positionMeasureCard();
@@ -1823,7 +1828,7 @@ function updateMetrics(areaM2, distM) {
   liveArea = areaM2; liveDist = distM;
   updateLiveBadge();
 }
-const APP_VERSION = '2026.11.27-v2-96';
+const APP_VERSION = '2026.11.27-v2-97';
 let liveSelfIntersect = false; // el polígono se cruza a sí mismo (los marcadores rojos ya lo señalan)
 function updateSelfIntersectWarning(show) {
   const v = !!show;

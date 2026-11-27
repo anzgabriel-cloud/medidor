@@ -2,7 +2,7 @@
    Separado del HTML para mejor mantenimiento
 */
 
-:root { --app-version: "2026.11.27-v2-98"; }
+:root { --app-version: "2026.11.27-v2-99"; }
 
 .leaflet-control-attribution { font-size: 9px !important; background: rgba(15,23,42,0.7) !important; color: #94a3b8 !important; }
 .leaflet-control-attribution a { color: #94a3b8 !important; }
@@ -903,3 +903,14 @@ path.sel-flash { pointer-events: none; opacity: 0; animation: selBlink 1s ease-o
 @keyframes navAlive { 0%, 100% { opacity: .72; text-shadow: 0 0 0 rgba(56, 189, 248, 0); } 50% { opacity: 1; text-shadow: 0 0 9px rgba(56, 189, 248, .95); } }
 @keyframes navAliveIcon { 0%, 100% { filter: drop-shadow(0 0 0 rgba(56, 189, 248, 0)); } 50% { filter: drop-shadow(0 0 5px rgba(56, 189, 248, 1)); } }
 @media (prefers-reduced-motion: reduce) { #navBox .nav-foot span, #navBox .nav-foot span svg { animation: none; } }
+
+/* Ajustes → Acerca de y guía: temas desplegables, con el mismo lenguaje ámbar */
+.set-doc { border: 1px solid rgba(245,158,11,.3); border-radius: 10px; margin: 0 0 6px; background: rgba(15,23,42,.6); }
+.set-doc > summary { list-style: none; cursor: pointer; padding: 9px 12px; font-size: 12px; font-weight: 700; color: #fcd34d; display: flex; align-items: center; justify-content: space-between; }
+.set-doc > summary::-webkit-details-marker { display: none; }
+.set-doc > summary::after { content: '+'; font-size: 16px; line-height: 1; color: #f59e0b; }
+.set-doc[open] > summary::after { content: '−'; }
+.set-doc[open] { border-color: rgba(245,158,11,.6); }
+.set-doc-b { padding: 0 12px 10px; font-size: 12px; line-height: 1.5; color: #cbd5e1; }
+.set-doc-b p { margin: 0 0 8px; }
+.set-doc-b b { color: #e2e8f0; }

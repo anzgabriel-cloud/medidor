@@ -1,4 +1,4 @@
-window.MV = window.MV || {}; window.MV.anillos = '2026.11.26-v2-91';   // versión: debe coincidir con app.js (se controla al iniciar)
+window.MV = window.MV || {}; window.MV.anillos = '2026.11.26-v2-93';   // versión: debe coincidir con app.js (se controla al iniciar)
 /* Anillos con radio: círculo alrededor de un punto (1 m a 100 km o más), solo visual.
    Flujo: herramienta anillo → mira en el centro del mapa → [+] deja caer el anillo → se escribe el radio → [guardar].
    Se guarda aparte (localStorage 'medidor_anillos'); la lista está en Guardados > Anillos. */
@@ -159,6 +159,7 @@ window.MV = window.MV || {}; window.MV.anillos = '2026.11.26-v2-91';   // versi�
   var sig = function (x) { return x.lat.toFixed(6) + ',' + x.lng.toFixed(6) + ',' + Math.round(x.r); };
   window.MedidorAnillos = {
     refresh: function () { renderSaved(); },
+    hiddenN: function () { return rings.filter(function (a) { return a.hidden; }).length; },
     busy: function () { return !!(ringMode && draft); },
     list: function () { return rings.map(function (a) { return { lat: a.lat, lng: a.lng, r: a.r, color: a.color, ang: a.ang }; }); },
     add: function (items) {

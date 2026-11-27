@@ -1798,7 +1798,7 @@ function updateMetrics(areaM2, distM) {
   liveArea = areaM2; liveDist = distM;
   updateLiveBadge();
 }
-const APP_VERSION = '2026.11.26-v2-91';
+const APP_VERSION = '2026.11.26-v2-93';
 let liveSelfIntersect = false; // el polígono se cruza a sí mismo (los marcadores rojos ya lo señalan)
 function updateSelfIntersectWarning(show) {
   const v = !!show;
@@ -2635,8 +2635,48 @@ function syncKindEyes() {
     e.setAttribute('aria-pressed', off ? 'false' : 'true');
     const b = e.closest('button'); if (b) b.classList.toggle('kind-off', off);
   });
-  const f = document.getElementById('tpFolder'); if (f) f.classList.toggle('has-hidden', hiddenKinds.size > 0);
+  syncHiddenWarnings();
 }
+// Avisos de "hay algo oculto": punto ámbar en la carpeta (tipo oculto con el ojo general, o mediciones ocultas una por una),
+// punto junto al nombre del tipo en el menú, y un aviso dentro de cada lista cuando su tipo está oculto en el mapa
+const KIND_LABEL = { poi: 'Los POI', polygon: 'Las superficies', line: 'Las distancias', track: 'Los recorridos', free: 'Las rutas', ring: 'Los anillos' };
+function itemsHiddenByKind() {
+  const n = { poi: pois.filter(p => p.visible === false).length, polygon: 0, line: 0, track: 0, free: 0, ring: 0 };
+  saved.forEach(s => { if (s.visible === false) n[savedKindOf(s)]++; });
+  try { n.free = window.MedidorRutas && MedidorRutas.hiddenN ? MedidorRutas.hiddenN() : 0; } catch (e) {}
+  try { n.ring = window.MedidorAnillos && MedidorAnillos.hiddenN ? MedidorAnillos.hiddenN() : 0; } catch (e) {}
+  return n;
+}
+function syncHiddenWarnings() {
+  if (document.hidden) return;
+  const n = itemsHiddenByKind();
+  let any = hiddenKinds.size > 0;
+  const rows = { poi: 'fmPoi', polygon: 'fmPolygon', line: 'fmLine', track: 'fmTrack', free: 'fmFree', ring: 'fmRing' };
+  Object.keys(rows).forEach(k => {
+    const b = document.getElementById(rows[k]); if (!b) return;
+    b.classList.toggle('has-item-hidden', n[k] > 0 && !hiddenKinds.has(k));
+    b.title = n[k] > 0 ? n[k] + ' oculto(s) en esta lista' : '';
+    if (n[k] > 0) any = true;
+  });
+  const f = document.getElementById('tpFolder'); if (f) f.classList.toggle('has-hidden', any);
+  // aviso dentro de cada lista
+  const panels = [['poiDrawerPanel', 'poi', 1], ['savedDrawerPanel', savedKind, 1], ['ringList', 'ring', 0], ['freeList', 'free', 0]];
+  panels.forEach(([id, k, inner]) => {
+    const el = document.getElementById(id); if (!el) return;
+    let bn = el.querySelector(':scope > .kind-banner');
+    const off = hiddenKinds.has(k);
+    if (!bn) {
+      bn = document.createElement('div'); bn.className = 'kind-banner';
+      const head = el.firstElementChild; head.insertAdjacentElement('afterend', bn);
+      bn.addEventListener('click', () => setKindHidden(bn.dataset.kind, false));
+    }
+    bn.dataset.kind = k;
+    bn.style.display = off ? '' : 'none';
+    bn.textContent = off ? KIND_LABEL[k] + ' están ocultos en el mapa (ojo del menú de listas). Tocá para mostrarlos.' : '';
+    el.classList.toggle('kind-is-off', off);
+  });
+}
+setInterval(syncHiddenWarnings, 1000);
 function setKindHidden(k, hide) {
   if (hide) hiddenKinds.add(k); else hiddenKinds.delete(k);
   try { localStorage.setItem(HIDE_KEY, JSON.stringify([...hiddenKinds])); } catch (e) {}
@@ -3746,11 +3786,11 @@ function renderPoiList() {
         </div>
       </div>
       <div class="flex items-center gap-1.5 mt-2">
-        <button data-vis="${p.id}" class="flex-1 text-[11px] font-semibold py-1.5 rounded-lg border ${isVis ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30' : 'bg-slate-800 text-slate-400 border-slate-700'}">${isVis ? 'Visible' : 'Oculto'}</button>
-        <button data-nav="${p.id}" class="${navigating ? NAV_ON_CLS : NAV_BTN_CLS}">${navigating ? 'Dejar de navegar' : 'Navegar'}</button>
-        <button data-edit="${p.id}" class="flex-1 text-[11px] font-semibold py-1.5 rounded-lg border bg-amber-500/15 text-amber-200 border-amber-500/30">Editar</button>
-        <button data-go="${p.id}" class="${GO_BTN_CLS}">Ir</button>
-        <button data-del="${p.id}" class="p-1.5 text-red-500 flex-shrink-0" title="Eliminar"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+        <button data-vis="${p.id}" style="${IB_STYLE}" title="${isVis ? 'Visible: tocá para ocultar' : 'Oculto: tocá para mostrar'}" aria-label="${isVis ? 'Ocultar' : 'Mostrar'}" class="${isVis ? VIS_ON_CLS : VIS_OFF_CLS}">${isVis ? ICO.eye : ICO.eyeOff}</button>
+        <button data-nav="${p.id}" style="${IB_STYLE}" title="${navigating ? 'Dejar de navegar' : 'Navegar'}" aria-label="${navigating ? 'Dejar de navegar' : 'Navegar'}" class="${navigating ? NAV_ON_CLS : NAV_BTN_CLS}">${ICO.nav}</button>
+        <button data-edit="${p.id}" style="${IB_STYLE}" title="Editar" aria-label="Editar" class="${EDIT_CLS}">${ICO.edit}</button>
+        <button data-go="${p.id}" style="${IB_STYLE}" title="Ir" aria-label="Ir" class="${GO_BTN_CLS}">${ICO.go}</button>
+        <button data-del="${p.id}" style="${IB_STYLE}" class="flex-1 inline-flex items-center justify-center text-red-500" title="Eliminar" aria-label="Eliminar"><i data-lucide="trash-2" class="w-5 h-5"></i></button>
       </div>`;
     list.appendChild(div);
     div.querySelector(`[data-vis="${p.id}"]`).onclick = () => {
@@ -3834,11 +3874,24 @@ function removeNavLabel() { navLabel = null; navBrg = null; updateNavArrow(); co
   b.addEventListener('pointerdown', (e) => e.stopPropagation());
 })();
 /** En el POI donde estás parado: "Navegar" queda desactivado (gris) e "Ir" dice "Ud está aquí" */
-const BTN_BASE = 'text-[11px] font-semibold py-1.5 leading-tight rounded-lg border ';
-const GO_BTN_CLS = 'flex-1 ' + BTN_BASE + 'bg-slate-800 text-slate-300 border-slate-700';
-const NAV_BTN_CLS = 'flex-[1.3] ' + BTN_BASE + 'bg-sky-500/15 text-sky-300 border-sky-500/40';
-const NAV_ON_CLS = 'flex-[1.3] ' + BTN_BASE + 'bg-rose-500/15 text-rose-300 border-rose-500/40';
-const HERE_BTN_CLS = 'flex-1 ' + BTN_BASE + 'bg-slate-800 text-slate-500 border-slate-700 opacity-70';
+const SVG_ATTR = 'viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"';
+const ICO = {
+  eye: `<svg ${SVG_ATTR}><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>`,
+  eyeOff: `<svg ${SVG_ATTR}><path d="M9.9 4.2A10 10 0 0 1 12 5c6.4 0 10 7 10 7a17 17 0 0 1-2.6 3.5M6.6 6.6C3.6 8.4 2 12 2 12s3.6 7 10 7a9.7 9.7 0 0 0 5.4-1.6"/><path d="M2 2l20 20"/></svg>`,
+  nav: `<svg ${SVG_ATTR}><polygon points="3 11 22 2 13 21 11 13 3 11"/></svg>`,
+  edit: `<svg ${SVG_ATTR}><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg>`,
+  go: `<svg ${SVG_ATTR}><circle cx="12" cy="12" r="10"/><path d="M22 12h-4M6 12H2M12 6V2M12 22v-4"/></svg>`
+};
+const IB = 'flex-1 inline-flex items-center justify-center rounded-lg border ';
+const IB_STYLE = 'height:40px';
+const BTN_BASE = IB;
+const GO_BTN_CLS = IB + 'bg-slate-800 text-slate-200 border-slate-700';
+const NAV_BTN_CLS = IB + 'bg-sky-500/15 text-sky-400 border-sky-500/40';
+const NAV_ON_CLS = IB + 'bg-rose-500/20 text-rose-300 border-rose-500/50';
+const HERE_BTN_CLS = IB + 'bg-slate-800 text-slate-500 border-slate-700 opacity-60';
+const VIS_ON_CLS = IB + 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30';
+const VIS_OFF_CLS = IB + 'bg-slate-800 text-slate-500 border-slate-700';
+const EDIT_CLS = IB + 'bg-slate-800 text-white border-slate-600';
 function syncNavButtons() {
   document.querySelectorAll('#poiList [data-nav]').forEach(btn => {
     const p = pois.find(x => x.id === btn.dataset.nav);
@@ -3849,14 +3902,16 @@ function syncNavButtons() {
     if ((btn.dataset.off === '1') !== navOff) {      // solo se toca el botón cuando cambia su estado
       btn.dataset.off = navOff ? '1' : '0';
       btn.disabled = navOff;
-      btn.textContent = navigating ? 'Dejar de navegar' : 'Navegar';
-      btn.className = navOff ? 'flex-[1.3] ' + BTN_BASE + 'bg-slate-800 text-slate-500 border-slate-700 opacity-70' : (navigating ? NAV_ON_CLS : NAV_BTN_CLS);
+      btn.innerHTML = ICO.nav;
+      btn.title = btn.ariaLabel = navigating ? 'Dejar de navegar' : 'Navegar';
+      btn.className = navOff ? IB + 'bg-slate-800 text-slate-500 border-slate-700 opacity-60' : (navigating ? NAV_ON_CLS : NAV_BTN_CLS);
     }
     const go = btn.parentElement.querySelector('[data-go]');
     if (go && (go.dataset.off === '1') !== here) {
       go.dataset.off = here ? '1' : '0';
       go.disabled = here;
-      go.textContent = here ? 'Ud está aquí' : 'Ir';
+      go.innerHTML = ICO.go;
+      go.title = go.ariaLabel = here ? 'Ud está aquí' : 'Ir';
       go.className = here ? HERE_BTN_CLS : GO_BTN_CLS;
     }
   });
@@ -4335,18 +4390,10 @@ function renderSaved() {
         </div>
       </div>
       <div class="flex items-center gap-1.5 mt-2">
-        <button data-vis="${item.id}" class="flex-1 text-[11px] font-semibold py-1.5 rounded-lg border ${isVisible ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30' : 'bg-slate-800 text-slate-400 border-slate-700'}">
-          ${isVisible ? 'Visible' : 'Oculta'}
-        </button>
-        <button data-edit="${item.id}" class="flex-1 text-[11px] font-semibold py-1.5 rounded-lg border bg-sky-500/15 text-sky-300 border-sky-500/30">
-          Editar
-        </button>
-        <button data-focus="${item.id}" ${savedInView(item) ? 'disabled' : ''} class="flex-1 text-[11px] font-semibold py-1.5 rounded-lg border ${savedInView(item) ? 'bg-slate-800 text-slate-500 border-slate-700 opacity-70' : 'bg-slate-800 text-slate-300 border-slate-700'}">
-          ${savedInView(item) ? 'Ud está aquí' : 'Ir'}
-        </button>
-        <button class="p-1.5 text-red-500 hover:text-red-400 flex-shrink-0" data-del="${item.id}" title="Eliminar">
-          <i data-lucide="trash-2" class="w-4 h-4"></i>
-        </button>
+        <button data-vis="${item.id}" style="${IB_STYLE}" title="${isVisible ? 'Visible: tocá para ocultar' : 'Oculta: tocá para mostrar'}" aria-label="${isVisible ? 'Ocultar' : 'Mostrar'}" class="${isVisible ? VIS_ON_CLS : VIS_OFF_CLS}">${isVisible ? ICO.eye : ICO.eyeOff}</button>
+        <button data-edit="${item.id}" style="${IB_STYLE}" title="Editar" aria-label="Editar" class="${EDIT_CLS}">${ICO.edit}</button>
+        <button data-focus="${item.id}" ${savedInView(item) ? 'disabled' : ''} style="${IB_STYLE}" title="${savedInView(item) ? 'Ud está aquí' : 'Ir'}" aria-label="${savedInView(item) ? 'Ud está aquí' : 'Ir'}" class="${savedInView(item) ? HERE_BTN_CLS : GO_BTN_CLS}">${ICO.go}</button>
+        <button data-del="${item.id}" style="${IB_STYLE}" class="flex-1 inline-flex items-center justify-center text-red-500" title="Eliminar" aria-label="Eliminar"><i data-lucide="trash-2" class="w-5 h-5"></i></button>
       </div>`;
     list.appendChild(div);
 

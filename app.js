@@ -93,6 +93,7 @@ let poiColor = '#f59e0b';
 let poiSession = [];
 let poiSessionRedo = [];
 let navPoi = null;
+window.navActive = () => !!navPoi;
 let navLine = null;
 let navLabel = null;
 const NAV_ARRIVE_M = 15;     // a menos de esto se considera que ya estás en el POI
@@ -146,7 +147,7 @@ function sanitizePoi(p) {
 
 // ========== AJUSTES / UNIDADES / COORDENADAS ==========
 const SETTINGS_KEY = 'medidor_settings';
-const GPS_STEPS = [1, 2, 3, 5, 10, 20, 50, 100, 1000];   // distancia mínima entre puntos al grabar (m)
+const GPS_STEPS = [1, 2, 3, 5, 10, 20, 50, 100, 200, 500, 1000, 2000, 5000, 10000];   // distancia mínima entre puntos al grabar (m)
 const SAT_ZOOMS = ['auto', '16', '17', '18'];
 const POI_SIZES = { s: 0.72, m: 1, l: 1.4 };   // chico / actual / grande
 const DEFAULT_SETTINGS = { units: 'metric', coords: 'dec', gpsMaxAcc: 20, gpsMinStep: 3, satZoom: 'auto', poiSize: 'm', elevOffset: 0 };
@@ -1822,7 +1823,7 @@ function updateMetrics(areaM2, distM) {
   liveArea = areaM2; liveDist = distM;
   updateLiveBadge();
 }
-const APP_VERSION = '2026.11.27-v2-95';
+const APP_VERSION = '2026.11.27-v2-96';
 let liveSelfIntersect = false; // el polígono se cruza a sí mismo (los marcadores rojos ya lo señalan)
 function updateSelfIntersectWarning(show) {
   const v = !!show;
@@ -2305,6 +2306,7 @@ function updateInfoToggleUI() {
 }
 
 function showMeasurementInfo(item) {
+  if (navPoi) return;   // navegando a un POI: no se abren Consultas de mediciones (solo la del POI de destino)
   if (inspectItem !== item) flashShape(item);   // solo al seleccionar, no al refrescar la tarjeta
   inspectItem = item;
   inspectStraight = false;
@@ -3769,6 +3771,7 @@ function renderPois() {
     marker.on('click', (e) => {
       L.DomEvent.stopPropagation(e);
       if (poiMode) return;
+      if (navPoi && navPoi.id !== p.id) return;   // navegando: solo se puede consultar el POI de destino
       if (appView !== 'ver') {          // la Consulta es solo de Modo vista; midiendo, el toque pasa al mapa
         if (drawingActive && !isLocked && e.originalEvent) map.fire('click', { latlng: map.mouseEventToLatLng(e.originalEvent), originalEvent: e.originalEvent });
         return;

@@ -1792,7 +1792,7 @@ function updateMetrics(areaM2, distM) {
   liveArea = areaM2; liveDist = distM;
   updateLiveBadge();
 }
-const APP_VERSION = '2026.11.26-v2-88';
+const APP_VERSION = '2026.11.26-v2-89';
 let liveSelfIntersect = false; // el polígono se cruza a sí mismo (los marcadores rojos ya lo señalan)
 function updateSelfIntersectWarning(show) {
   const v = !!show;
@@ -2000,11 +2000,14 @@ function onDeviceOrientation(e) {
   if (h === null) return;
   const ll = userLL() || (map && map.getCenter ? map.getCenter() : { lat: -34.6, lng: -58.4 });
   const acc = (typeof e.webkitCompassAccuracy === 'number') ? e.webkitCompassAccuracy : null;   // iOS: error estimado en grados (-1 = sin calibrar)
-  compassSensor = { h: wrap360(h + magneticDeclination(ll.lat, ll.lng)), t: Date.now(), acc };   // verdadero = magnético + declinación (Este +)
+  const beta = (typeof e.beta === 'number' && isFinite(e.beta)) ? e.beta : null;   // inclinación: 0 = plano boca arriba, 90 = vertical
+  compassSensor = { h: wrap360(h + magneticDeclination(ll.lat, ll.lng)), t: Date.now(), acc, beta };   // verdadero = magnético + declinación (Este +)
 }
 /** Rumbo a mostrar: GPS si vas rápido (vehículo), si no el sensor; el GPS lento sirve de respaldo */
 let headSrc = 'sensor';   // fuente actual (con histéresis para no saltar entre GPS y sensor al ir cerca del umbral)
-const sensorPoor = () => compassSensor.acc !== null && (compassSensor.acc < 0 || compassSensor.acc > 40);
+// Sensor dudoso: sin calibrar, o teléfono en una posición donde el iPhone puede dar el rumbo invertido (pantalla hacia abajo / boca abajo)
+const sensorPoor = () => (compassSensor.acc !== null && (compassSensor.acc < 0 || compassSensor.acc > 40)) ||
+  (compassSensor.beta !== null && compassSensor.beta !== undefined && (compassSensor.beta > 115 || compassSensor.beta < -25));
 function pickHeading() {
   const now = Date.now();
   const gpsOk = compassGps.h !== null && now - compassGps.t < 5000;
@@ -2012,6 +2015,8 @@ function pickHeading() {
   // GPS cuando te movés rápido (3 m/s para empezar, hasta bajar de 1,8 m/s); lento, el sensor
   if (gpsOk && (compassGps.speed >= 3 || (headSrc === 'GPS' && compassGps.speed >= 1.8))) { headSrc = 'GPS'; return { h: compassGps.h, src: 'GPS' }; }
   headSrc = 'sensor';
+  // Control cruzado: si te movés (≥1 m/s) y el sensor contradice al GPS por más de 120°, el sensor está invertido o desviado: manda el GPS
+  if (senOk && gpsOk && compassGps.speed >= 1 && Math.abs(shortDiff(compassSensor.h, compassGps.h)) > 120) return { h: compassGps.h, src: 'GPS' };
   if (senOk) return { h: compassSensor.h, src: 'sensor', poor: sensorPoor() };
   if (gpsOk && compassGps.speed >= 1) return { h: compassGps.h, src: 'GPS' };
   return null;

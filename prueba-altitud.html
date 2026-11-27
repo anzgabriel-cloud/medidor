@@ -1,0 +1,181 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Prueba de altitud</title>
+<style>
+  :root { color-scheme: dark; }
+  body { margin: 0; padding: 16px; background: #0b1220; color: #e2e8f0; font: 15px/1.4 -apple-system, system-ui, sans-serif; }
+  h1 { font-size: 18px; margin: 0 0 4px; }
+  p.s { margin: 0 0 12px; color: #94a3b8; font-size: 12px; }
+  label { display: block; font-size: 11px; color: #94a3b8; text-transform: uppercase; letter-spacing: .04em; margin-top: 10px; }
+  input { width: 100%; box-sizing: border-box; padding: 10px; border-radius: 10px; border: 1px solid #334155; background: #020617; color: #f1f5f9; font-size: 16px; }
+  .row { display: flex; gap: 8px; }
+  .row > * { flex: 1; }
+  button { padding: 12px; border-radius: 10px; border: 0; background: #d97706; color: #fff; font-weight: 700; font-size: 15px; margin-top: 12px; width: 100%; }
+  button.g { background: #334155; margin-top: 8px; }
+  table { width: 100%; border-collapse: collapse; margin-top: 14px; font-size: 13px; }
+  th, td { padding: 6px 4px; border-bottom: 1px solid #1e293b; text-align: right; }
+  th:first-child, td:first-child { text-align: left; }
+  th { color: #94a3b8; font-weight: 600; font-size: 11px; }
+  .ok { color: #34d399; } .mid { color: #fbbf24; } .bad { color: #f87171; }
+  #log { margin-top: 10px; font-size: 11px; color: #94a3b8; white-space: pre-wrap; }
+</style>
+</head>
+<body>
+<h1>Prueba de altitud</h1>
+<p class="s">Compara las fuentes de elevación en un punto de altura conocida. No toca tu app ni tus datos.</p>
+
+<label>Coordenadas (lat, lng) · copiadas desde la app</label>
+<input id="coord" value="-39.6406, -71.5008" inputmode="text" autocomplete="off">
+<div class="row">
+  <button class="g" id="paste">Pegar del portapapeles</button>
+</div>
+<div class="row">
+  <div><label>Altura real (m)</label><input id="ref" value="3776" inputmode="decimal"></div>
+  <div><label>Radio de búsqueda (m)</label><input id="rad" value="240" inputmode="decimal"></div>
+</div>
+<button id="go">Probar todas las fuentes</button>
+
+<table id="t" hidden>
+  <thead><tr><th>Fuente</th><th>En el punto</th><th>Error</th><th>Máx. cercano</th><th>Error</th></tr></thead>
+  <tbody></tbody>
+</table>
+<div id="log"></div>
+
+<script>
+(function () {
+  const $ = (id) => document.getElementById(id);
+  const log = (m) => { $('log').textContent += m + '\n'; };
+  const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+
+  function parseCoord(t) {
+    const m = String(t).match(/-?\d+(?:[.,]\d+)?/g);
+    if (!m || m.length < 2) return null;
+    const a = parseFloat(m[0].replace(',', '.')), b = parseFloat(m[1].replace(',', '.'));
+    return (isFinite(a) && isFinite(b) && Math.abs(a) <= 90 && Math.abs(b) <= 180) ? { lat: a, lng: b } : null;
+  }
+
+  // Rejilla de 9×9 puntos alrededor del centro (el punto más alto de la rejilla ≈ la cumbre real aunque las coordenadas tengan unos metros de error)
+  function grid(c, radius) {
+    const pts = [], n = 4, step = radius / n;
+    const kLat = 111320, kLng = 111320 * Math.cos(c.lat * Math.PI / 180);
+    for (let i = -n; i <= n; i++) for (let j = -n; j <= n; j++) {
+      pts.push({ lat: c.lat + (i * step) / kLat, lng: c.lng + (j * step) / kLng, di: i * step, dj: j * step });
+    }
+    return pts;
+  }
+
+  // ---------- Fuente A: Open-Meteo (Copernicus 90 m) ----------
+  async function openMeteo(pts) {
+    const out = [];
+    for (let i = 0; i < pts.length; i += 100) {
+      const ch = pts.slice(i, i + 100);
+      const u = 'https://api.open-meteo.com/v1/elevation?latitude=' + ch.map(p => p.lat.toFixed(6)).join(',') + '&longitude=' + ch.map(p => p.lng.toFixed(6)).join(',');
+      const r = await fetch(u); if (!r.ok) throw new Error('HTTP ' + r.status);
+      const j = await r.json(); out.push(...j.elevation);
+    }
+    return out;
+  }
+  // ---------- Fuente B: Open Topo Data (SRTM / ASTER / Mapzen) ----------
+  async function openTopo(ds, pts) {
+    const out = [];
+    for (let i = 0; i < pts.length; i += 100) {
+      const ch = pts.slice(i, i + 100);
+      const u = 'https://api.opentopodata.org/v1/' + ds + '?locations=' + ch.map(p => p.lat.toFixed(6) + ',' + p.lng.toFixed(6)).join('|');
+      const r = await fetch(u); if (!r.ok) throw new Error('HTTP ' + r.status);
+      const j = await r.json(); if (j.status !== 'OK') throw new Error(j.error || j.status);
+      out.push(...j.results.map(x => x.elevation));
+      await sleep(1100);   // límite del servicio público: 1 pedido por segundo
+    }
+    return out;
+  }
+  // ---------- Fuente C: mosaicos de terreno de AWS (Terrarium), interpolación bilineal ----------
+  const tileCache = {};
+  function loadTile(z, x, y) {
+    const k = z + '/' + x + '/' + y;
+    if (tileCache[k]) return tileCache[k];
+    tileCache[k] = new Promise((res, rej) => {
+      const im = new Image(); im.crossOrigin = 'anonymous';
+      im.onload = () => {
+        const c = document.createElement('canvas'); c.width = c.height = 256;
+        const g = c.getContext('2d', { willReadFrequently: true }); g.drawImage(im, 0, 0);
+        try { res(g.getImageData(0, 0, 256, 256).data); } catch (e) { rej(new Error('el navegador no deja leer el mosaico (CORS)')); }
+      };
+      im.onerror = () => rej(new Error('no se pudo cargar el mosaico'));
+      im.src = 'https://s3.amazonaws.com/elevation-tiles-prod/terrarium/' + k + '.png';
+    });
+    return tileCache[k];
+  }
+  async function pixelH(z, px, py) {
+    const n = 1 << z;
+    px = ((px % (n * 256)) + n * 256) % (n * 256);
+    py = Math.min(Math.max(py, 0), n * 256 - 1);
+    const d = await loadTile(z, Math.floor(px / 256), Math.floor(py / 256));
+    const o = (((py % 256) * 256) + (px % 256)) * 4;
+    return d[o] * 256 + d[o + 1] + d[o + 2] / 256 - 32768;
+  }
+  async function terrarium(z, pts) {
+    const out = [];
+    for (const p of pts) {
+      const s = Math.sin(p.lat * Math.PI / 180);
+      const X = ((p.lng + 180) / 360) * 256 * (1 << z) - 0.5;
+      const Y = (0.5 - Math.log((1 + s) / (1 - s)) / (4 * Math.PI)) * 256 * (1 << z) - 0.5;
+      const x0 = Math.floor(X), y0 = Math.floor(Y), fx = X - x0, fy = Y - y0;
+      const [a, b, c, d] = await Promise.all([pixelH(z, x0, y0), pixelH(z, x0 + 1, y0), pixelH(z, x0, y0 + 1), pixelH(z, x0 + 1, y0 + 1)]);
+      out.push(a * (1 - fx) * (1 - fy) + b * fx * (1 - fy) + c * (1 - fx) * fy + d * fx * fy);
+    }
+    return out;
+  }
+
+  function cls(e) { const a = Math.abs(e); return a <= 10 ? 'ok' : (a <= 40 ? 'mid' : 'bad'); }
+  function sgn(e) { return (e > 0 ? '+' : '') + Math.round(e) + ' m'; }
+  function addRow(name, vals, pts, ref) {
+    const ci = (pts.length - 1) / 2;
+    const center = vals[ci];
+    let mi = 0; vals.forEach((v, i) => { if (v > vals[mi]) mi = i; });
+    const dist = Math.round(Math.hypot(pts[mi].di, pts[mi].dj));
+    const tr = document.createElement('tr');
+    tr.innerHTML = '<td>' + name + '</td><td>' + Math.round(center) + ' m</td><td class="' + cls(center - ref) + '">' + sgn(center - ref) + '</td>' +
+      '<td>' + Math.round(vals[mi]) + ' m <small>(a ' + dist + ' m)</small></td><td class="' + cls(vals[mi] - ref) + '">' + sgn(vals[mi] - ref) + '</td>';
+    $('t').querySelector('tbody').appendChild(tr);
+  }
+  function addFail(name, err) {
+    const tr = document.createElement('tr');
+    tr.innerHTML = '<td>' + name + '</td><td colspan="4" class="bad" style="text-align:left">falló: ' + String(err.message || err).replace(/</g, '&lt;') + '</td>';
+    $('t').querySelector('tbody').appendChild(tr);
+  }
+
+  $('paste').onclick = async () => {
+    try { const t = await navigator.clipboard.readText(); if (parseCoord(t)) $('coord').value = t.trim(); else log('Lo copiado no parece una coordenada.'); }
+    catch (e) { log('No se pudo leer el portapapeles: pegá a mano en el campo.'); }
+  };
+
+  $('go').onclick = async () => {
+    const c = parseCoord($('coord').value); const ref = parseFloat(String($('ref').value).replace(',', '.')); const rad = parseFloat($('rad').value) || 240;
+    if (!c || !isFinite(ref)) { log('Revisá las coordenadas y la altura real.'); return; }
+    $('t').hidden = false; $('t').querySelector('tbody').innerHTML = ''; $('log').textContent = '';
+    $('go').disabled = true;
+    const pts = grid(c, rad);
+    const jobs = [
+      ['Open-Meteo (Copernicus 90 m) · ACTUAL', () => openMeteo(pts)],
+      ['AWS Terrain z12 (~30 m)', () => terrarium(12, pts)],
+      ['AWS Terrain z13', () => terrarium(13, pts)],
+      ['AWS Terrain z14', () => terrarium(14, pts)],
+      ['OpenTopo SRTM 30 m', () => openTopo('srtm30m', pts)],
+      ['OpenTopo ASTER 30 m', () => openTopo('aster30m', pts)],
+      ['OpenTopo Mapzen', () => openTopo('mapzen', pts)]
+    ];
+    for (const [name, fn] of jobs) {
+      log('Consultando ' + name + '…');
+      try { addRow(name, await fn(), pts, ref); } catch (e) { addFail(name, e); }
+    }
+    log('Listo. Verde: error de hasta 10 m · Ámbar: hasta 40 m · Rojo: más.');
+    log('"En el punto" usa exactamente tus coordenadas; "Máx. cercano" busca el punto más alto en ' + rad + ' m a la redonda (en una cumbre, es la comparación justa).');
+    $('go').disabled = false;
+  };
+})();
+</script>
+</body>
+</html>

@@ -1,4 +1,4 @@
-window.MV = window.MV || {}; window.MV.anillos = '2026.11.27-v2-99';   // versión: debe coincidir con app.js (se controla al iniciar)
+window.MV = window.MV || {}; window.MV.anillos = '2026.11.28-v2-100';   // versión: debe coincidir con app.js (se controla al iniciar)
 /* Anillos con radio: círculo alrededor de un punto (1 m a 100 km o más), solo visual.
    Flujo: herramienta anillo → mira en el centro del mapa → [+] deja caer el anillo → se escribe el radio → [guardar].
    Se guarda aparte (localStorage 'medidor_anillos'); la lista está en Guardados > Anillos. */
@@ -301,14 +301,22 @@ window.MV = window.MV || {}; window.MV.anillos = '2026.11.27-v2-99';   // versi�
     var U = window.MVui || {};
     var q = listFilter.trim().toLowerCase();
     var rows = rings.filter(function (r) { return !q || String('Radio ' + fmt(r.r)).toLowerCase().indexOf(q) >= 0; });
+    var P = window.MVprox, ll = P && P.ll();
+    function ringDist(r) { var d = L.latLng(ll.lat, ll.lng).distanceTo(L.latLng(r.lat, r.lng)); return d <= r.r ? { d: 0, inside: true } : { d: d - r.r, inside: false }; }
+    rows = rows.map(function (r, i) { return { r: r, i: i, dist: ll ? ringDist(r) : null }; });
+    if (ll) rows.sort(function (a, b) { return (a.dist.d - b.dist.d) || (a.i - b.i); });
+    box.dataset.order = rows.map(function (x) { return x.r.id; }).join('|');
+    if (!ll && rows.length && P) { var hn = document.createElement('div'); hn.className = 'nogps text-[10px] text-slate-500 px-1 pb-1'; hn.textContent = P.hint; box.appendChild(hn); }
     if (!rows.length) { var p = document.createElement('p'); p.className = 'text-xs text-slate-500 text-center py-4'; p.textContent = q ? 'Sin resultados.' : 'Todavía no hay anillos guardados.'; box.appendChild(p); }
-    rows.forEach(function (r) {
-      var card = document.createElement('div'); card.className = 'bg-slate-950 border border-slate-800 rounded-xl p-3';
+    rows.forEach(function (x) {
+      var r = x.r;
+      var card = document.createElement('div'); card.className = 'bg-slate-950 border border-slate-800 rounded-xl p-3'; card.dataset.id = r.id;
       var hid = !!r.hidden;
-      card.innerHTML = '<div class="flex items-center gap-2"><span class="w-2.5 h-2.5 rounded-full flex-shrink-0" data-dot></span><div class="flex-1 min-w-0"><div class="font-bold text-xs truncate" data-nm></div><div class="text-[10px] text-slate-500" data-sm></div></div></div><div class="flex items-center gap-1.5 mt-2" data-btns></div>';
+      card.innerHTML = '<div class="flex items-center gap-2"><span class="w-2.5 h-2.5 rounded-full flex-shrink-0" data-dot></span><div class="flex-1 min-w-0"><div class="font-bold text-xs truncate" data-nm></div><div class="text-[10px] text-slate-500" data-sm></div><div class="text-[10px] text-amber-300 font-semibold" data-dist></div></div></div><div class="flex items-center gap-1.5 mt-2" data-btns></div>';
       card.querySelector('[data-dot]').style.background = safeColor(r.color);
       card.querySelector('[data-nm]').textContent = 'Radio ' + fmt(r.r);
       card.querySelector('[data-sm]').textContent = r.lat.toFixed(4) + ', ' + r.lng.toFixed(4);
+      card.querySelector('[data-dist]').textContent = P ? P.label(x.dist) : '';
       var btns = card.querySelector('[data-btns]');
       function mk(cls, label, html, fn) { var b = document.createElement('button'); b.type = 'button'; b.className = cls; b.style.cssText = U.IB_STYLE || 'height:40px'; b.title = label; b.setAttribute('aria-label', label); if (label === 'Mostrar' || label === 'Ocultar') b.setAttribute('data-vis', '1'); b.innerHTML = html; b.onclick = fn; btns.appendChild(b); return b; }
       mk(hid ? U.VIS_OFF_CLS : U.VIS_ON_CLS, hid ? 'Mostrar' : 'Ocultar', hid ? U.ICO.eyeOff : U.ICO.eye, function () { r.hidden = !r.hidden; persist(); renderSaved(); renderList(); });
@@ -328,6 +336,19 @@ window.MV = window.MV || {}; window.MV.anillos = '2026.11.27-v2-99';   // versi�
     });
     if (window.lucide) lucide.createIcons();
   }
+  window.MedidorAnillos.refreshProx = function () {
+    var box = $('ringItems'), P = window.MVprox; if (!box || !P) return;
+    var ll = P.ll(), q = listFilter.trim().toLowerCase();
+    var rows = rings.filter(function (r) { return !q || String('Radio ' + fmt(r.r)).toLowerCase().indexOf(q) >= 0; })
+      .map(function (r, i) { var d = ll ? L.latLng(ll.lat, ll.lng).distanceTo(L.latLng(r.lat, r.lng)) : null; return { r: r, i: i, dist: ll ? (d <= r.r ? { d: 0, inside: true } : { d: d - r.r, inside: false }) : null }; });
+    if (ll) rows.sort(function (a, b) { return (a.dist.d - b.dist.d) || (a.i - b.i); });
+    var ids = rows.map(function (x) { return x.r.id; }).join('|');
+    if (box.dataset.order !== ids || !!box.querySelector('.nogps') === !!ll) {
+      var sc = box.scrollTop, sp = box.parentElement ? box.parentElement.scrollTop : 0;
+      renderList(); box.scrollTop = sc; if (box.parentElement) box.parentElement.scrollTop = sp; return;
+    }
+    rows.forEach(function (x) { var c = box.querySelector('[data-id="' + x.r.id + '"] [data-dist]'); if (c) c.textContent = P.label(x.dist); });
+  };
   var sIn = $('ringSearch'); if (sIn) sIn.oninput = function () { listFilter = sIn.value; renderList(); };
   var fmRing = $('fmRing');
   if (fmRing) fmRing.onclick = function () {

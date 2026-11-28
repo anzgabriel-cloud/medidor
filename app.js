@@ -1835,7 +1835,7 @@ function updateMetrics(areaM2, distM) {
   liveArea = areaM2; liveDist = distM;
   updateLiveBadge();
 }
-const APP_VERSION = '2026.11.27-v2-99';
+const APP_VERSION = '2026.11.28-v2-100';
 let liveSelfIntersect = false; // el polígono se cruza a sí mismo (los marcadores rojos ya lo señalan)
 function updateSelfIntersectWarning(show) {
   const v = !!show;
@@ -4208,6 +4208,13 @@ function sortByProximity(arr, distFn) {
 }
 const distLabel = (dist) => !dist ? '' : (dist.inside ? 'estás adentro' : 'a ' + fmtLenShort(dist.d));
 const NO_GPS_HINT = 'Sin ubicación GPS: se muestran en orden de creación. Con ubicación se ordenan por cercanía.';
+/** Puente para rutas.js / anillos.js: misma ubicación, misma distancia y mismos textos que el resto de las listas */
+window.MVprox = {
+  ll: () => { const l = userLL(); return l ? { lat: l.lat, lng: l.lng } : null; },
+  path: (ll, pts) => distToPathM(ll, pts, false),
+  label: (d) => distLabel(d),
+  hint: NO_GPS_HINT
+};
 
 /** Refresca el orden y las distancias de las listas abiertas al llegar una nueva posición (como mucho cada 4 s) */
 let listRefreshAt = 0;
@@ -4217,6 +4224,8 @@ function refreshListsByDistance(force) {
   listRefreshAt = now;
   const open = (id) => { const el = document.getElementById(id); return el && !el.classList.contains('hidden'); };
   if (open('savedDrawer')) refreshOneList('savedList', applyFilter(sortByProximity(savedOfKind(), savedDistance), savedFilter), renderSaved);
+  try { if (open('freeList') && window.MedidorRutas && MedidorRutas.refreshProx) MedidorRutas.refreshProx(); } catch (e) {}
+  try { if (open('ringList') && window.MedidorAnillos && MedidorAnillos.refreshProx) MedidorAnillos.refreshProx(); } catch (e) {}
   if (open('poiDrawer')) { refreshOneList('poiList', applyFilter(sortByProximity(pois, (p, ll) => ({ d: ll.distanceTo(L.latLng(p.lat, p.lng)), inside: false })), poiFilter), renderPoiList); syncNavButtons(); }
 }
 function refreshOneList(listId, rows, rerender) {
